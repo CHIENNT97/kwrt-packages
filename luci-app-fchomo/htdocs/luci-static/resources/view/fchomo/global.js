@@ -1,5 +1,6 @@
 'use strict';
 'require form';
+'require fs';
 'require network';
 'require poll';
 'require rpc';
@@ -11,22 +12,32 @@
 'require tools.firewall as fwtool';
 'require tools.widgets as widgets';
 
-var callResVersion = rpc.declare({
+const callResVersion = rpc.declare({
 	object: 'luci.fchomo',
 	method: 'resources_get_version',
 	params: ['type', 'repo'],
 	expect: { '': {} }
 });
 
-var callCrondSet = rpc.declare({
+const callCrondSet = rpc.declare({
 	object: 'luci.fchomo',
 	method: 'crond_set',
 	params: ['type', 'expr'],
 	expect: { '': {} }
 });
 
+function getRandom(min, max) {
+	const floatRandom = Math.random()
+	const difference = max - min
+
+	// A random number between 0 and the difference
+	const random = Math.round(difference * floatRandom)
+
+	return random + min
+}
+
 function handleResUpdate(type, repo) {
-	var callResUpdate = rpc.declare({
+	const callResUpdate = rpc.declare({
 		object: 'luci.fchomo',
 		method: 'resources_update',
 		params: ['type', 'repo'],
@@ -34,10 +45,10 @@ function handleResUpdate(type, repo) {
 	});
 
 	// Dynamic repo
-	var label;
+	let label;
 	if (repo) {
-		var section_id = this.section.section;
-		var weight = document.getElementById(this.cbid(section_id));
+		const section_id = this.section.section;
+		let weight = document.getElementById(this.cbid(section_id));
 		if (weight)
 			repo = weight.firstChild.value,
 			label = weight.firstChild.selectedOptions[0].label;
@@ -68,7 +79,7 @@ function handleResUpdate(type, repo) {
 
 function renderResVersion(El, type, repo) {
 	return L.resolveDefault(callResVersion(type, repo), {}).then((res) => {
-		var resEl = E([
+		let resEl = E([
 			E('button', {
 				'class': 'cbi-button cbi-button-apply',
 				'click': ui.createHandlerFn(this, handleResUpdate, type, repo)
@@ -96,7 +107,7 @@ function updateResVersion(El, version) {
 }
 
 return view.extend({
-	load: function() {
+	load() {
 		return Promise.all([
 			uci.load('fchomo'),
 			hm.getFeatures(),
@@ -104,24 +115,44 @@ return view.extend({
 			hm.getServiceStatus('mihomo-c'),
 			hm.getClashAPI('mihomo-c'),
 			hm.getServiceStatus('mihomo-s'),
-			hm.getClashAPI('mihomo-s')
+			hm.getClashAPI('mihomo-s'),
+			callResVersion('geoip').then((res) => { return res.version }),
+			callResVersion('geosite').then((res) => { return res.version })
 		]);
 	},
 
-	render: function(data) {
-		var features = data[1],
-		    hosts = data[2]?.hosts,
-		    CisRunning = data[3],
-		    CclashAPI = data[4],
-		    SisRunning = data[5],
-		    SclashAPI = data[6];
+	render(data) {
+		const features = data[1];
+		const hosts = data[2]?.hosts;
+		const CisRunning = data[3];
+		const CclashAPI = data[4];
+		const SisRunning = data[5];
+		const SclashAPI = data[6];
+		const res_ver_geoip = data[7];
+		const res_ver_geosite = data[8];
 
-		var dashboard_repo = uci.get(data[0], 'api', 'dashboard_repo');
+		const dashboard_repo = uci.get(data[0], 'api', 'dashboard_repo');
 
-		var m, s, o, ss, so;
+		let m, s, o, ss, so;
 
-		m = new form.Map('fchomo', _('FullCombo Mihomo'),
-			'<img src="' + hm.sharktaikogif + '" title="Ciallo～(∠・ω< )⌒☆" height="52"></img>');
+		m = new form.Map('fchomo', _('FullCombo Shark!'),
+			'<img src="' + hm.sharktaikogif + '" title="A!" alt="Ciallo～(∠・ω< )⌒☆" height="52"></img>' +
+			'<audio src="' + hm.sharkaudio + '" preload="auto" hidden=""></audio>');
+		m.renderContents = function(/* ... */) {
+			let node = form.Map.prototype.renderContents.apply(this, arguments);
+
+			return node.then((mapEl) => {
+				const playButton = mapEl.querySelector('.cbi-map-descr > img');
+				const audio = mapEl.querySelector('.cbi-map-descr > audio');
+
+				playButton.addEventListener('click', function() {
+					if (audio.paused)
+						audio.play();
+				});
+
+				return mapEl;
+			});
+		}
 
 		s = m.section(form.NamedSection, 'config', 'fchomo');
 
@@ -143,18 +174,18 @@ return view.extend({
 		}
 
 		so = ss.option(form.DummyValue, '_client_status', _('Client status'));
-		so.cfgvalue = function() { return hm.renderStatus(hm, '_client_bar', CisRunning ? { ...CclashAPI, dashboard_repo: dashboard_repo } : false, 'mihomo-c') }
+		so.cfgvalue = function() { return hm.renderStatus('_client_bar', CisRunning ? { ...CclashAPI, dashboard_repo: dashboard_repo } : false, 'mihomo-c') }
 		poll.add(function() {
 			return hm.getServiceStatus('mihomo-c').then((isRunning) => {
-				hm.updateStatus(hm, document.getElementById('_client_bar'), isRunning ? { dashboard_repo: dashboard_repo } : false, 'mihomo-c');
+				hm.updateStatus(document.getElementById('_client_bar'), isRunning ? { dashboard_repo: dashboard_repo } : false, 'mihomo-c');
 			});
 		})
 
 		so = ss.option(form.DummyValue, '_server_status', _('Server status'));
-		so.cfgvalue = function() { return hm.renderStatus(hm, '_server_bar', SisRunning ? { ...SclashAPI, dashboard_repo: dashboard_repo } : false, 'mihomo-s') }
+		so.cfgvalue = function() { return hm.renderStatus('_server_bar', SisRunning ? { ...SclashAPI, dashboard_repo: dashboard_repo } : false, 'mihomo-s') }
 		poll.add(function() {
 			return hm.getServiceStatus('mihomo-s').then((isRunning) => {
-				hm.updateStatus(hm, document.getElementById('_server_bar'), isRunning ? { dashboard_repo: dashboard_repo } : false, 'mihomo-s');
+				hm.updateStatus(document.getElementById('_server_bar'), isRunning ? { dashboard_repo: dashboard_repo } : false, 'mihomo-s');
 			});
 		})
 
@@ -165,20 +196,20 @@ return view.extend({
 
 		so = ss.option(form.DummyValue, '_conn_check', _('Connection check'));
 		so.cfgvalue = function() {
-			var callConnStat = rpc.declare({
+			const callConnStat = rpc.declare({
 				object: 'luci.fchomo',
 				method: 'connection_check',
 				params: ['url'],
 				expect: { '': {} }
 			});
 
-			var ElId = '_connection_check_results';
+			const ElId = '_connection_check_results';
 
 			return E([
 				E('button', {
 					'class': 'cbi-button cbi-button-apply',
 					'click': ui.createHandlerFn(this, function() {
-						var weight = document.getElementById(ElId);
+						let weight = document.getElementById(ElId);
 
 						weight.innerHTML = '';
 						return hm.checkurls.forEach((site) => {
@@ -194,9 +225,85 @@ return view.extend({
 			]);
 		}
 
+		so = ss.option(form.Value, '_nattest', _('Check routerself NAT Behavior'));
+		so.default = `udp://${hm.stunserver[0][0]}`;
+		hm.stunserver.forEach((res) => {
+			so.value.apply(so, res);
+		})
+		so.rmempty = false;
+		if (!features.hm_has_stunclient) {
+			so.description = _('To check NAT Behavior you need to install <a href="%s"><b>stuntman-client</b></a> first')
+				.format('https://github.com/muink/openwrt-stuntman');
+			so.readonly = true;
+		} else {
+			so.renderWidget = function(section_id, option_index, cfgvalue) {
+				const cval = new URL(cfgvalue || this.default);
+				//console.info(cval.toString());
+				let El = form.Value.prototype.renderWidget.call(this, section_id, option_index, cval.host);
+
+				let resEl = E('div',  { 'class': 'control-group' }, [
+					E('select', {
+						'id': '_status_nattest_l4proto',
+						'class': 'cbi-input-select',
+						'style': 'width: 5em'
+					}, [
+						...[
+							['udp', 'UDP'], // default
+							['tcp', 'TCP']
+						].map(res => E('option', {
+								value: res[0],
+								selected: (cval.protocol === `${res[0]}:`) ? "" : null
+							}, res[1]))
+					]),
+					E('button', {
+						'class': 'cbi-button cbi-button-apply',
+						'click': ui.createHandlerFn(this, function() {
+							const stun = this.formvalue(this.section.section);
+							const l4proto = document.getElementById('_status_nattest_l4proto').value;
+
+							return fs.exec_direct('/usr/libexec/fchomo/natcheck.sh', [stun, l4proto, getRandom(32768, 61000)]).then((stdout) => {
+								this.description = '<details><summary>' + _('Expand/Collapse result') + '</summary>' + stdout + '</details>';
+
+								return this.map.reset().then((res) => {
+								});
+							});
+						})
+					}, [ _('Check') ])
+				]);
+				ui.addValidator(resEl.querySelector('#_status_nattest_l4proto'), 'string', false, (v) => {
+					const section_id = this.section.section;
+					const stun = this.formvalue(section_id);
+
+					this.onchange.call(this, {}, section_id, stun);
+					return true;
+				}, 'change');
+
+				let newEl = E('div', { style: 'font-weight: bold; align-items: center; display: flex' }, []);
+				if (El) {
+					newEl.appendChild(E([El, resEl]));
+				} else
+					newEl.appendChild(resEl);
+
+				return newEl;
+			}
+		}
+		so.onchange = function(ev, section_id, value) {
+			const l4proto = document.getElementById('_status_nattest_l4proto').value;
+			this.default = `${l4proto}://${value}`;
+		}
+		so.write = function() {};
+		so.remove = function() {};
+
 		/* Resources management */
 		o = s.taboption('status', form.SectionValue, '_config', form.NamedSection, 'resources', 'fchomo', _('Resources management'));
 		ss = o.subsection;
+
+		if (!res_ver_geoip || !res_ver_geosite) {
+			so = ss.option(form.Button, '_upload_initia', _('Upload initial package'));
+			so.inputstyle = 'action';
+			so.inputtitle = _('Upload...');
+			so.onclick = L.bind(hm.uploadInitialPack, so);
+		}
 
 		so = ss.option(form.Flag, 'auto_update', _('Auto update'),
 			_('Auto update resources.'));
@@ -235,9 +342,9 @@ return view.extend({
 			so.value.apply(so, repo);
 		})
 		so.renderWidget = function(/* ... */) {
-			var El = form.ListValue.prototype.renderWidget.apply(this, arguments);
+			let El = form.ListValue.prototype.renderWidget.apply(this, arguments);
 
-			El.className = 'control-group';
+			El.classList.add('control-group');
 			El.firstChild.style.width = '10em';
 
 			return renderResVersion.call(this, El, 'dashboard', this.default);
@@ -245,7 +352,7 @@ return view.extend({
 		so.onchange = function(ev, section_id, value) {
 			this.default = value;
 
-			var weight = ev.target;
+			let weight = ev.target;
 			if (weight)
 				return L.resolveDefault(callResVersion('dashboard', value), {}).then((res) => {
 					updateResVersion(weight.lastChild, res.version);
@@ -360,6 +467,7 @@ return view.extend({
 		so.placeholder = '7892';
 		so.rmempty = false;
 
+		// Not required for v1.19.2+
 		so = ss.option(form.Value, 'tunnel_port', _('DNS port'));
 		so.datatype = 'port';
 		so.placeholder = '7893';
@@ -381,24 +489,25 @@ return view.extend({
 		o = s.taboption('inbound', form.SectionValue, '_inbound', form.NamedSection, 'inbound', 'fchomo', _('Tun settings'));
 		ss = o.subsection;
 
-		so = ss.option(form.ListValue, 'tun_stack', _('Stack'),
+		so = ss.option(form.RichListValue || form.ListValue, 'tun_stack', _('Stack'), // less_24_10
 			_('Tun stack.'));
-		so.value('system', _('System'));
+		so.value('system', _('System'), _('Less compatibility and sometimes better performance.'));
 		if (features.with_gvisor) {
-			so.value('gvisor', _('gVisor'));
-			so.value('mixed', _('Mixed'));
+			so.value('gvisor', _('gVisor'), _('Based on google/gvisor.'));
+			so.value('mixed', _('Mixed'), _('Mixed <code>system</code> TCP stack and <code>gVisor</code> UDP stack.'));
 		}
 		so.default = 'system';
 		so.rmempty = false;
-		so.onchange = function(ev, section_id, value) {
-			var desc = ev.target.nextSibling;
-			if (value === 'mixed')
-				desc.innerHTML = _('Mixed <code>system</code> TCP stack and <code>gVisor</code> UDP stack.');
-			else if (value === 'gvisor')
-				desc.innerHTML = _('Based on google/gvisor.');
-			else if (value === 'system')
-				desc.innerHTML = _('Less compatibility and sometimes better performance.');
-		}
+		if (hm.less_24_10)
+			so.onchange = function(ev, section_id, value) {
+				var desc = ev.target.nextSibling;
+				if (value === 'mixed')
+					desc.innerHTML = _('Mixed <code>system</code> TCP stack and <code>gVisor</code> UDP stack.');
+				else if (value === 'gvisor')
+					desc.innerHTML = _('Based on google/gvisor.');
+				else if (value === 'system')
+					desc.innerHTML = _('Less compatibility and sometimes better performance.');
+			}
 
 		so = ss.option(form.Value, 'tun_mtu', _('MTU'));
 		so.datatype = 'uinteger';
@@ -436,11 +545,11 @@ return view.extend({
 
 		so = ss.option(form.Value, 'tls_cert_path', _('API TLS certificate path'));
 		so.datatype = 'file';
-		so.value('/etc/uhttpd.crt');
+		so.value('/etc/ssl/acme/example.crt');
 
 		so = ss.option(form.Value, 'tls_key_path', _('API TLS private key path'));
 		so.datatype = 'file';
-		so.value('/etc/uhttpd.key');
+		so.value('/etc/ssl/acme/example.key');
 		/* TLS END */
 
 		/* API START */
@@ -456,7 +565,6 @@ return view.extend({
 			delete this.keylist;
 			delete this.vallist;
 
-			this.value('', _('-- Please choose --'));
 			hm.dashrepos.forEach((repo) => {
 				L.resolveDefault(callResVersion('dashboard', repo[0]), {}).then((res) => {
 					this.value(repo[0], repo[1] + ' - ' + (res.version || _('Not Installed')));
@@ -551,13 +659,14 @@ return view.extend({
 		o = s.taboption('experimental', form.SectionValue, '_experimental', form.NamedSection, 'experimental', 'fchomo', null);
 		ss = o.subsection;
 
-		so = ss.option(form.Flag, 'quic_go_disable_gso', _('quic-go-disable-gso'));
+		so = ss.option(form.Flag, 'quic_go_disable_gso', _('Disable GSO of quic-go'));
 		so.default = so.disabled;
 
-		so = ss.option(form.Flag, 'quic_go_disable_ecn', _('quic-go-disable-ecn'));
+		so = ss.option(form.Flag, 'quic_go_disable_ecn', _('Disable ECN of quic-go'));
 		so.default = so.disabled;
 
-		so = ss.option(form.Flag, 'dialer_ip4p_convert', _('dialer-ip4p-convert'));
+		so = ss.option(form.Flag, 'dialer_ip4p_convert', _('Enable <a target="_blank" href="%s" rel="noreferrer noopener">IP4P</a> conversion for outbound connections')
+			.format('https://github.com/heiher/natmap/wiki/faq#%E5%9F%9F%E5%90%8D%E8%AE%BF%E9%97%AE%E6%98%AF%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E7%9A%84'));
 		so.default = so.disabled;
 		/* Experimental END */
 
@@ -578,7 +687,7 @@ return view.extend({
 
 		so = ss.taboption('interface', widgets.DeviceSelect, 'bind_interface', _('Bind interface'),
 			_('Bind outbound traffic to specific interface. Leave empty to auto detect.</br>') +
-			_('Priority: Proxy Node > Proxy Group > Global.'));
+			_('Priority: Proxy Node > Global.'));
 		so.multiple = false;
 		so.noaliases = true;
 
@@ -595,7 +704,7 @@ return view.extend({
 		so.rmempty = false;
 
 		so = ss.taboption('interface', form.Value, 'self_mark', _('Routing mark'),
-			_('Priority: Proxy Node > Proxy Group > Global.'));
+			_('Priority: Proxy Node > Global.'));
 		so.ucisection = 'config';
 		so.datatype = 'uinteger';
 		so.placeholder = '200';
@@ -643,18 +752,22 @@ return view.extend({
 		/* Routing control */
 		ss.tab('routing_control', _('Routing Control'));
 
-		so = ss.taboption('routing_control', form.Value, 'routing_tcpport', _('Routing ports') + ' (TCP)',
+		so = ss.taboption('routing_control', hm.RichMultiValue, 'routing_tcpport', _('Routing ports') + ' (TCP)',
 			_('Specify target ports to be proxied. Multiple ports must be separated by commas.'));
-		so.value('', _('All ports'));
-		so.value('common', _('Common ports only (bypass P2P traffic)'));
-		so.value('common_stun', _('Common and STUN ports'));
+		so.create = true;
+		hm.routing_port_type.forEach((res) => {
+			if (res[0] !== 'common_udpport')
+				so.value.apply(so, res);
+		})
 		so.validate = L.bind(hm.validateCommonPort, so);
 
-		so = ss.taboption('routing_control', form.Value, 'routing_udpport', _('Routing ports') + ' (UDP)',
+		so = ss.taboption('routing_control', hm.RichMultiValue, 'routing_udpport', _('Routing ports') + ' (UDP)',
 			_('Specify target ports to be proxied. Multiple ports must be separated by commas.'));
-		so.value('', _('All ports'));
-		so.value('common', _('Common ports only (bypass P2P traffic)'));
-		so.value('common_stun', _('Common and STUN ports'));
+		so.create = true;
+		hm.routing_port_type.forEach((res) => {
+			if (res[0] !== 'common_tcpport')
+				so.value.apply(so, res);
+		})
 		so.validate = L.bind(hm.validateCommonPort, so);
 
 		so = ss.taboption('routing_control', form.ListValue, 'routing_mode', _('Routing mode'),
@@ -664,7 +777,9 @@ return view.extend({
 		so.value('routing_gfw', _('Routing GFW'));
 
 		so = ss.taboption('routing_control', form.Flag, 'routing_domain', _('Handle domain'),
-			_('Routing mode will be handle domain.'));
+			_('Routing mode will be handle domain.') + '</br>' +
+			_('Please ensure that the DNS query of the domains to be processed in the DNS policy</br>' +
+				'are send via DIRECT/Proxy Node in the same semantics as Routing mode.'));
 		so.default = so.disabled;
 		if (!features.hm_has_dnsmasq_full) {
 			so.description = _('To enable, you need to install <code>dnsmasq-full</code>.');
@@ -675,17 +790,29 @@ return view.extend({
 		so.depends('routing_mode', 'bypass_cn');
 		so.depends('routing_mode', 'routing_gfw');
 
+		so = ss.taboption('routing_control', form.ListValue, 'routing_dscp_mode', _('Routing DSCP'));
+		so.value('', _('All allowed'));
+		so.value('bypass_dscp', _('Bypass DSCP'));
+		so.value('routing_dscp', _('Routing DSCP'));
+
+		so = ss.taboption('routing_control', form.Value, 'routing_dscp_list', _('DSCP list'));
+		so.placeholder = '0,10,12,14,63';
+		so.validate = function(section_id, value) {
+			if (!value)
+				return true;
+			else if (value.match('^(6[0-3]|[1-5]?[0-9])(,(6[0-3]|[1-5]?[0-9]))*$') === null)
+				return _('Expecting: %s').format(_('One or more numbers in the range 0-63 separated by commas'));
+
+			return true;
+		}
+		so.rmempty = false;
+		so.depends('routing_dscp_mode', 'bypass_dscp');
+		so.depends('routing_dscp_mode', 'routing_dscp');
+
 		/* Custom Direct list */
 		ss.tab('direct_list', _('Custom Direct List'));
 
-		so = ss.taboption('direct_list', form.TextValue, 'direct_list.yaml', null);
-		so.renderWidget = function(/* ... */) {
-			var frameEl = form.TextValue.prototype.renderWidget.apply(this, arguments);
-
-			frameEl.firstChild.style.fontFamily = hm.monospacefonts.join(',');
-
-			return frameEl;
-		}
+		so = ss.taboption('direct_list', hm.TextValue, 'direct_list.yaml', null);
 		so.rows = 20;
 		so.default = 'FQDN:\nIPCIDR:\nIPCIDR6:\n';
 		so.placeholder = "FQDN:\n- mask.icloud.com\n- mask-h2.icloud.com\n- mask.apple-dns.net\nIPCIDR:\n- '223.0.0.0/12'\nIPCIDR6:\n- '2400:3200::/32'\n";
@@ -703,14 +830,7 @@ return view.extend({
 		/* Custom Proxy list */
 		ss.tab('proxy_list', _('Custom Proxy List'));
 
-		so = ss.taboption('proxy_list', form.TextValue, 'proxy_list.yaml', null);
-		so.renderWidget = function(/* ... */) {
-			var frameEl = form.TextValue.prototype.renderWidget.apply(this, arguments);
-
-			frameEl.firstChild.style.fontFamily = hm.monospacefonts.join(',');
-
-			return frameEl;
-		}
+		so = ss.taboption('proxy_list', hm.TextValue, 'proxy_list.yaml', null);
 		so.rows = 20;
 		so.default = 'FQDN:\nIPCIDR:\nIPCIDR6:\n';
 		so.placeholder = "FQDN:\n- www.google.com\nIPCIDR:\n- '91.105.192.0/23'\nIPCIDR6:\n- '2001:67c:4e8::/48'\n";

@@ -7,7 +7,7 @@
 'require fchomo as hm';
 
 function parseRulesetLink(uri) {
-	var config,
+	let config,
 		filefmt = new RegExp(/^(text|yaml|mrs)$/),
 		filebehav = new RegExp(/^(domain|ipcidr|classical)$/),
 		unuciname = new RegExp(/[^a-zA-Z0-9_]+/, "g");
@@ -26,7 +26,7 @@ function parseRulesetLink(uri) {
 				.replace(/[\s\.-]/g, '_').replace(unuciname, '');
 
 			if (filefmt.test(format) && filebehav.test(behavior)) {
-				var fullpath = (url.username ? url.username + '@' : '') + url.host + url.pathname + (rawquery ? '?' + decodeURIComponent(rawquery) : '');
+				let fullpath = (url.username ? url.username + '@' : '') + url.host + url.pathname + (rawquery ? '?' + decodeURIComponent(rawquery) : '');
 				config = {
 					label: url.hash ? decodeURIComponent(url.hash.slice(1)) : name ? name : null,
 					type: 'http',
@@ -34,7 +34,7 @@ function parseRulesetLink(uri) {
 					behavior: behavior,
 					url: String.format('%s://%s', uri[0], fullpath),
 					interval: interval,
-					href: hm.calcStringMD5(String.format('http://%s', fullpath))
+					id: hm.calcStringMD5(String.format('http://%s', fullpath))
 				};
 			}
 
@@ -54,9 +54,25 @@ function parseRulesetLink(uri) {
 					type: 'file',
 					format: format,
 					behavior: behavior,
-					href: hm.calcStringMD5(String.format('file://%s%s', url.host, url.pathname))
+					id: hm.calcStringMD5(String.format('file://%s%s', url.host, url.pathname))
 				};
-				hm.writeFile('ruleset', config.href, hm.decodeBase64Str(filler));
+				hm.writeFile('ruleset', config.id, hm.decodeBase64Str(filler));
+			}
+
+			break;
+		case 'inline':
+			var url = new URL('inline:' + uri[1]);
+			var behavior = url.searchParams.get('behav');
+			var payload = hm.decodeBase64Str(url.pathname).trim();
+
+			if (filebehav.test(behavior) && payload && payload.length) {
+				config = {
+					label: url.hash ? decodeURIComponent(url.hash.slice(1)) : null,
+					type: 'inline',
+					behavior: behavior,
+					payload: payload,
+					id: hm.calcStringMD5(String.format('inline:%s', btoa(payload)))
+				};
 			}
 
 			break;
@@ -64,24 +80,24 @@ function parseRulesetLink(uri) {
 	}
 
 	if (config) {
-		if (!config.type || !config.href)
+		if (!config.type || !config.id)
 			return null;
 		else if (!config.label)
-			config.label = hm.calcStringMD5(config.href);
+			config.label = config.id;
 	}
 
 	return config;
 }
 
 return view.extend({
-	load: function() {
+	load() {
 		return Promise.all([
 			uci.load('fchomo')
 		]);
 	},
 
-	render: function(data) {
-		var m, s, o;
+	render(data) {
+		let m, s, o;
 
 		m = new form.Map('fchomo', _('Edit ruleset'));
 
@@ -97,12 +113,14 @@ return view.extend({
 		s.sectiontitle = L.bind(hm.loadDefaultLabel, s);
 		/* Import rule-set links and Remove idle files start */
 		s.handleLinkImport = function() {
-			var textarea = new ui.Textarea('', {
+			let textarea = new ui.Textarea('', {
 				'placeholder': 'http(s)://github.com/ACL4SSR/ACL4SSR/raw/refs/heads/master/Clash/Providers/BanAD.yaml?fmt=yaml&behav=classical&rawq=good%3Djob#BanAD\n' +
-							   'file:///example.txt?fmt=text&behav=domain&fill=LmNuCg#CN%20TLD\n'
+							   'file:///example.txt?fmt=text&behav=domain&fill=LmNuCg#CN%20TLD\n' +
+							   'inline://LSAnLmhrJwoK?behav=domain#HK%20TLD\n'
 			});
 			ui.showModal(_('Import rule-set links'), [
-				E('p', _('Supports rule-set links of type: <code>file, http</code> and format: <code>text, yaml, mrs</code>.</br>') +
+				E('p', _('Supports rule-set links of type: <code>%s</code> and format: <code>%s</code>.</br>')
+						.format('file, http, inline', 'text, yaml, mrs') +
 							_('Please refer to <a href="%s" target="_blank">%s</a> for link format standards.')
 								.format(hm.rulesetdoc, _('Ruleset-URI-Scheme'))),
 				textarea.render(),
@@ -115,18 +133,18 @@ return view.extend({
 					E('button', {
 						class: 'btn cbi-button-action',
 						click: ui.createHandlerFn(this, function() {
-							var input_links = textarea.getValue().trim().split('\n');
+							let input_links = textarea.getValue().trim().split('\n');
 							if (input_links && input_links[0]) {
 								/* Remove duplicate lines */
 								input_links = input_links.reduce((pre, cur) =>
 									(!pre.includes(cur) && pre.push(cur), pre), []);
 
-								var imported_ruleset = 0;
+								let imported_ruleset = 0;
 								input_links.forEach((l) => {
-									var config = parseRulesetLink(l);
+									let config = parseRulesetLink(l);
 									if (config) {
-										var sid = uci.add(data[0], 'ruleset', config.href);
-										config.href = null;
+										let sid = uci.add(data[0], 'ruleset', config.id);
+										config.id = null;
 										Object.keys(config).forEach((k) => {
 											uci.set(data[0], sid, k, config[k] || '');
 										});
@@ -144,7 +162,7 @@ return view.extend({
 									.then(L.bind(this.map.load, this.map))
 									.then(L.bind(this.map.reset, this.map))
 									.then(L.ui.hideModal)
-									.catch(function() {});
+									.catch(() => {});
 							} else {
 								return ui.hideModal();
 							}
@@ -154,7 +172,7 @@ return view.extend({
 			])
 		}
 		s.renderSectionAdd = function(/* ... */) {
-			var el = hm.renderSectionAdd.apply(this, [prefmt, false].concat(Array.prototype.slice.call(arguments)));
+			let el = hm.renderSectionAdd.apply(this, [prefmt, false].concat(Array.prototype.slice.call(arguments)));
 
 			el.appendChild(E('button', {
 				'class': 'cbi-button cbi-button-add',
@@ -165,7 +183,7 @@ return view.extend({
 			el.appendChild(E('button', {
 				'class': 'cbi-button cbi-button-add',
 				'title': _('Remove idles'),
-				'click': ui.createHandlerFn(this, hm.handleRemoveIdles, hm)
+				'click': ui.createHandlerFn(this, hm.handleRemoveIdles)
 			}, [ _('Remove idles') ]));
 
 			return el;
@@ -185,21 +203,31 @@ return view.extend({
 		o = s.option(form.ListValue, 'type', _('Type'));
 		o.value('file', _('Local'));
 		o.value('http', _('Remote'));
+		o.value('inline', _('Inline'));
 		o.default = 'http';
 
 		o = s.option(form.ListValue, 'format', _('Format'));
 		o.value('text', _('Plain text'));
 		o.value('yaml', _('Yaml text'));
 		o.value('mrs', _('Binary file'));
-		o.default = 'mrs';
+		o.default = 'yaml';
 		o.validate = function(section_id, value) {
-			var behavior = this.section.getUIElement(section_id, 'behavior').getValue();
+			const behavior = this.section.getUIElement(section_id, 'behavior').getValue();
 
 			if (value === 'mrs' && behavior === 'classical')
 				return _('Expecting: %s').format(_('Binary format only supports domain / ipcidr'));
 
 			return true;
 		}
+		o.textvalue = function(section_id) {
+			let cval = this.cfgvalue(section_id) || this.default;
+			let inline = L.bind(function() {
+				let cval = this.cfgvalue(section_id) || this.default;
+				return (cval === 'inline') ? true : false;
+			}, s.getOption('type'));
+			return inline() ? _('none') : cval;
+		};
+		o.depends({'type': 'inline', '!reverse': true});
 
 		o = s.option(form.ListValue, 'behavior', _('Behavior'));
 		o.value('classical');
@@ -207,7 +235,7 @@ return view.extend({
 		o.value('ipcidr');
 		o.default = 'classical';
 		o.validate = function(section_id, value) {
-			var format = this.section.getUIElement(section_id, 'format').getValue();
+			const format = this.section.getUIElement(section_id, 'format').getValue();
 
 			if (value === 'classical' && format === 'mrs')
 				return _('Expecting: %s').format(_('Binary format only supports domain / ipcidr'));
@@ -217,29 +245,24 @@ return view.extend({
 
 		o = s.option(form.DummyValue, '_value', _('Value'));
 		o.load = function(section_id) {
-			var option = uci.get(data[0], section_id, 'type');
+			const option = uci.get(data[0], section_id, 'type');
 
 			switch (option) {
 				case 'file':
 					return uci.get(data[0], section_id, '.name');
 				case 'http':
 					return uci.get(data[0], section_id, 'url');
+				case 'inline':
+					return uci.get(data[0], section_id, '.name');
 				default:
 					return null;
 			}
 		}
 		o.modalonly = false;
 
-		o = s.option(form.TextValue, '_editer', _('Editer'),
+		o = s.option(hm.TextValue, '_editer', _('Editer'),
 			_('Please type <a target="_blank" href="%s" rel="noreferrer noopener">%s</a>.')
 				.format('https://wiki.metacubex.one/config/rule-providers/content/', _('Contents')));
-		o.renderWidget = function(/* ... */) {
-			var frameEl = form.TextValue.prototype.renderWidget.apply(this, arguments);
-
-			frameEl.firstChild.style.fontFamily = hm.monospacefonts.join(',');
-
-			return frameEl;
-		}
 		o.placeholder = _('Content will not be verified, Please make sure you enter it correctly.');
 		o.load = function(section_id) {
 			return L.resolveDefault(hm.readFile('ruleset', section_id), '');
@@ -251,11 +274,25 @@ return view.extend({
 		o.depends({'type': 'file', 'format': /^(text|yaml)$/});
 		o.modalonly = true;
 
+		o = s.option(hm.TextValue, 'payload', 'payload:',
+			_('Please type <a target="_blank" href="%s" rel="noreferrer noopener">%s</a>.')
+				.format('https://wiki.metacubex.one/config/rule-providers/content/', _('Payload')));
+		o.placeholder = '- DOMAIN-SUFFIX,google.com\n# ' + _('Content will not be verified, Please make sure you enter it correctly.');
+		o.rmempty = false;
+		o.depends('type', 'inline');
+		o.modalonly = true;
+
 		o = s.option(form.Value, 'url', _('Rule set URL'));
 		o.validate = L.bind(hm.validateUrl, o);
 		o.rmempty = false;
 		o.depends('type', 'http');
 		o.modalonly = true;
+
+		o = s.option(form.Value, 'size_limit', _('Size limit'),
+			_('In bytes. <code>%s</code> will be used if empty.').format('0'));
+		o.placeholder = '0';
+		o.validate = L.bind(hm.validateBytesize, o);
+		o.depends('type', 'http');
 
 		o = s.option(form.Value, 'interval', _('Update interval'),
 			_('In seconds. <code>%s</code> will be used if empty.').format('259200'));
@@ -275,7 +312,7 @@ return view.extend({
 		o.depends('type', 'http');
 
 		o = s.option(form.DummyValue, '_update');
-		o.cfgvalue = L.bind(hm.renderResDownload, o, hm);
+		o.cfgvalue = L.bind(hm.renderResDownload, o);
 		o.editable = true;
 		o.modalonly = false;
 		/* Rule set END */

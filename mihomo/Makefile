@@ -1,8 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (C) 2024-2025 Anya Lin <hukk1996@gmail.com>
+
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mihomo
-PKG_VERSION:=1.18.10
-PKG_RELEASE:=10
+PKG_VERSION:=1.19.2
+PKG_RELEASE:=16
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/metacubex/mihomo/tar.gz/v$(PKG_VERSION)?
@@ -33,6 +37,7 @@ define Package/mihomo
   TITLE:=Another Mihomo Kernel.
   URL:=https://wiki.metacubex.one
   DEPENDS:=$(GO_ARCH_DEPENDS)
+  PROVIDES:=mihomo
   USERID:=mihomo=7890:mihomo=7890
 endef
 

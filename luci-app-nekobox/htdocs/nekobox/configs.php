@@ -5,15 +5,22 @@ $tmpPath = "$neko_www/lib/selected_config.txt";
 $arrFiles = array();
 $arrFiles = glob("$dirPath/*.yaml"); 
 $error = "";
+$logMessage = "";  
+$selected_config = trim(file_get_contents($tmpPath));
+
+if (empty($selected_config) || !file_exists($selected_config)) {
+    $selected_config = "$dirPath/default_config.yaml";
+    file_put_contents($tmpPath, $selected_config);
+}
 
 if (isset($_POST['clashconfig'])) {
     $dt = $_POST['clashconfig'];
-    
-    if (pathinfo($dt, PATHINFO_EXTENSION) === 'yaml') {
-        shell_exec("echo $dt > $tmpPath");
-        $selected_config = $dt;
+    $full_path = "$dirPath/$dt";
+    if (pathinfo($dt, PATHINFO_EXTENSION) === 'yaml' && file_exists($full_path)) {
+        shell_exec("echo $full_path > $tmpPath");  
+        $selected_config = $full_path;
     } else {
-        $error = "请选择一个 YAML 格式的配置文件。"; 
+        $error = "请选择一个有效的 YAML 配置文件。"; 
     }
 }
 
@@ -29,7 +36,7 @@ include './cfg.php';
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Configs - Neko</title>
+    <title>Configs - Nekobox</title>
     <link rel="icon" href="./assets/img/nekobox.png">
     <link href="./assets/css/bootstrap.min.css" rel="stylesheet">
     <link href="./assets/css/custom.css" rel="stylesheet">
@@ -37,24 +44,18 @@ include './cfg.php';
     <script type="text/javascript" src="./assets/js/feather.min.js"></script>
     <script type="text/javascript" src="./assets/js/jquery-2.1.3.min.js"></script>
     <script type="text/javascript" src="./assets/js/bootstrap.min.js"></script>
-    <?php include './ping.php'; ?>
   </head>
   <body>
     <div class="container-sm container-bg text-center callout border border-3 rounded-4 col-11">
         <div class="row">
-            <a href="./" class="col btn btn-lg">🏠 首页</a>
-            <a href="./dashboard.php" class="col btn btn-lg">📊 面板</a>
-            <a href="#" class="col btn btn-lg">⚙️ 配置</a>
-           <a href="/nekobox/mon.php" class="col btn btn-lg d-flex align-items-center justify-content-center"></i>📦 订阅</a> 
-            <a href="./settings.php" class="col btn btn-lg">🛠️ 设定</a>
-    <h2 class="text-center p-2">配置</h2>
     <form action="configs.php" method="post">
-        <div class="container text-center justify-content-md-center">
+        <div class="container text-center justify-content-md-center" style="padding-left: 4ch; padding-right: 4ch;">
             <div class="row justify-content-md-center">
-                <div class="col input-group mb-3 justify-content-md-center">
-                    <select class="form-select" name="clashconfig" aria-label="themex">
-                        <option selected><?php echo $selected_config; ?></option>
-                        <?php foreach ($arrFiles as $file) echo "<option value=\"" . $file . '">' . $file . "</option>"; ?>
+                <div class="col mb-3 justify-content-md-center">
+                    <h2 for="clashconfig" class="form-label  p-4 m-2">选择 Mihomo 配置文件</h2>
+                    <select id="clashconfig" class="form-select" name="clashconfig" aria-label="themex">
+                        <option selected><?php echo basename($selected_config); ?></option>
+                        <?php foreach ($arrFiles as $file) echo "<option value=\"" . basename($file) . '">' . basename($file) . "</option>"; ?>
                     </select>
                 </div>
                 <div class="row justify-content-md-center">
@@ -66,7 +67,8 @@ include './cfg.php';
             </div>
         </div>
     </form>
-<div class="container   rounded-4 col-12 mb-4">
+
+<div class="container   rounded-4 col-12 mb-4" style="padding-left: 5ch; padding-right: 5ch;">
     <ul class="nav d-flex justify-content-between w-100 text-center">
         <li class="nav-item flex-grow-1">
             <a class="btn btn-lg w-100 active" data-bs-toggle="tab" href="#info">配置</a>
@@ -81,15 +83,12 @@ include './cfg.php';
             <a class="btn btn-lg w-100" data-bs-toggle="tab" href="#converter">转换</a>
         </li>
         <li class="nav-item flex-grow-1">
-            <a class="btn btn-lg w-100" data-bs-toggle="tab" href="#upload">订阅</a>
-        </li>
-        <li class="nav-item flex-grow-1">
             <a class="btn btn-lg w-100" data-bs-toggle="tab" href="#tip">提示</a>
         </li>
     </ul>
 </div>
 
-   <div class="container rounded-4 col-12 mb-4">
+   <div class="container rounded-4 col-12 mb-4" style="padding-left: 5ch; padding-right: 5ch;">
     <div class="tab-content">
         <div id="info" class="tab-pane fade show active">
             <h2 class="text-center p-2">配置资讯</h2>
@@ -169,12 +168,6 @@ include './cfg.php';
             <h2 class="text-center p-2 mb-5">转换器</h2>
             <div class="container h-100">
                 <iframe class="rounded-4 w-100" scrolling="no" height="700" src="./yamlconv.php" title="yacd" allowfullscreen></iframe>
-            </div>
-        </div>
-
-        <div id="upload" class="tab-pane fade">
-            <div class="container h-100">
-                <iframe class="rounded-4 w-100" scrolling="no" height="700" src="./mo.php" title="yacd" allowfullscreen></iframe>
             </div>
         </div>
 

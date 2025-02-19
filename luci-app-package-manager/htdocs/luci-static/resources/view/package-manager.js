@@ -87,7 +87,7 @@ var css = '								\
 
 var isReadonlyView = !L.hasViewPermission() || null;
 
-var callMountPoints = rpc.declare({
+const callMountPoints = rpc.declare({
 	object: 'luci',
 	method: 'getMountPoints',
 	expect: { result: [] }
@@ -866,8 +866,13 @@ function handleConfig(ev)
 	fs.list(base_dir).then(function(partials) {
 		var files = [];
 
-		if (!L.hasSystemFeature('apk'))
-			files.push(base_dir + '.conf')
+		if (L.hasSystemFeature('apk')) {
+                        files.push(base_dir + '/' + 'repositories.d/customfeeds.list',
+                                   base_dir + '/' + 'repositories.d/distfeeds.list'
+                        )
+                } else {
+                        files.push(base_dir + '.conf')
+                }
 
 		for (var i = 0; i < partials.length; i++) {
 			if (partials[i].type == 'file') {
@@ -966,7 +971,7 @@ function handleRemove(ev)
 		desc || '',
 		E('div', { 'style': 'display:flex; justify-content:space-between; flex-wrap:wrap' }, [
 			E('label', { 'class': 'cbi-checkbox', 'style': 'float:left' }, [
-				E('input', { 'id': 'autoremove-cb', 'type': 'checkbox', 'checked': 'checked', 'name': 'autoremove', 'disabled': isReadonlyView || L.hasSystemFeature('apk') }), ' ',
+				E('input', { 'id': 'autoremove-cb', 'type': 'checkbox', 'checked': 'checked', 'name': 'autoremove' || L.hasSystemFeature('apk') }), ' ',
 				E('label', { 'for': 'autoremove-cb' }), ' ',
 				_('Automatically remove unused dependencies')
 			]),
@@ -1299,7 +1304,7 @@ return view.extend({
 				E('tr', { 'class': 'tr cbi-section-table-titles' }, [
 					E('th', { 'class': 'th col-2 left' }, [ _('Package name') ]),
 					E('th', { 'class': 'th col-2 left version' }, [ _('Version') ]),
-					E('th', { 'class': 'th col-1 center size'}, [ _('Size (.ipk)') ]),
+					E('th', { 'class': 'th col-1 center size'}, [ _('Size (%s)').format(L.hasSystemFeature('apk') ? '.apk' : '.ipk') ]),
 					E('th', { 'class': 'th col-10 left' }, [ _('Description') ]),
 					E('th', { 'class': 'th right cbi-section-actions' }, [ '\u00a0' ])
 				])

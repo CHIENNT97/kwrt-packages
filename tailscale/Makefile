@@ -8,8 +8,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=tailscale
-PKG_VERSION:=1.76.3
-PKG_RELEASE:=3
+PKG_VERSION:=1.80.0
+PKG_RELEASE:=9
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/tailscale/tailscale/tar.gz/v$(PKG_VERSION)?
@@ -50,6 +50,7 @@ define Package/tailscale/description
 endef
 
 define Package/tailscale/conffiles
+/etc/config/tailscale
 /etc/tailscale/
 endef
 

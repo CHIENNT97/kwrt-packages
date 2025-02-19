@@ -1,6 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (C) 2024-2025 Anya Lin <hukk1996@gmail.com>
+
 include $(TOPDIR)/rules.mk
 
-LUCI_TITLE:=FullCombo Mihomo supplies maximum customization on OpenWrt.
+LUCI_TITLE:=FullCombo Shark! supplies maximum customization of mihomo on OpenWrt.
 LUCI_PKGARCH:=all
 LUCI_DEPENDS:= \
 	+mihomo \
@@ -8,7 +12,7 @@ LUCI_DEPENDS:= \
 	+firewall4 \
 	+kmod-inet-diag \
 	+kmod-nft-tproxy \
-	+yq \
+	+yq +wget-ssl +coreutils-timeout \
 #	+ip-full +kmod-tun +dnsmasq-full \
 
 PKG_NAME:=luci-app-fchomo

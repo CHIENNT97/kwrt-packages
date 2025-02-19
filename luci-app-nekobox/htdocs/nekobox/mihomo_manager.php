@@ -21,12 +21,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($file['error'] === UPLOAD_ERR_OK) {
             if (move_uploaded_file($file['tmp_name'], $uploadFilePath)) {
-                echo '文件上传成功：' . htmlspecialchars(basename($file['name']));
+                echo '<div class="alert alert-success" role="alert">文件上传成功：' . htmlspecialchars(basename($file['name'])) . '</div>';
             } else {
-                echo '文件上传失败！';
+                echo '<div class="alert alert-danger" role="alert">文件上传失败！</div>';
             }
         } else {
-            echo '上传错误：' . $file['error'];
+            echo '<div class="alert alert-danger" role="alert">上传错误：' . $file['error'] . '</div>';
         }
     }
 
@@ -36,30 +36,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($file['error'] === UPLOAD_ERR_OK) {
             if (move_uploaded_file($file['tmp_name'], $uploadFilePath)) {
-                echo '配置文件上传成功：' . htmlspecialchars(basename($file['name']));
+                echo '<div class="alert alert-success" role="alert">配置文件上传成功：' . htmlspecialchars(basename($file['name'])) . '</div>';
             } else {
-                echo '配置文件上传失败！';
+                echo '<div class="alert alert-danger" role="alert">配置文件上传失败！</div>';
             }
         } else {
-            echo '上传错误：' . $file['error'];
+            echo '<div class="alert alert-danger" role="alert">上传错误：' . $file['error'] . '</div>';
         }
     }
 
     if (isset($_POST['deleteFile'])) {
         $fileToDelete = $uploadDir . basename($_POST['deleteFile']);
         if (file_exists($fileToDelete) && unlink($fileToDelete)) {
-            echo '文件删除成功：' . htmlspecialchars(basename($_POST['deleteFile']));
+            echo '<div class="alert alert-success" role="alert">
+                文件删除成功：' . htmlspecialchars(basename($_POST['deleteFile'])) . '</div>';
         } else {
-            echo '文件删除失败！';
+            echo '<div class="alert alert-danger" role="alert">文件删除失败！</div>';
         }
     }
 
     if (isset($_POST['deleteConfigFile'])) {
         $fileToDelete = $configDir . basename($_POST['deleteConfigFile']);
         if (file_exists($fileToDelete) && unlink($fileToDelete)) {
-            echo '配置文件删除成功：' . htmlspecialchars(basename($_POST['deleteConfigFile']));
+            echo '<div class="alert alert-success" role="alert">
+                配置文件删除成功：' . htmlspecialchars(basename($_POST['deleteConfigFile'])) . '</div>';
         } else {
-            echo '配置文件删除失败！';
+            echo '<div class="alert alert-danger" role="alert">配置文件删除失败！</div>';
         }
     }
 
@@ -81,12 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (file_exists($oldFilePath) && !file_exists($newFilePath)) {
         if (rename($oldFilePath, $newFilePath)) {
-            echo '文件重命名成功：' . htmlspecialchars($oldFileName) . ' -> ' . htmlspecialchars($newFileName);
+            echo '<div class="alert alert-success" role="alert">
+                    文件重命名成功：' . htmlspecialchars($oldFileName) . ' -> ' . htmlspecialchars($newFileName) . ' </div>';
         } else {
-            echo '文件重命名失败！';
+            echo '<div class="alert alert-danger" role="alert">文件重命名失败！</div>';     
         }
     } else {
-        echo '文件重命名失败，文件不存在或新文件名已存在。';
+        echo '<div class="alert alert-danger" role="alert">文件重命名失败，文件不存在或新文件名已存在。</div>';
         }
     }
 
@@ -94,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fileToSave = ($_POST['fileType'] === 'proxy') ? $uploadDir . basename($_POST['fileName']) : $configDir . basename($_POST['fileName']);
             $contentToSave = $_POST['saveContent'];
             file_put_contents($fileToSave, $contentToSave);
-            echo '<p>文件内容已更新：' . htmlspecialchars(basename($fileToSave)) . '</p>';
+            echo '<div class="alert alert-info" role="alert">文件内容已更新：' . htmlspecialchars(basename($fileToSave)) . '</div>';
         }
     }
 
@@ -112,6 +115,9 @@ $configFiles = scandir($configDir);
 
 if ($proxyFiles !== false) {
     $proxyFiles = array_diff($proxyFiles, array('.', '..'));
+    $proxyFiles = array_filter($proxyFiles, function($file) {
+        return pathinfo($file, PATHINFO_EXTENSION) !== 'txt';
+    });
 } else {
     $proxyFiles = []; 
 }
@@ -143,23 +149,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['editFile'], $_GET['file
         exit;
     }
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['downloadFile'], $_GET['fileType'])) {
+    $fileType = $_GET['fileType'];
+    $fileName = basename($_GET['downloadFile']);
+    $filePath = ($fileType === 'proxy') ? $uploadDir . $fileName : $configDir . $fileName;
+
+    if (file_exists($filePath)) {
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($filePath));
+        readfile($filePath);
+        exit;
+    } else {
+        echo '文件不存在。';
+    }
+}
 ?>
 
 <?php
+
+
 $subscriptionPath = '/etc/neko/proxy_provider/';
 $subscriptionFile = $subscriptionPath . 'subscriptions.json';
-$clashFile = $subscriptionPath . 'subscription_6.yaml';
-$message = "";
-$decodedContent = ""; 
+$notificationMessage = "";
 $subscriptions = [];
-$updateCompleted = false; 
+$updateCompleted = false;
 
-function outputMessage($message) {
-    if (!isset($_SESSION['update_messages'])) {
-        $_SESSION['update_messages'] = array();
+function storeUpdateLog($message) {
+    if (!isset($_SESSION['update_logs'])) {
+        $_SESSION['update_logs'] = [];
     }
-
-    $_SESSION['update_messages'][] = $message;
+    $_SESSION['update_logs'][] = $message;
 }
 
 if (!file_exists($subscriptionPath)) {
@@ -175,338 +200,278 @@ if (!$subscriptions) {
     for ($i = 0; $i < 6; $i++) {
         $subscriptions[$i] = [
             'url' => '',
-            'file_name' => "subscription_{$i}.yaml",
+            'file_name' => "subscription_" . ($i + 1) . ".yaml",  
         ];
     }
 }
 
 if (isset($_POST['update'])) {
     $index = intval($_POST['index']);
-    $url = $_POST['subscription_url'] ?? '';
-    $customFileName = $_POST['custom_file_name'] ?? "subscription_{$index}.yaml";
+    $url = trim($_POST['subscription_url'] ?? '');
+    $customFileName = trim($_POST['custom_file_name'] ?? "subscription_" . ($index + 1) . ".yaml");  
 
     $subscriptions[$index]['url'] = $url;
     $subscriptions[$index]['file_name'] = $customFileName;
 
     if (!empty($url)) {
+        $tempPath = $subscriptionPath . $customFileName . ".temp";
         $finalPath = $subscriptionPath . $customFileName;
-        $command = "curl -fsSL -o {$finalPath} {$url}";
+
+        $command = "curl -s -L -o {$tempPath} {$url}";
         exec($command . ' 2>&1', $output, $return_var);
 
+        if ($return_var !== 0) {
+            $command = "wget -q --show-progress -O {$tempPath} {$url}";
+            exec($command . ' 2>&1', $output, $return_var);
+        }
+
         if ($return_var === 0) {
-            $_SESSION['update_messages'] = array();
-            $_SESSION['update_messages'][] = '<div class="alert alert-warning" style="margin-bottom: 8px;">
-                <strong>⚠️ 使用说明：</strong>
-                <ul class="mb-0 pl-3">
-                    <li>通用模板（mihomo.yaml）最多支持<strong>6个</strong>订阅链接</li>
-                    <li>请勿更改默认文件名称</li>
-                    <li>该模板支持所有格式订阅链接，无需额外转换</li>
-                </ul>
-            </div>';
-            $_SESSION['update_messages'][] = "订阅链接 {$url} 更新成功！文件已保存到: {$finalPath}";
-            $message = '更新成功';
-            $updateCompleted = true; 
+            $_SESSION['update_logs'] = [];
+            storeUpdateLog("✅ 订阅 " . htmlspecialchars($url) . " 已下载并保存到临时文件: " . htmlspecialchars($tempPath));
+
+            $fileContent = file_get_contents($tempPath);
+
+            if (base64_encode(base64_decode($fileContent, true)) === $fileContent) {
+                $decodedContent = base64_decode($fileContent);
+                if ($decodedContent !== false && strlen($decodedContent) > 0) {
+                    file_put_contents($finalPath, "# Clash Meta Config\n\n" . $decodedContent);
+                    storeUpdateLog("📂 Base64 解码成功，配置已保存到: " . htmlspecialchars($finalPath));
+                    unlink($tempPath); 
+                    $notificationMessage = '更新成功';
+                    $updateCompleted = true;
+                } else {
+                    storeUpdateLog("⚠️ Base64 解码失败，请检查订阅链接内容！");
+                    unlink($tempPath); 
+                    $notificationMessage = '更新失败';
+                }
+            } 
+            elseif (substr($fileContent, 0, 2) === "\x1f\x8b") {
+                $decompressedContent = gzdecode($fileContent);
+                if ($decompressedContent !== false) {
+                    file_put_contents($finalPath, "# Clash Meta Config\n\n" . $decompressedContent);
+                    storeUpdateLog("📂 Gzip 解压成功，配置已保存到: " . htmlspecialchars($finalPath));
+                    unlink($tempPath); 
+                    $notificationMessage = '更新成功';
+                    $updateCompleted = true;
+                } else {
+                    storeUpdateLog("⚠️ Gzip 解压失败，请检查订阅链接格式！");
+                    unlink($tempPath); 
+                    $notificationMessage = '更新失败';
+                }
+            } 
+            else {
+                rename($tempPath, $finalPath); 
+                storeUpdateLog("✅ 订阅内容已成功下载，无需解码");
+                $notificationMessage = '更新成功';
+                $updateCompleted = true;
+            }
         } else {
-            $_SESSION['update_messages'] = array();
-            $_SESSION['update_messages'][] = "配置更新失败！错误信息: " . implode("\n", $output);
-            $message = '更新失败';
+            storeUpdateLog("❌ 订阅更新失败！错误信息: " . implode("\n", $output));
+            unlink($tempPath); 
+            $notificationMessage = '更新失败';
         }
     } else {
-        $_SESSION['update_messages'] = array();
-        $_SESSION['update_messages'][] = "第" . ($index + 1) . "个订阅链接为空！";
-        $message = '更新失败';
+        storeUpdateLog("⚠️ 第" . ($index + 1) . "个订阅链接为空！");
+        $notificationMessage = '更新失败';
     }
 
     file_put_contents($subscriptionFile, json_encode($subscriptions));
 }
 
-if (isset($_POST['convert_base64'])) {
-    $base64Content = $_POST['base64_content'] ?? '';
+?>
 
-    if (!empty($base64Content)) {
-        $decodedContent = base64_decode($base64Content); 
+<?php
+$shellScriptPath = '/etc/neko/core/update_mihomo.sh';
+$LOG_FILE = '/etc/neko/tmp/log.txt'; 
+$JSON_FILE = '/etc/neko/proxy_provider/subscriptions.json';
+$SAVE_DIR = '/etc/neko/proxy_provider';
 
-        if ($decodedContent === false) {
-            $message = "Base64 解码失败，请检查输入！";
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (isset($_POST['createShellScript'])) {
+        $shellScriptContent = <<<EOL
+#!/bin/bash
+
+LOG_FILE="/etc/neko/tmp/log.txt"
+JSON_FILE="/etc/neko/proxy_provider/subscriptions.json"
+SAVE_DIR="/etc/neko/proxy_provider"
+
+log() {
+    echo "$(date '+[ %H:%M:%S ]') \$1" >> "\$LOG_FILE"
+}
+
+log "开始处理订阅更新任务..."
+
+if [ ! -f "\$JSON_FILE" ]; then
+    log "❌ 错误: JSON 文件不存在: \$JSON_FILE"
+    exit 1
+fi
+
+jq -c '.[]' "\$JSON_FILE" | while read -r ITEM; do
+    URL=\$(echo "\$ITEM" | jq -r '.url')         
+    FILE_NAME=\$(echo "\$ITEM" | jq -r '.file_name')  
+
+    if [ -z "\$URL" ] || [ "\$URL" == "null" ]; then
+        log "⚠️ 跳过空的订阅链接，文件名: \$FILE_NAME"
+        continue
+    fi
+
+    if [ -z "\$FILE_NAME" ] || [ "\$FILE_NAME" == "null" ]; then
+        log "❌ 错误: 文件名为空，跳过此链接: \$URL"
+        continue
+    fi
+
+    SAVE_PATH="\$SAVE_DIR/\$FILE_NAME"
+    TEMP_PATH="\$SAVE_PATH.temp"  
+
+    log "🔄 正在下载: \$URL 到临时文件: \$TEMP_PATH"
+
+    curl -s -L -o "\$TEMP_PATH" "\$URL"
+
+    if [ \$? -ne 0 ]; then
+        wget -q -O "\$TEMP_PATH" "\$URL"
+    fi
+
+    if [ \$? -eq 0 ]; then
+        log "✅ 文件下载成功: \$TEMP_PATH"
+
+        if base64 -d "\$TEMP_PATH" > /dev/null 2>&1; then
+            base64 -d "\$TEMP_PATH" > "\$SAVE_PATH"
+            if [ \$? -eq 0 ]; then
+                log "📂 Base64 解码成功，配置已保存: \$SAVE_PATH"
+                rm -f "\$TEMP_PATH"
+            else
+                log "⚠️ Base64 解码失败: \$SAVE_PATH"
+                rm -f "\$TEMP_PATH"
+            fi
+        elif file "\$TEMP_PATH" | grep -q "gzip compressed"; then
+            gunzip -c "\$TEMP_PATH" > "\$SAVE_PATH"
+            if [ \$? -eq 0 ]; then
+                log "📂 Gzip 解压成功，配置已保存: \$SAVE_PATH"
+                rm -f "\$TEMP_PATH"
+            else
+                log "⚠️ Gzip 解压失败: \$SAVE_PATH"
+                rm -f "\$TEMP_PATH"
+            fi
+        else
+            mv "\$TEMP_PATH" "\$SAVE_PATH"
+            log "✅ 订阅内容已成功下载，无需解码"
+        fi
+    else
+        log "❌ 订阅更新失败: \$URL"
+        rm -f "\$TEMP_PATH"
+    fi
+done
+
+log "🚀 所有订阅链接更新完成！"
+EOL;
+
+        if (file_put_contents($shellScriptPath, $shellScriptContent) !== false) {
+            chmod($shellScriptPath, 0755); 
+            echo "<div class='alert alert-success'>Shell 脚本已创建成功！路径: $shellScriptPath</div>";
         } else {
-            $clashConfig = "# Clash Meta Config\n\n";
-            $clashConfig .= $decodedContent;
-            file_put_contents($clashFile, $clashConfig);
-            $message = "Clash 配置文件已生成并保存到: {$clashFile}";
+            echo "<div class='alert alert-danger'>无法创建 Shell 脚本，请检查权限。</div>";
         }
-    } else {
-        $message = "Base64 内容为空！";
     }
 }
 ?>
 
 <?php
+$CRON_LOG_FILE = '/etc/neko/tmp/log.txt'; 
 
-function parseVmess($base) {
-    $decoded = base64_decode($base['host']);
-    $arrjs = json_decode($decoded, true);
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (isset($_POST['createCronJob'])) {
+        $cronExpression = trim($_POST['cronExpression']);
 
-    if (json_last_error() !== JSON_ERROR_NONE || empty($arrjs['v'])) {
-        return "DECODING FAILED! PLEASE CHECK YOUR URL!";
-    }
-
-    return [
-        'cfgtype' => $base['scheme'] ?? '',
-        'name' => $arrjs['ps'] ?? '',
-        'host' => $arrjs['add'] ?? '',
-        'port' => $arrjs['port'] ?? '',
-        'uuid' => $arrjs['id'] ?? '',
-        'alterId' => $arrjs['aid'] ?? '',
-        'type' => $arrjs['net'] ?? '',
-        'path' => $arrjs['path'] ?? '',
-        'security' => $arrjs['type'] ?? '',
-        'sni' => $arrjs['host'] ?? '',
-        'tls' => $arrjs['tls'] ?? ''
-    ];
-}
-
-function parseShadowsocks($basebuff, &$urlparsed) {
-    $urlparsed['uuid'] = $basebuff['user'] ?? '';
-    $basedata = explode(":", base64_decode($urlparsed['uuid']));
-    if (count($basedata) == 2) {
-        $urlparsed['cipher'] = $basedata[0];
-        $urlparsed['uuid'] = $basedata[1];
-    }
-}
-
-function parseUrl($basebuff) {
-    $urlparsed = [
-        'cfgtype' => $basebuff['scheme'] ?? '',
-        'name' => $basebuff['fragment'] ?? '',
-        'host' => $basebuff['host'] ?? '',
-        'port' => $basebuff['port'] ?? ''
-    ];
-
-    if ($urlparsed['cfgtype'] == 'ss') {
-        parseShadowsocks($basebuff, $urlparsed);
-    } else {
-        $urlparsed['uuid'] = $basebuff['user'] ?? '';
-    }
-
-    $querybuff = [];
-    $tmpquery = $basebuff['query'] ?? '';
-
-    if ($urlparsed['cfgtype'] == 'ss') {
-        parse_str(str_replace(";", "&", $tmpquery), $querybuff);
-        $urlparsed['mux'] = $querybuff['mux'] ?? '';
-        $urlparsed['host2'] = $querybuff['host2'] ?? '';
-    } else {
-        parse_str($tmpquery, $querybuff);
-    }
-
-    $urlparsed['type'] = $querybuff['type'] ?? '';
-    $urlparsed['path'] = $querybuff['path'] ?? '';
-    $urlparsed['mode'] = $querybuff['mode'] ?? '';
-    $urlparsed['plugin'] = $querybuff['plugin'] ?? '';
-    $urlparsed['security'] = $querybuff['security'] ?? '';
-    $urlparsed['encryption'] = $querybuff['encryption'] ?? '';
-    $urlparsed['serviceName'] = $querybuff['serviceName'] ?? '';
-    $urlparsed['sni'] = $querybuff['sni'] ?? '';
-
-    return $urlparsed;
-}
-
-function generateConfig($data) {
-    $outcfg = "";
-
-    if (empty($GLOBALS['isProxiesPrinted'])) {
-        $outcfg .= "proxies:\n";
-        $GLOBALS['isProxiesPrinted'] = true;
-    }
-
-    switch ($data['cfgtype']) {
-        case 'vless':
-            $outcfg .= generateVlessConfig($data);
-            break;
-        case 'trojan':
-            $outcfg .= generateTrojanConfig($data);
-            break;
-        case 'hysteria2':
-        case 'hy2':
-            $outcfg .= generateHysteria2Config($data);
-            break;
-        case 'ss':
-            $outcfg .= generateShadowsocksConfig($data);
-            break;
-        case 'vmess':
-            $outcfg .= generateVmessConfig($data);
-            break;
-    }
-
-    return $outcfg;
-}
-
-function generateVlessConfig($data) {
-    $config = "    - name: " . ($data['name'] ?: "VLESS") . "\n";
-    $config .= "      type: {$data['cfgtype']}\n";
-    $config .= "      server: {$data['host']}\n";
-    $config .= "      port: {$data['port']}\n";
-    $config .= "      uuid: {$data['uuid']}\n";
-    $config .= "      cipher: auto\n";
-    $config .= "      tls: true\n";
-    if ($data['type'] == "ws") {
-        $config .= "      network: ws\n";
-        $config .= "      ws-opts:\n";
-        $config .= "        path: {$data['path']}\n";
-        $config .= "        Headers:\n";
-        $config .= "          Host: {$data['host']}\n";
-        $config .= "        flow:\n";
-        $config .= "          client-fingerprint: chrome\n";
-    } elseif ($data['type'] == "grpc") {
-        $config .= "      network: grpc\n";
-        $config .= "      grpc-opts:\n";
-        $config .= "        grpc-service-name: {$data['serviceName']}\n";
-    }
-    $config .= "      udp: true\n";
-    $config .= "      skip-cert-verify: true\n";
-    return $config;
-}
-
-function generateTrojanConfig($data) {
-    $config = "    - name: " . ($data['name'] ?: "TROJAN") . "\n";
-    $config .= "      type: {$data['cfgtype']}\n";
-    $config .= "      server: {$data['host']}\n";
-    $config .= "      port: {$data['port']}\n";
-    $config .= "      password: {$data['uuid']}\n";
-    $config .= "      sni: " . (!empty($data['sni']) ? $data['sni'] : $data['host']) . "\n";
-    if ($data['type'] == "ws") {
-        $config .= "      network: ws\n";
-        $config .= "      ws-opts:\n";
-        $config .= "        path: {$data['path']}\n";
-        $config .= "        Headers:\n";
-        $config .= "          Host: {$data['sni']}\n";
-    } elseif ($data['type'] == "grpc") {
-        $config .= "      network: grpc\n";
-        $config .= "      grpc-opts:\n";
-        $config .= "        grpc-service-name: {$data['serviceName']}\n";
-    }
-    $config .= "      udp: true\n";
-    $config .= "      skip-cert-verify: true\n";
-    return $config;
-}
-
-function generateHysteria2Config($data) {
-    return "    - name: " . ($data['name'] ?: "HYSTERIA2") . "\n" .
-           "      server: {$data['host']}\n" .
-           "      port: {$data['port']}\n" .
-           "      type: {$data['cfgtype']}\n" .
-           "      password: {$data['uuid']}\n" .
-           "      udp: true\n" .
-           "      ports: 20000-55000\n" .
-           "      mport: 20000-55000\n" .
-           "      skip-cert-verify: true\n" .
-           "      sni: " . (!empty($data['sni']) ? $data['sni'] : $data['host']) . "\n";
-}
-
-function generateShadowsocksConfig($data) {
-    $config = "    - name: " . ($data['name'] ?: "SHADOWSOCKS") . "\n";
-    $config .= "      type: {$data['cfgtype']}\n";
-    $config .= "      server: {$data['host']}\n";
-    $config .= "      port: {$data['port']}\n";
-    $config .= "      cipher: {$data['cipher']}\n";
-    $config .= "      password: {$data['uuid']}\n";
-    if (!empty($data['plugin'])) {
-        $config .= "      plugin: {$data['plugin']}\n";
-        $config .= "      plugin-opts:\n";
-        if ($data['plugin'] == "v2ray-plugin" || $data['plugin'] == "xray-plugin") {
-            $config .= "        mode: websocket\n";
-            $config .= "        mux: {$data['mux']}\n";
-        } elseif ($data['plugin'] == "obfs") {
-            $config .= "        mode: tls\n";
-        }
-    }
-    $config .= "      udp: true\n";
-    $config .= "      skip-cert-verify: true\n";
-    return $config;
-}
-
-function generateVmessConfig($data) {
-    $config = "    - name: " . ($data['name'] ?: "VMESS") . "\n";
-    $config .= "      type: {$data['cfgtype']}\n";
-    $config .= "      server: {$data['host']}\n";
-    $config .= "      port: {$data['port']}\n";
-    $config .= "      uuid: {$data['uuid']}\n";
-    $config .= "      alterId: {$data['alterId']}\n";
-    $config .= "      cipher: auto\n";
-    $config .= "      tls: " . ($data['tls'] === "tls" ? "true" : "false") . "\n";
-    $config .= "      servername: " . (!empty($data['sni']) ? $data['sni'] : $data['host']) . "\n";
-    $config .= "      network: {$data['type']}\n";
-    if ($data['type'] == "ws") {
-        $config .= "      ws-opts:\n";
-        $config .= "        path: {$data['path']}\n";
-        $config .= "        Headers:\n";
-        $config .= "          Host: {$data['sni']}\n";
-    } elseif ($data['type'] == "grpc") {
-        $config .= "      grpc-opts:\n";
-        $config .= "        grpc-service-name: {$data['serviceName']}\n";
-    }
-    $config .= "      udp: true\n";
-    $config .= "      skip-cert-verify: true\n";
-    return $config;
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = $_POST['input'] ?? '';
-
-    if (empty($input)) {
-        echo ".";
-    } else {
-        $lines = explode("\n", trim($input));
-        $allcfgs = "";
-        $GLOBALS['isProxiesPrinted'] = false;
-
-        foreach ($lines as $line) {
-            $base64url = parse_url($line);
-            if ($base64url === false) {
-                $allcfgs .= "Invalid URL provided.\n";
-                continue;
-            }
-
-            $base64url = array_map('urldecode', $base64url);
-
-            if (isset($base64url['scheme']) && $base64url['scheme'] === 'vmess') {
-                $parsedData = parseVmess($base64url);
-            } else {
-                $parsedData = parseUrl($base64url);
-            }
-
-            if (is_array($parsedData)) {
-                $allcfgs .= generateConfig($parsedData);
-            } else {
-                $allcfgs .= $parsedData . "\n";
-            }
+        if (empty($cronExpression)) {
+            file_put_contents($CRON_LOG_FILE, date('[ H:i:s ] ') . "错误: Cron 表达式不能为空。\n", FILE_APPEND);
+            echo "<div class='alert alert-warning'>Cron 表达式不能为空。</div>";
+            exit;
         }
 
-        $file_path = '/etc/neko/proxy_provider/subscription_7.json';
-        file_put_contents($file_path, $allcfgs);
+        $cronJob = "$cronExpression /etc/neko/core/update_mihomo.sh";
 
-        echo "<h2 style=\"color: #00FFFF;\">转换完成</h2>";
-        echo "<p>配置文件已经成功保存到 <strong>$file_path</strong></p>";
+        exec("crontab -l | grep -v '/etc/neko/core/update_mihomo.sh' | crontab -", $output, $returnVarRemove);
+        if ($returnVarRemove === 0) {
+            file_put_contents($CRON_LOG_FILE, date('[ H:i:s ] ') . "成功移除旧的 Cron 任务。\n", FILE_APPEND);
+        } else {
+            file_put_contents($CRON_LOG_FILE, date('[ H:i:s ] ') . "移除旧的 Cron 任务失败。\n", FILE_APPEND);
+        }
 
+        exec("(crontab -l; echo '$cronJob') | crontab -", $output, $returnVarAdd);
+        if ($returnVarAdd === 0) {
+            file_put_contents($CRON_LOG_FILE, date('[ H:i:s ] ') . "成功添加新的 Cron 任务: $cronJob\n", FILE_APPEND);
+            echo "<div class='alert alert-success'>Cron 任务已成功添加或更新！</div>";
+        } else {
+            file_put_contents($CRON_LOG_FILE, date('[ H:i:s ] ') . "添加新的 Cron 任务失败。\n", FILE_APPEND);
+            echo "<div class='alert alert-danger'>无法添加或更新 Cron 任务，请检查服务器权限。</div>";
+        }
     }
 }
 ?>
 
+<?php
+$file_urls = [
+    'geoip' => 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb',
+    'geosite' => 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat',
+    'cache' => 'https://github.com/Thaolga/neko/raw/main/cache.db' 
+];
+
+$download_directories = [
+    'geoip' => '/etc/neko/',
+    'geosite' => '/etc/neko/',
+    'cache' => '/www/nekobox/' 
+];
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['file'])) {
+    $file = $_GET['file'];
+
+    if (isset($file_urls[$file])) {
+        $file_url = $file_urls[$file];
+        $destination_directory = $download_directories[$file];
+        $destination_path = $destination_directory . basename($file_url);
+
+        if (download_file($file_url, $destination_path)) {
+            echo "<div class='alert alert-success'>文件成功下载到 $destination_path</div>";
+        } else {
+            echo "<div class='alert alert-danger'>文件下载失败</div>";
+        }
+    } else {
+        echo "无效的文件请求";
+    }
+}
+
+function download_file($url, $destination) {
+    $ch = curl_init($url);
+    $fp = fopen($destination, 'wb');
+
+    curl_setopt($ch, CURLOPT_FILE, $fp);
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+
+    $result = curl_exec($ch);
+    curl_close($ch);
+    fclose($fp);
+
+    return $result !== false;
+}
+?>
 <!doctype html>
 <html lang="en" data-bs-theme="<?php echo substr($neko_theme, 0, -4) ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Mihomo - Neko</title>
+    <title>Mihomo - NekoBox</title>
     <link rel="icon" href="./assets/img/nekobox.png">
     <link href="./assets/css/bootstrap.min.css" rel="stylesheet">
     <link href="./assets/css/custom.css" rel="stylesheet">
+    <link href="./assets/bootstrap/bootstrap-icons.css" rel="stylesheet">
     <link href="./assets/theme/<?php echo $neko_theme ?>" rel="stylesheet">
-    <script src="./assets/js/feather.min.js"></script>
-    <script src="./assets/js/jquery-2.1.3.min.js"></script>
-    <script src="./assets/js/neko.js"></script>
-    <script src="./assets/bootstrap/popper.min.js"></script>
-    <script src="./assets/bootstrap/bootstrap.min.js"></script>
+    <script type="text/javascript" src="./assets/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="./assets/js/feather.min.js"></script>
+    <script type="text/javascript" src="./assets/bootstrap/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="./assets/js/jquery-2.1.3.min.js"></script>
+    <script type="text/javascript" src="./assets/js/neko.js"></script>
+    <?php include './ping.php'; ?>
 </head>
 <?php if ($updateCompleted): ?>
     <script>
@@ -519,57 +484,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </script>
 <?php endif; ?>
 <body>
-<div class="position-fixed w-100 d-flex justify-content-center" style="top: 20px; z-index: 1050">
-    <div id="updateAlert" class="alert alert-success alert-dismissible fade" role="alert" style="display: none; min-width: 300px; max-width: 600px;">
+<div class="position-fixed w-100 d-flex flex-column align-items-center" style="top: 20px; z-index: 1050;">
+    <div id="updateNotification" class="alert alert-info alert-dismissible fade show shadow-lg" role="alert" style="display: none; min-width: 320px; max-width: 600px; opacity: 0.95;">
         <div class="d-flex align-items-center">
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            <strong>更新完成</strong>
+            <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+            <strong data-translate="update_notification">🔔 更新通知</strong>
         </div>
-        <div id="updateMessages" class="small">
+        
+        <div class="alert alert-info mt-2 p-2 small">
+            <strong data-translate="usage_instruction">⚠️ 使用说明</strong>
+            <ul class="mb-0 pl-3">
+                <li data-translate="max_subscriptions">通用模板（mihomo.yaml）最多支持<strong>6个</strong>订阅链接</li>
+                <li data-translate="no_rename">请勿更改默认文件名称</li>
+                <li data-translate="supports_all_formats">该模板支持所有格式订阅链接，无需额外转换</li>
+            </ul>
         </div>
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">×</span>
-        </button>
+
+        <div id="updateLogContainer" class="small mt-2"></div>
+
+        <button type="button" class="btn-close custom-btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 </div>
+
 <style>
 .alert-success {
-    background-color: #2b3035 !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background-color: #4CAF50 !important; 
+    border: 1px solid rgba(255, 255, 255, 0.3) !important; 
     border-radius: 8px !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important; 
     padding: 16px 20px !important;
     position: relative;
-    color: #fff !important;
-    backdrop-filter: blur(10px);
+    color: #fff !important; 
+    backdrop-filter: blur(8px); 
     margin-top: 15px !important;
 }
 
-.alert .close {
+.alert .close,
+.alert .btn-close {
     position: absolute !important;
-    right: 10px !important;   
-    top: 10px !important;     
-    background-color: #dc3545 !important;
+    right: 10px !important;
+    top: 10px !important;
+    background-color: #dc3545 !important; 
     opacity: 1 !important;
-    width: 20px !important;
-    height: 20px !important;
+    width: 24px !important;
+    height: 24px !important;
     border-radius: 50% !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 14px !important;
+    font-size: 16px !important; 
     color: #fff !important;
-    border: none !important;    
+    border: none !important;
     padding: 0 !important;
     margin: 0 !important;
     transition: all 0.2s ease !important;
-    text-shadow: none !important;
-    line-height: 1 !important;
+    cursor: pointer !important;
 }
 
-.alert .close:hover {
+.alert .close:hover,
+.alert .btn-close:hover {
     background-color: #bd2130 !important;
-    transform: rotate(90deg);
+    transform: rotate(90deg); 
 }
 
 #updateMessages {
@@ -577,11 +552,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     padding-right: 20px;
     font-size: 14px;
     line-height: 1.5;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.9); 
 }
 
 #updateMessages .alert-warning {
-    background-color: rgba(255, 193, 7, 0.1) !important;
+    background-color: rgba(255, 193, 7, 0.1) !important; 
     border-radius: 6px;
     padding: 12px 15px;
     border: 1px solid rgba(255, 193, 7, 0.2);
@@ -597,228 +572,233 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     color: rgba(255, 255, 255, 0.9);
 }
 
-.spinner-border-sm {
-    margin-right: 10px;
-    border-color: #fff;
-    border-right-color: transparent;
+html {
+    font-size: 16px;  
 }
 
-#updateMessages > div:not(.alert-warning) {
-    padding: 8px 0;
-    color: #00ff9d; 
+.container-fluid {
+    max-width: 2400px;
+    width: 100%;
+    margin: 0 auto;
 }
 
-@media (max-width: 767px) {
-    .table th,
+#dropZone i {
+    font-size: 50px;
+    color: #007bff;
+    animation: iconPulse 1.5s infinite; 
+}
+
+.popup {
+    display: none; 
+ }
+
+@keyframes iconPulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2); 
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .table thead {
+        display: none; 
+    }
+
+    .table tbody, 
+    .table tr, 
     .table td {
-        padding: 6px 8px; 
-        font-size: 14px;
+        display: block;
+        width: 100%;
     }
 
-    .table th:nth-child(1), .table td:nth-child(1) {
-        width: 25%; 
-    }
-    .table th:nth-child(2), .table td:nth-child(2) {
-        width: 20%; 
-    }
-    .table th:nth-child(3), .table td:nth-child(3) {
-        width: 25%; 
-    }
-    .table th:nth-child(4), .table td:nth-child(4) {
-        width: 100%; 
+    .table td::before {
+        content: attr(data-label); 
+        font-weight: bold;
+        display: block;
+        text-transform: uppercase;
+        color: #23407E; 
     }
 
-.btn-group, .d-flex {
-    display: flex;
-    flex-wrap: wrap; 
-    justify-content: center;
-    gap: 5px;
+    .table tr {
+        margin-bottom: 10px;
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
 }
 
-.btn-group .btn {
-    flex: 1 1 auto; 
-    font-size: 12px;
-    padding: 6px 8px;
-}
-
-.btn-group .btn:last-child {
-    margin-right: 0;
-  }
-}
-
-@media (max-width: 767px) {
-    .btn-rename {
-    width: 70px !important; 
-    font-size: 0.6rem; 
-    white-space: nowrap; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-    display: inline-block;
-    text-align: center; 
-}
-
-.btn-group {
-    display: flex;
-    gap: 10px; 
-    justify-content: center; 
-}
-
-.btn {
-    margin: 0; 
-}
-
-td {
-    vertical-align: middle;
-}
-
-.action-btn {
-    padding: 6px 12px; 
-    font-size: 0.85rem; 
-    display: inline-block;
-}
-
-.btn-group.d-flex {
-    flex-wrap: wrap;
-}
 </style>
 
 <script>
-function showUpdateAlert() {
-    const alert = $('#updateAlert');
-    const messages = <?php echo json_encode($_SESSION['update_messages'] ?? []); ?>;
+function displayUpdateNotification() {
+    const notification = $('#updateNotification');
+    const updateLogs = <?php echo json_encode($_SESSION['update_logs'] ?? []); ?>;
     
-    if (messages.length > 0) {
-        const messagesHtml = messages.map(msg => `<div>${msg}</div>`).join('');
-        $('#updateMessages').html(messagesHtml);
+    if (updateLogs.length > 0) {
+        const logsHtml = updateLogs.map(log => `<div>${log}</div>`).join('');
+        $('#updateLogContainer').html(logsHtml);
     }
     
-    alert.show().addClass('show');
+    notification.fadeIn().addClass('show');
     
     setTimeout(function() {
-        alert.removeClass('show');
-        setTimeout(function() {
-            alert.hide();
-            $('#updateMessages').html('');
-        }, 150);
-    }, 12000);
+        notification.fadeOut(300, function() {
+            notification.hide();
+            $('#updateLogContainer').html('');
+        });
+    }, 10000);
 }
 
-<?php if (!empty($message)): ?>
+<?php if (!empty($notificationMessage)): ?>
     $(document).ready(function() {
-        showUpdateAlert();
+        displayUpdateNotification();
     });
 <?php endif; ?>
 </script>
 <div class="container-sm container-bg callout border border-3 rounded-4 col-11">
     <div class="row">
-        <a href="./index.php" class="col btn btn-lg">🏠 首页</a>
-        <a href="./mihomo_manager.php" class="col btn btn-lg">📂 Mihomo</a>
-        <a href="./singbox_manager.php" class="col btn btn-lg">🗂️ Sing-box</a>
-        <a href="./box.php" class="col btn btn-lg">💹 订阅转换</a>
-        <a href="./filekit.php" class="col btn btn-lg">📦 文件助手</a>
+        <a href="./index.php" class="col btn btn-lg text-nowrap"><i class="bi bi-house-door"></i> <span data-translate="home">Home</span></a>
+        <a href="./mihomo_manager.php" class="col btn btn-lg text-nowrap"><i class="bi bi-folder"></i> <span data-translate="manager">Manager</span></a>
+        <a href="./singbox.php" class="col btn btn-lg text-nowrap"><i class="bi bi-shop"></i> <span data-translate="template_i">Template I</span></a>
+        <a href="./subscription.php" class="col btn btn-lg text-nowrap"><i class="bi bi-bank"></i> <span data-translate="template_ii">Template II</span></a>
+        <a href="./mihomo.php" class="col btn btn-lg text-nowrap"><i class="bi bi-building"></i> <span data-translate="template_iii">Template III</span></a>
     </div>
     <div class="text-center">
-        <h1 style="margin-top: 40px; margin-bottom: 20px;">Mihomo 文件管理</h1>
-       <div class="card mb-4">
-    <div class="card-body">
-    <div class="container">
-    <h5>代理文件管理</h5>
+        <h2 style="margin-top: 40px; margin-bottom: 20px;" data-translate="fileManagement"></h2>
+<div class="container-fluid">
     <div class="table-responsive">
         <table class="table table-striped table-bordered text-center">
             <thead class="thead-dark">
                 <tr>
-                    <th style="width: 30%;">文件名</th>
-                    <th style="width: 10%;">大小</th>
-                    <th style="width: 20%;">修改时间</th>
-                    <th style="width: 40%;">执行操作</th>
+                    <th style="width: 20%;" data-translate="fileName"></th>
+                    <th style="width: 10%;" data-translate="fileSize"></th>
+                    <th style="width: 20%;" data-translate="lastModified"></th>
+                    <th style="width: 10%;" data-translate="fileType"></th>
+                    <th style="width: 30%;" data-translate="actions"></th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($proxyFiles as $file): ?>
-                    <?php $filePath = $uploadDir. $file; ?>
+                <?php
+                $allFiles = array_merge($proxyFiles, $configFiles);
+                $allFilePaths = array_merge(array_map(function($file) use ($uploadDir) {
+                    return $uploadDir . $file;
+                }, $proxyFiles), array_map(function($file) use ($configDir) {
+                    return $configDir . $file;
+                }, $configFiles));
+                $fileTypes = array_merge(array_fill(0, count($proxyFiles), 'Proxy File'), array_fill(0, count($configFiles), 'Config File'));
+
+                foreach ($allFiles as $index => $file) {
+                    $filePath = $allFilePaths[$index];
+                    $fileType = $fileTypes[$index];
+                ?>
                     <tr>
-                        <td class="align-middle"><a href="download.php?file=<?php echo urlencode($file); ?>"><?php echo htmlspecialchars($file); ?></a></td>
-                        <td class="align-middle"><?php echo file_exists($filePath) ? formatSize(filesize($filePath)) : '文件不存在'; ?></td>
-                        <td class="align-middle"><?php echo htmlspecialchars(date('Y-m-d H:i:s', filemtime($filePath) + 8 * 60 * 60)); ?></td>
-                        <td>
-                            <div class="d-flex justify-content-center">
-                                <form action="" method="post" class="d-inline">
-                                    <input type="hidden" name="deleteFile" value="<?php echo htmlspecialchars($file); ?>">
-                                    <button type="submit" class="btn btn-danger btn-sm mx-1" onclick="return confirm('确定要删除这个文件吗？');"><i>🗑️</i> 删除</button>
-                                </form>
-                                <form action="" method="post" class="d-inline">
-                                    <input type="hidden" name="oldFileName" value="<?php echo htmlspecialchars($file); ?>">
-                                    <input type="hidden" name="fileType" value="proxy">
-                                    <button type="button" class="btn btn-success btn-sm mx-1 btn-rename" data-toggle="modal" data-target="#renameModal" data-filename="<?php echo htmlspecialchars($file); ?>" data-filetype="proxy"><i>✏️</i> 重命名</button>
-                                </form>
-                                 <form action="" method="post" class="d-inline">
-                                    <button type="button" class="btn btn-warning btn-sm mx-1" onclick="openEditModal('<?php echo htmlspecialchars($file); ?>', 'proxy')"><i>📝</i> 编辑</button>
-                                </form>
-                                <form action="" method="post" enctype="multipart/form-data" class="d-inline upload-btn">
-                                    <input type="file" name="fileInput" class="form-control-file" required id="fileInput-<?php echo htmlspecialchars($file); ?>" style="display: none;" onchange="this.form.submit()">
-                                    <button type="button" class="btn btn-info btn-sm mx-1" onclick="document.getElementById('fileInput-<?php echo htmlspecialchars($file); ?>').click();"><i>📤</i> 上传</button>
-                                </form>
+                        <td class="align-middle" data-label="文件名">
+                            <?php echo htmlspecialchars($file); ?>
+                        </td>
+                        <td class="align-middle" data-label="大小">
+                            <?php echo file_exists($filePath) ? formatSize(filesize($filePath)) : '文件不存在'; ?>
+                        </td>
+                        <td class="align-middle" data-label="最后修改时间">
+                            <?php echo htmlspecialchars(date('Y-m-d H:i:s', filemtime($filePath))); ?>
+                        </td>
+                        <td class="align-middle" data-label="文件类型">
+                            <?php echo htmlspecialchars($fileType); ?>
+                        </td>
+                        <td class="align-middle">
+                            <div class="action-buttons">
+                              <?php if ($fileType == 'Proxy File'): ?>
+                                    <form action="" method="post" class="d-inline mb-1">
+                                        <input type="hidden" name="deleteFile" value="<?php echo htmlspecialchars($file); ?>">
+                                        <button type="submit" class="btn btn-danger btn-sm" title="🗑️ 删除"  onclick="return confirm('确定要删除这个文件吗？');" data-translate-title="delete"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                    <form action="" method="post" class="d-inline mb-1">
+                                        <input type="hidden" name="oldFileName" value="<?php echo htmlspecialchars($file); ?>">
+                                        <input type="hidden" name="fileType" value="proxy">
+                                        <button type="button" class="btn btn-success btn-sm btn-rename" title="✏️ 重命名" data-toggle="modal" data-target="#renameModal" data-filename="<?php echo htmlspecialchars($file); ?>" data-filetype="proxy" data-translate-title="rename"><i class="bi bi-pencil"></i></button>
+                                    </form>
+                                    <form action="" method="post" class="d-inline mb-1">
+                                        <button type="button" class="btn btn-warning btn-sm" title="📝 编辑" onclick="openEditModal('<?php echo htmlspecialchars($file); ?>', 'proxy')" data-translate-title="edit"><i class="bi bi-pen"></i></button>
+                                    </form>
+                                    <form action="" method="post" enctype="multipart/form-data" class="d-inline upload-btn mb-1">
+                                        <input type="file" name="fileInput" class="form-control-file" required id="fileInput-<?php echo htmlspecialchars($file); ?>" style="display: none;" onchange="this.form.submit()">
+                                        <button type="button" class="btn btn-info btn-sm" title="📤 上传" onclick="openUploadModal('proxy')" data-translate-title="upload"><i class="bi bi-upload"></i></button>
+                                    </form>
+                                    <form action="" method="get" class="d-inline mb-1">
+                                        <input type="hidden" name="downloadFile" value="<?php echo htmlspecialchars($file); ?>">
+                                        <input type="hidden" name="fileType" value="proxy">
+                                        <button type="submit" class="btn btn-primary btn-sm" title="📥 下载" data-translate-title="download"><i class="bi bi-download"></i></button>
+                                    </form>
+                                <?php else: ?>
+                                    <form action="" method="post" class="d-inline mb-1">
+                                        <input type="hidden" name="deleteConfigFile" value="<?php echo htmlspecialchars($file); ?>">
+                                        <button type="submit" class="btn btn-danger btn-sm" title="🗑️ 删除" onclick="return confirm('确定要删除这个文件吗？');" data-translate-title="delete"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                    <form action="" method="post" class="d-inline mb-1">
+                                        <input type="hidden" name="oldFileName" value="<?php echo htmlspecialchars($file); ?>">
+                                        <input type="hidden" name="fileType" value="config">
+                                        <button type="button" class="btn btn-success btn-sm btn-rename" title="✏️ 重命名" data-toggle="modal" data-target="#renameModal" data-filename="<?php echo htmlspecialchars($file); ?>" data-filetype="config" data-translate-title="rename"><i class="bi bi-pencil"></i></button>
+                                    </form>
+                                    <form action="" method="post" class="d-inline mb-1">
+                                        <button type="button" class="btn btn-warning btn-sm" title="📝 编辑" onclick="openEditModal('<?php echo htmlspecialchars($file); ?>', 'config')" data-translate-title="edit"><i class="bi bi-pen"></i></button>
+                                    </form>
+                                    <form action="" method="post" enctype="multipart/form-data" class="d-inline upload-btn mb-1">
+                                        <input type="file" name="configFileInput" class="form-control-file" required id="fileInput-<?php echo htmlspecialchars($file); ?>" style="display: none;" onchange="this.form.submit()">
+                                        <button type="button" class="btn btn-info btn-sm" title="📤 上传" onclick="openUploadModal('config')" data-translate-title="upload"><i class="bi bi-upload"></i></button>
+                                    </form>
+                                    <form action="" method="get" class="d-inline mb-1">
+                                        <input type="hidden" name="downloadFile" value="<?php echo htmlspecialchars($file); ?>">
+                                        <input type="hidden" name="fileType" value="config">
+                                        <button type="submit" class="btn btn-primary btn-sm"  title="📥 下载" data-translate-title="download"><i class="bi bi-download"></i></button>
+                                    </form>
+                                 <?php endif; ?>
                             </div>
                         </td>
                     </tr>
-                <?php endforeach; ?>
+                <?php } ?>
             </tbody>
         </table>
     </div>
 </div>
 
-<div class="container">
-    <h5 class="text-center">配置文件管理</h5>
-    <div class="table-responsive">
-        <table class="table table-striped table-bordered text-center">
-            <thead class="thead-dark">
-                <tr>
-                    <th style="width: 30%;">文件名</th>
-                    <th style="width: 10%;">大小</th>
-                    <th style="width: 20%;">修改时间</th>
-                    <th style="width: 40%;">执行操作</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($configFiles as $file): ?>
-                    <?php $filePath = $configDir . $file; ?>
-                    <tr>
-                        <td class="align-middle"><a href="download.php?file=<?php echo urlencode($file); ?>"><?php echo htmlspecialchars($file); ?></a></td>
-                        <td class="align-middle"><?php echo file_exists($filePath) ? formatSize(filesize($filePath)) : '文件不存在'; ?></td>
-                        <td class="align-middle"><?php echo htmlspecialchars(date('Y-m-d H:i:s', filemtime($filePath) + 8 * 60 * 60)); ?></td>
-                        <td>
-                            <div class="d-flex justify-content-center">
-                                <form action="" method="post" class="d-inline">
-                                    <input type="hidden" name="deleteConfigFile" value="<?php echo htmlspecialchars($file); ?>">
-                                    <button type="submit" class="btn btn-danger btn-sm mx-1" onclick="return confirm('确定要删除这个文件吗？');"><i>🗑️</i> 删除</button>
-                                </form>
-                                <form action="" method="post" class="d-inline">
-                                    <input type="hidden" name="oldFileName" value="<?php echo htmlspecialchars($file); ?>">
-                                    <input type="hidden" name="fileType" value="config">
-                                    <button type="button" class="btn btn-success btn-sm mx-1 btn-rename" data-toggle="modal" data-target="#renameModal" data-filename="<?php echo htmlspecialchars($file); ?>" data-filetype="config"><i>✏️</i> 重命名</button>
-                                </form>
-                                <form action="" method="post" class="d-inline">
-                                   <button type="button" class="btn btn-warning btn-sm mx-1" onclick="openEditModal('<?php echo htmlspecialchars($file); ?>', 'config')"><i>📝</i> 编辑</button>
-                                   </form>
-                                <form action="" method="post" enctype="multipart/form-data" class="d-inline upload-btn">
-                                    <input type="file" name="configFileInput" class="form-control-file" required id="fileInput-<?php echo htmlspecialchars($file); ?>" style="display: none;" onchange="this.form.submit()">
-                                    <button type="button" class="btn btn-info btn-sm mx-1" onclick="document.getElementById('fileInput-<?php echo htmlspecialchars($file); ?>').click();"><i>📤</i> 上传</button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadModalLabel" data-translate="uploadFile"></h5> 
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="close"> 
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="dropZone" class="border border-primary rounded text-center py-4 position-relative">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p class="mb-0 mt-3" data-translate="dragOrClickToUpload"></p> 
+                </div>
+                <input type="file" id="fileInputModal" class="form-control mt-3" hidden>
+                <button id="selectFileBtn" class="btn btn-primary btn-block mt-3 w-100" data-translate="selectFile"></button> 
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="close"></button> 
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="modal fade" id="renameModal" tabindex="-1" role="dialog" aria-labelledby="renameModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+<div class="modal fade" id="renameModal" tabindex="-1" aria-labelledby="renameModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="renameModalLabel">重命名文件</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -826,12 +806,14 @@ function showUpdateAlert() {
                 <form id="renameForm" action="" method="post">
                     <input type="hidden" name="oldFileName" id="oldFileName">
                     <input type="hidden" name="fileType" id="fileType">
-                    <div class="form-group">
-                        <label for="newFileName">新文件名</label>
+
+                    <div class="mb-3">
+                        <label for="newFileName" class="form-label">新文件名</label>
                         <input type="text" class="form-control" id="newFileName" name="newFileName" required>
                     </div>
-                    <div class="form-group text-right">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                         <button type="submit" class="btn btn-primary">确定</button>
                     </div>
                 </form>
@@ -844,12 +826,13 @@ function showUpdateAlert() {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.0/beautify.min.js"></script> 
 <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
 
-<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editModalLabel">编辑文件: <span id="editingFileName"></span></h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <h5 class="modal-title" id="editModalLabel"><?php echo $langData[$currentLang]['editFile']; ?>: <span id="editingFileName"></span></h5>
+
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -858,9 +841,9 @@ function showUpdateAlert() {
                     <textarea name="saveContent" id="fileContent" class="form-control" style="height: 500px;"></textarea>
                     <input type="hidden" name="fileName" id="hiddenFileName">
                     <input type="hidden" name="fileType" id="hiddenFileType">
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-primary">保存</button>
-                        <button type="button" class="btn btn-pink" onclick="openFullScreenEditor()">高级编辑</button>
+                    <div class="mt-3 d-flex justify-content-start gap-2">
+                        <button type="submit" class="btn btn-primary" data-translate="save">保存</button>
+                        <button type="button" class="btn btn-pink" onclick="openFullScreenEditor()" data-translate="advancedEdit">高级编辑</button>
                     </div>
                 </form>
             </div>
@@ -873,7 +856,7 @@ function showUpdateAlert() {
         <div class="modal-content" style="border: none;">
             <div class="modal-header d-flex justify-content-between align-items-center" style="border-bottom: none;">
                 <div class="d-flex align-items-center">
-                    <h5 class="modal-title mr-3">高级编辑 - 全屏模式</h5>
+                    <h5 class="modal-title mr-3" data-translate="advancedEditorTitle"></h5>
                     <select id="fontSize" onchange="changeFontSize()" class="form-select mx-1" style="width: auto; font-size: 0.8rem;">
                         <option value="18px">18px</option>
                         <option value="20px" selected>20px</option>
@@ -891,6 +874,7 @@ function showUpdateAlert() {
 
                     <select id="editorTheme" onchange="changeEditorTheme()" class="form-select mx-1" style="width: auto; font-size: 0.9rem;">
                         <option value="ace/theme/vibrant_ink">Vibrant Ink</option>
+                        <option value="ace/theme/gob">Gob</option>
                         <option value="ace/theme/monokai">Monokai</option>
                         <option value="ace/theme/github">GitHub</option>
                         <option value="ace/theme/tomorrow">Tomorrow</option>
@@ -904,6 +888,7 @@ function showUpdateAlert() {
                         <option value="ace/theme/dreamweaver">Dreamweaver</option>
                         <option value="ace/theme/xcode">Xcode</option>
                         <option value="ace/theme/kuroir">Kuroir</option>
+                        <option value="ace/theme/iplastic">Iplastic</option>
                         <option value="ace/theme/katzenmilch">KatzenMilch</option>
                         <option value="ace/theme/sqlserver">SQL Server</option>
                         <option value="ace/theme/ambiance">Ambiance</option>
@@ -918,14 +903,14 @@ function showUpdateAlert() {
                         <option value="ace/theme/pastel_on_dark">Pastel on Dark</option>
                     </select>
 
-                    <button type="button" class="btn btn-success btn-sm mx-1" onclick="formatContent()">格式化缩进</button>
-                    <button type="button" class="btn btn-success btn-sm mx-1" id="yamlFormatBtn" onclick="formatYamlContent()" style="display: none;">格式化 YAML</button>
-                    <button type="button" class="btn btn-info btn-sm mx-1" id="jsonValidationBtn" onclick="validateJsonSyntax()">验证 JSON 语法</button>
-                    <button type="button" class="btn btn-info btn-sm mx-1" id="yamlValidationBtn" onclick="validateYamlSyntax()" style="display: none;">验证 YAML 语法</button>
-                    <button type="button" class="btn btn-primary btn-sm mx-1" onclick="saveFullScreenContent()">保存并关闭</button>
-                    <button type="button" class="btn btn-primary btn-sm mx-1" onclick="openSearch()">搜索</button>
-                    <button type="button" class="btn btn-primary btn-sm mx-1" onclick="closeFullScreenEditor()">取消</button>
-                    <button type="button" class="btn btn-warning btn-sm mx-1" id="toggleFullscreenBtn" onclick="toggleFullscreen()">全屏</button>
+                    <button type="button" class="btn btn-success btn-sm mx-1" onclick="formatContent()" data-translate="formatIndentation">格式化缩进</button>
+                    <button type="button" class="btn btn-success btn-sm mx-1" id="yamlFormatBtn" onclick="formatYamlContent()" style="display: none;" data-translate="formatYaml">格式化 YAML</button>
+                    <button type="button" class="btn btn-info btn-sm mx-1" id="jsonValidationBtn" onclick="validateJsonSyntax()" data-translate="validateJson">验证 JSON 语法</button>
+                    <button type="button" class="btn btn-info btn-sm mx-1" id="yamlValidationBtn" onclick="validateYamlSyntax()" style="display: none;" data-translate="validateYaml">验证 YAML 语法</button>
+                    <button type="button" class="btn btn-primary btn-sm mx-1" onclick="saveFullScreenContent()" data-translate="saveAndClose">保存并关闭</button>
+                    <button type="button" class="btn btn-primary btn-sm mx-1" onclick="openSearch()" data-translate="search">搜索</button>
+                    <button type="button" class="btn btn-primary btn-sm mx-1" onclick="closeFullScreenEditor()" data-translate="cancel">取消</button>
+                    <button type="button" class="btn btn-warning btn-sm mx-1" id="toggleFullscreenBtn" onclick="toggleFullscreen()" data-translate="toggleFullscreen">全屏</button>
                 </div>
 
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeFullScreenEditor()">
@@ -934,7 +919,7 @@ function showUpdateAlert() {
             </div>
 
             <div class="d-flex justify-content-center align-items-center my-1" id="editorStatus" style="font-weight: bold; font-size: 0.9rem;">
-                    <span id="lineColumnDisplay" style="color: blue; font-size: 1.1rem;">行: 1, 列: 1</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="charCountDisplay" style="color: blue; font-size: 1.1rem;">字符数: 0</span>
+                    <span id="lineColumnDisplay" style="color: blue; font-size: 1.1rem;" data-translate="lineColumnDisplay">行: 1, 列: 1</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="charCountDisplay" style="color: blue; font-size: 1.1rem;" data-translate="charCountDisplay">字符数: 0</span>
                 </div>
                     <div class="modal-body" style="padding: 0; height: 100%;">
                 <div id="aceEditorContainer" style="height: 100%; width: 100%;"></div>
@@ -1009,7 +994,7 @@ function initializeAceEditor() {
             let annotations = [];
         try {
             JSON.parse(content);
-            alert("JSON 语法正确");
+            alert(langData[currentLang]['validateJson'] + " " + langData[currentLang]['jsonSyntaxCorrect']); 
         } catch (e) {
             const line = e.lineNumber ? e.lineNumber - 1 : 0;
             annotations.push({
@@ -1019,7 +1004,7 @@ function initializeAceEditor() {
             type: "error"
         });
         aceEditorInstance.session.setAnnotations(annotations);
-        alert("JSON 语法错误: " + e.message);
+        alert(langData[currentLang]['validateJson'] + " " + langData[currentLang]['jsonSyntaxError'] + ": " + e.message); 
         }
     }
 
@@ -1028,7 +1013,7 @@ function initializeAceEditor() {
             let annotations = [];
         try {
             jsyaml.load(content); 
-            alert("YAML 语法正确");
+            alert(langData[currentLang]['validateYaml'] + " " + langData[currentLang]['yamlSyntaxCorrect']);
         } catch (e) {
             const line = e.mark ? e.mark.line : 0;
             annotations.push({
@@ -1038,7 +1023,7 @@ function initializeAceEditor() {
             type: "error"
         });
         aceEditorInstance.session.setAnnotations(annotations);
-        alert("YAML 语法错误: " + e.message);
+        alert(langData[currentLang]['validateYaml'] + " " + langData[currentLang]['yamlSyntaxError'] + ": " + e.message); 
         }
     }
 
@@ -1051,16 +1036,16 @@ function initializeAceEditor() {
             if (mode === "ace/mode/json") {
                 formattedContent = JSON.stringify(JSON.parse(content), null, 4);
                 aceEditorInstance.setValue(formattedContent, -1);
-                alert("JSON 格式化成功");
+                alert(langData[currentLang]['formatIndentation'] + " " + langData[currentLang]['jsonFormatSuccess']);
             } else if (mode === "ace/mode/javascript") {
                 formattedContent = js_beautify(content, { indent_size: 4 });
                 aceEditorInstance.setValue(formattedContent, -1);
-                alert("JavaScript 格式化成功");
+                alert(langData[currentLang]['formatIndentation'] + " " + langData[currentLang]['jsFormatSuccess']); 
             } else {
-                alert("当前模式不支持格式化缩进");
+                alert(langData[currentLang]['formatIndentation'] + " " + langData[currentLang]['unsupportedMode']);
             }
         } catch (e) {
-            alert("格式化错误: " + e.message);
+            alert(langData[currentLang]['formatIndentation'] + " " + langData[currentLang]['formatError'] + ": " + e.message); 
         }
     }
 
@@ -1072,9 +1057,9 @@ function initializeAceEditor() {
             const yamlObject = jsyaml.load(content); 
             const formattedYaml = jsyaml.dump(yamlObject, { indent: 4 }); 
             aceEditorInstance.setValue(formattedYaml, -1);
-            alert("YAML 格式化成功");
+            alert(langData[currentLang]['yamlFormatSuccess']);
         } catch (e) {
-            alert("YAML 格式化错误: " + e.message);
+            alert(langData[currentLang]['yamlSyntaxError'] + ": " + e.message);
         }
     }
 
@@ -1131,8 +1116,11 @@ function initializeAceEditor() {
         const column = cursor.column + 1;
         const charCount = aceEditorInstance.getValue().length;
 
-        document.getElementById('lineColumnDisplay').textContent = `行: ${line}, 列: ${column}`;
-        document.getElementById('charCountDisplay').textContent = `字符数: ${charCount}`;
+        const lineColumnText = langData[currentLang]['lineColumnDisplay'].replace("{line}", line).replace("{column}", column);
+        const charCountText = langData[currentLang]['charCountDisplay'].replace("{charCount}", charCount);
+
+        document.getElementById('lineColumnDisplay').textContent = lineColumnText;
+        document.getElementById('charCountDisplay').textContent = charCountText;
     }
 
     $(document).ready(function() {
@@ -1170,9 +1158,64 @@ function initializeAceEditor() {
                 .catch((err) => console.error(`Error attempting to exit full-screen mode: ${err.message}`));
             }
        }
-</script>
 
-<h2 class="text-success text-center mt-4 mb-4">订阅管理</h2>
+    let fileType = ''; 
+    function openUploadModal(type) {
+        fileType = type;
+        const modal = new bootstrap.Modal(document.getElementById('uploadModal'));
+        modal.show();
+    }
+
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropZone.classList.add('bg-light');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('bg-light');
+    });
+
+    dropZone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('bg-light');
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
+
+    document.getElementById('selectFileBtn').addEventListener('click', () => {
+        document.getElementById('fileInputModal').click();
+    });
+
+    document.getElementById('fileInputModal').addEventListener('change', (event) => {
+        const files = event.target.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
+
+    function handleFileUpload(file) {
+        const formData = new FormData();
+        formData.append(fileType === 'proxy' ? 'fileInput' : 'configFileInput', file);
+
+        fetch('', {
+            method: 'POST',
+            body: formData,
+        })
+            .then((response) => response.text())
+            .then((result) => {
+                alert(result);
+                location.reload(); 
+        })
+            .catch((error) => {
+                alert('上传失败：' + error.message);
+        });
+    }
+
+</script>
+<h2 class="text-center mt-4 mb-4" data-translate="subscriptionManagement"></h2>
 
 <?php if (isset($message) && $message): ?>
     <div class="alert alert-info">
@@ -1181,65 +1224,133 @@ function initializeAceEditor() {
 <?php endif; ?>
 
 <?php if (isset($subscriptions) && is_array($subscriptions)): ?>
-    <div class="row">
-        <?php for ($i = 0; $i < 6; $i++): ?>
-            <div class="col-md-4 mb-3">
-                <form method="post" class="card">
-                    <div class="card-body">
-                        <div class="form-group">
-                            <h5 for="subscription_url_<?php echo $i; ?>" class="mb-2">订阅链接 <?php echo ($i + 1); ?></h5>
-                            <input type="text" name="subscription_url" id="subscription_url_<?php echo $i; ?>" value="<?php echo htmlspecialchars($subscriptions[$i]['url'] ?? ''); ?>" required class="form-control">
+    <div class="container-fluid">
+        <div class="row">
+            <?php 
+            $maxSubscriptions = 6; 
+            for ($i = 0; $i < $maxSubscriptions; $i++): 
+                $displayIndex = $i + 1; 
+                $url = $subscriptions[$i]['url'] ?? '';
+                $fileName = $subscriptions[$i]['file_name'] ?? "subscription_" . ($displayIndex) . ".yaml"; 
+            ?>
+                <div class="col-md-4 mb-3">
+                    <form method="post" class="card shadow-sm">
+                        <div class="card-body">
+                            <div class="form-group">
+                                <h5 for="subscription_url_<?php echo $displayIndex; ?>" class="mb-2" data-translate="subscriptionLink"><?php echo $displayIndex; ?></h5>
+                                <input type="text" name="subscription_url" id="subscription_url_<?php echo $displayIndex; ?>" value="<?php echo htmlspecialchars($url); ?>" class="form-control" data-translate-placeholder="enterSubscriptionUrl">
+                            </div>
+                            <div class="form-group">
+                                <label for="custom_file_name_<?php echo $displayIndex; ?>"data-translate="customFileName"></label>
+                                <input type="text" name="custom_file_name" id="custom_file_name_<?php echo $displayIndex; ?>" value="<?php echo htmlspecialchars($fileName); ?>" class="form-control">
+                            </div>
+                            <input type="hidden" name="index" value="<?php echo $i; ?>">
+                            <div class="text-center mt-3"> 
+                                <button type="submit" name="update" class="btn btn-info btn-block"><i class="bi bi-arrow-repeat"></i> <span data-translate="updateSubscription">Settings</span> <?php echo $displayIndex; ?></button>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="custom_file_name_<?php echo $i; ?>">自定义文件名</label>
-                            <input type="text" name="custom_file_name" id="custom_file_name_<?php echo $i; ?>" value="subscription_<?php echo ($i + 1); ?>.yaml" class="form-control">
-                        </div>
-                        <input type="hidden" name="index" value="<?php echo $i; ?>">
-                        <div class="text-center mt-3"> 
-                            <button type="submit" name="update" class="btn btn-info">🔄 更新订阅 <?php echo ($i + 1); ?></button>
-                        </div>
-                    </div>
-                </form>
-            </div>
+                    </form>
+                </div>
 
-            <?php if (($i + 1) % 3 == 0 && $i < 5): ?>
-                </div><div class="row">
-            <?php endif; ?>
-            
-        <?php endfor; ?>
+                <?php if (($displayIndex) % 3 == 0 && $displayIndex < $maxSubscriptions): ?>
+                    </div><div class="row">
+                <?php endif; ?>
+
+            <?php endfor; ?>
+        </div>
     </div>
 <?php else: ?>
     <p>未找到订阅信息。</p>
 <?php endif; ?>
-    </div>
-</section>
-<div class="container text-center">
-<section id="subscription-management" class="section-gap">
-    <div class="btn-group mt-2 mb-4">
-        <button id="pasteButton" class="btn btn-primary">生成订阅链接网站</button>
-        <button id="base64Button" class="btn btn-primary">Base64 在线编码解码</button>
-    </div>
-
-<section id="base64-conversion" class="section-gap">
-    <h2 class="text-success">Base64 节点信息转换</h2>
-    <form method="post">
-        <div class="form-group">
-            <textarea name="base64_content" id="base64_content" rows="4" class="form-control" placeholder="粘贴 Base64 内容..." required></textarea>
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <div class="container">
+        <h2 class="mt-4 mb-4 text-center" data-translate="auto_update_title"></h2>
+        <form method="post" class="text-center">
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#cronModal">
+                <i class="bi bi-clock"></i> <span data-translate="set_cron_job"></span>
+            </button>
+            <button type="submit" name="createShellScript" value="true" class="btn btn-success">
+                <i class="bi bi-terminal"></i> <span data-translate="generate_update_script"></span>
+            </button>
+            <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#downloadModal">
+                <i class="bi bi-download"></i> <span data-translate="update_database"></span>
+            </button>
+            <a class="btn btn-pink btn-sm text-white" target="_blank" href="./filekit.php" style="font-size: 14px; font-weight: bold;">
+                <i class="bi bi-file-earmark-text"></i> <span data-translate="open_file_helper"></span>
+            </a>
         </div>
-        <button type="submit" name="convert_base64" class="btn btn-primary btn-custom mt-3"><i>🔄</i> 生成节点信息</button> 
-    </form>
-</section>
+        </form>
+    </div>
 
-<section id="node-conversion" class="section-gap">
-    <h1 class="text-success">节点转换工具</h1>
-    <form method="post">
-        <div class="form-group">
-            <textarea name="input" rows="10" class="form-control" placeholder="粘贴 ss//vless//vmess//trojan//hysteria2 节点信息..." required></textarea>
+    <div class="modal fade" id="downloadModal" tabindex="-1" aria-labelledby="downloadModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="downloadModalLabel" data-translate="select_database_download"></h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>
+                <div class="modal-body">
+                    <form method="GET" action="">
+                        <div class="mb-3">
+                            <label for="fileSelect" class="form-label" data-translate="select_file"></label>
+                            <select class="form-select" id="fileSelect" name="file">
+                                <option value="geoip">geoip.metadb</option>
+                                <option value="geosite">geosite.dat</option>
+                                <option value="cache">cache.db</option>
+                            </select>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary me-2" data-translate="download_button"></button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel_button"></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-        <button type="submit" name="convert" class="btn btn-primary mt-3"><i>🔄</i> 转换</button> 
-    </form>
-</section>
+    </div>
+</div>
 
+<form method="POST">
+    <div class="modal fade" id="cronModal" tabindex="-1" aria-labelledby="cronModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cronModalLabel" data-translate="cron_task_title">设置 Cron 计划任务</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="cronExpression" class="form-label" data-translate="cron_expression_label">Cron 表达式</label>
+                        <input type="text" class="form-control" id="cronExpression" name="cronExpression" value="0 2 * * *" required>
+                    </div>
+                    <div class="alert alert-info">
+                        <strong data-translate="cron_hint">提示:</strong> <span data-translate="cron_expression_format">Cron 表达式格式：</span>
+                        <ul>
+                            <li><code>分钟 小时 日 月 星期</code></li>
+                            <li><span data-translate="cron_example">示例: 每天凌晨 2 点: </span><code>0 2 * * *</code></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-end gap-3">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel_button">取消</button>
+                    <button type="submit" name="createCronJob" class="btn btn-primary" data-translate="save_button">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+    </div>
 <script>
     document.getElementById('pasteButton').onclick = function() {
         window.open('https://paste.gg', '_blank');
@@ -1266,4 +1377,18 @@ function initializeAceEditor() {
     .table-dark th, .table-dark td {
         background-color: #5a32a3; 
     }
+
+    #cronModal .alert {
+        text-align: left; 
+    }
+
+    #cronModal code {
+        white-space: pre-wrap; 
+    }
+
 </style>
+
+</div>
+      <footer class="text-center">
+    <p><?php echo $footer ?></p>
+</footer>

@@ -19,6 +19,11 @@ opkg remove luci-app-easytier
 #安装后openwrt管理界面里不显示easytier 请注销登录或关闭窗口重新打开  
 ```
 
+```bash
+#如果是新版openwrt使用的是apk包管理器 出现无法安装apk的可以尝试使用忽略证书验证
+apk add --allow-untrusted /tmp/tmp/luci-app-easytier.apk
+```
+
 此luci-app-easytier不包含二进制程序，需要自行在openwrt管理界面里的easytier插件界面里上传二进制程序
 
 ### 编译方法
@@ -29,7 +34,8 @@ tar -xJf /opt/sdk.tar.xz -C /opt
 
 cd /opt/openwrt-sdk*/package
 #克隆luci-app-easytier到sdk的package目录里
-git clone https://github.com/EasyTier/luci-app-easytier.git
+git clone https://github.com/EasyTier/luci-app-easytier.git /opt/luci-app-easytier
+cp -R /opt/luci-app-easytier/luci-app-easytier .
 
 cd /opt/openwrt-sdk*
 #升级脚本创建模板
@@ -43,4 +49,18 @@ make package/luci-app-easytier/compile V=s -j1
 cd /opt/openwrt-sdk*/bin/packages/aarch64_generic/base
 #移动到/opt目录里
 mv *.ipk /opt/luci-app-easytier_all.ipk
+```
+
+> 如果在 状态-系统日志里 出现下图日志内容可以使用以下命令解决
+
+```
+Fri Feb  7 11:13:30 2025 daemon.err uhttpd[3381]: luci.util.pcdata() has been replaced by luci.xml.pcdata() - Please update your code.
+Fri Feb  7 11:13:30 2025 daemon.err uhttpd[3381]: luci.util.pcdata() has been replaced by luci.xml.pcdata() - Please update your code.
+Fri Feb  7 11:13:30 2025 daemon.err uhttpd[3381]: luci.util.pcdata() has been replaced by luci.xml.pcdata() - Please update your code.
+Fri Feb  7 11:13:30 2025 daemon.err uhttpd[3381]: luci.util.pcdata() has been replaced by luci.xml.pcdata() - Please update your code.
+Fri Feb  7 11:13:30 2025 daemon.err uhttpd[3381]: luci.util.pcdata() has been replaced by luci.xml.pcdata() - Please update your code.
+```
+
+```
+sed -i 's/util/xml/g' /usr/lib/lua/luci/model/cbi/easytier.lua
 ```

@@ -7,6 +7,9 @@ local appname = "passwall"
 local fs = api.fs
 local split = api.split
 
+local local_version = api.get_app_version("singbox")
+local version_ge_1_11_0 = api.compare_versions(local_version:match("[^v]+"), ">=", "1.11.0")
+
 local new_port
 
 local function get_new_port()
@@ -20,9 +23,11 @@ end
 
 function gen_outbound(flag, node, tag, proxy_table)
 	local result = nil
-	if node and node ~= "nil" then
+	if node then
 		local node_id = node[".name"]
-		local node_remarks = node.remarks
+		if tag == nil then
+			tag = node_id
+		end
 
 		local proxy_tag = nil
 		if proxy_table ~= nil and type(proxy_table) == "table" then
@@ -30,15 +35,11 @@ function gen_outbound(flag, node, tag, proxy_table)
 		end
 
 		if node.type ~= "sing-box" then
-			local config_tag = tag
-			if config_tag == nil then
-				config_tag = node_id
-			end
 			local relay_port = node.port
 			new_port = get_new_port()
-			local config_file = string.format("%s_%s_%s.json", flag, config_tag, new_port)
-			if config_tag and node_id and config_tag ~= node_id then
-				config_file = string.format("%s_%s_%s_%s.json", flag, config_tag, node_id, new_port)
+			local config_file = string.format("%s_%s_%s.json", flag, tag, new_port)
+			if tag and node_id and tag ~= node_id then
+				config_file = string.format("%s_%s_%s_%s.json", flag, tag, node_id, new_port)
 			end
 			sys.call(string.format('/usr/share/%s/app.sh run_socks "%s"> /dev/null',
 				appname,
@@ -48,7 +49,7 @@ function gen_outbound(flag, node, tag, proxy_table)
 					"127.0.0.1", --bind
 					new_port, --socks port
 					config_file, --config file
-					(proxy_tag and proxy_tag ~= "nil" and relay_port) and tostring(relay_port) or "" --relay port
+					(proxy_tag and relay_port) and tostring(relay_port) or "" --relay port
 					)
 				)
 			)
@@ -58,13 +59,9 @@ function gen_outbound(flag, node, tag, proxy_table)
 				port = new_port
 			}
 		else
-			if proxy_tag and proxy_tag ~= "nil" then
+			if proxy_tag then
 				node.detour = proxy_tag
 			end
-		end
-
-		if tag == nil then
-			tag = node_id .. "_" .. node_remarks
 		end
 
 		result = {
@@ -685,7 +682,7 @@ function gen_config_server(node)
 		}
 	}
 
-	if node.outbound_node and node.outbound_node ~= "nil" then
+	if node.outbound_node then
 		local outbound = nil
 		if node.outbound_node == "_iface" and node.outbound_node_iface then
 			outbound = {
@@ -694,7 +691,7 @@ function gen_config_server(node)
 				bind_interface = node.outbound_node_iface,
 				routing_mark = 255,
 			}
-			sys.call("mkdir -p /tmp/etc/passwall/iface && touch /tmp/etc/passwall/iface/" .. node.outbound_node_iface)
+			sys.call(string.format("mkdir -p %s && touch %s/%s", api.TMP_IFACE_PATH, api.TMP_IFACE_PATH, node.outbound_node_iface))
 		else
 			local outbound_node_t = uci:get_all("passwall", node.outbound_node)
 			if node.outbound_node == "_socks" or node.outbound_node == "_http" then
@@ -735,6 +732,26 @@ function gen_config_server(node)
 		end
 	end
 
+	if version_ge_1_11_0 then
+		-- Migrate logics
+		-- https://sing-box.sagernet.org/migration/
+		for i = #config.outbounds, 1, -1 do
+			local value = config.outbounds[i]
+			if value.type == "block" then
+				-- https://sing-box.sagernet.org/migration/#migrate-legacy-special-outbounds-to-rule-actions
+				table.remove(config.outbounds, i)
+			end
+		end
+		-- https://sing-box.sagernet.org/migration/#migrate-legacy-special-outbounds-to-rule-actions
+		for i = #config.route.rules, 1, -1 do
+			local value = config.route.rules[i]
+			if value.outbound == "block" then
+				value.action = "reject"
+				value.outbound = nil
+			end
+		end
+	end
+
 	return config
 end
 
@@ -768,6 +785,7 @@ function gen_config(var)
 	local remote_dns_tcp_server = var["-remote_dns_tcp_server"]
 	local remote_dns_doh_url = var["-remote_dns_doh_url"]
 	local remote_dns_doh_host = var["-remote_dns_doh_host"]
+	local remote_dns_client_ip = var["-remote_dns_client_ip"]
 	local remote_dns_query_strategy = var["-remote_dns_query_strategy"]
 	local remote_dns_fake = var["-remote_dns_fake"]
 	local dns_cache = var["-dns_cache"]
@@ -886,6 +904,7 @@ function gen_config(var)
 		local function set_outbound_detour(node, outbound, outbounds_table, shunt_rule_name)
 			if not node or not outbound or not outbounds_table then return nil end
 			local default_outTag = outbound.tag
+			local last_insert_outbound
 
 			if node.shadowtls == "1" then
 				local _node = {
@@ -902,14 +921,31 @@ function gen_config(var)
 				}
 				local shadowtls_outbound = gen_outbound(nil, _node, outbound.tag .. "_shadowtls")
 				if shadowtls_outbound then
-					table.insert(outbounds_table, shadowtls_outbound)
+					last_insert_outbound = shadowtls_outbound
 					outbound.detour = outbound.tag .. "_shadowtls"
 					outbound.server = nil
 					outbound.server_port = nil
 				end
 			end
 
-			if node.to_node then
+			if node.chain_proxy == "1" and node.preproxy_node then
+				if outbound["_flag_proxy_tag"] then
+					--Ignore
+				else
+					local preproxy_node = uci:get_all(appname, node.preproxy_node)
+					if preproxy_node then
+						local preproxy_outbound = gen_outbound(nil, preproxy_node)
+						if preproxy_outbound then
+							preproxy_outbound.tag = preproxy_node[".name"] .. ":" .. preproxy_node.remarks
+							outbound.tag = preproxy_outbound.tag .. " -> " .. outbound.tag
+							outbound.detour = preproxy_outbound.tag
+							last_insert_outbound = preproxy_outbound
+							default_outTag = outbound.tag
+						end
+					end
+				end
+			end
+			if node.chain_proxy == "2" and node.to_node then
 				local to_node = uci:get_all(appname, node.to_node)
 				if to_node then
 					local to_outbound = gen_outbound(nil, to_node)
@@ -927,48 +963,19 @@ function gen_config(var)
 					end
 				end
 			end
-			return default_outTag
+			return default_outTag, last_insert_outbound
 		end
 
 		if node.protocol == "_shunt" then
 			local rules = {}
 
-			local preproxy_enabled = node.preproxy_enabled == "1"
-			local preproxy_tag = "main"
-			local preproxy_node_id = node["main_node"]
-			local preproxy_node = preproxy_enabled and preproxy_node_id and uci:get_all(appname, preproxy_node_id) or nil
-
-			if preproxy_node_id and preproxy_node_id:find("Socks_") then
-				local socks_id = preproxy_node_id:sub(1 + #"Socks_")
-				local socks_node = uci:get_all(appname, socks_id) or nil
-				if socks_node then
-					local _node = {
-						type = "sing-box",
-						protocol = "socks",
-						address = "127.0.0.1",
-						port = socks_node.port,
-						uot = "1",
-					}
-					local preproxy_outbound = gen_outbound(flag, _node, preproxy_tag)
-					if preproxy_outbound then
-						table.insert(outbounds, preproxy_outbound)
-					else
-						preproxy_enabled = false
-					end
-				end
-			elseif preproxy_node and api.is_normal_node(preproxy_node) then
-				local preproxy_outbound = gen_outbound(flag, preproxy_node, preproxy_tag)
-				if preproxy_outbound then
-					set_outbound_detour(preproxy_node, preproxy_outbound, outbounds, preproxy_tag)
-					table.insert(outbounds, preproxy_outbound)
-				else
-					preproxy_enabled = false
-				end
-			end
+			local preproxy_rule_name = node.preproxy_enabled == "1" and "main" or nil
+			local preproxy_tag = preproxy_rule_name
+			local preproxy_node_id = preproxy_rule_name and node["main_node"] or nil
 
 			local function gen_shunt_node(rule_name, _node_id)
 				if not rule_name then return nil, nil end
-				if not _node_id then _node_id = node[rule_name] or "nil" end
+				if not _node_id then _node_id = node[rule_name] end
 				local rule_outboundTag
 				if _node_id == "_direct" then
 					rule_outboundTag = "direct"
@@ -976,7 +983,7 @@ function gen_config(var)
 					rule_outboundTag = "block"
 				elseif _node_id == "_default" and rule_name ~= "default" then
 					rule_outboundTag = "default"
-				elseif _node_id:find("Socks_") then
+				elseif _node_id and _node_id:find("Socks_") then
 					local socks_id = _node_id:sub(1 + #"Socks_")
 					local socks_node = uci:get_all(appname, socks_id) or nil
 					if socks_node then
@@ -990,28 +997,28 @@ function gen_config(var)
 						local _outbound = gen_outbound(flag, _node, rule_name)
 						if _outbound then
 							table.insert(outbounds, _outbound)
-							rule_outboundTag = rule_name
+							rule_outboundTag = _outbound.tag
 						end
 					end
-				elseif _node_id ~= "nil" then
+				elseif _node_id then
 					local _node = uci:get_all(appname, _node_id)
 					if not _node then return nil, nil end
 
 					if api.is_normal_node(_node) then
-						local proxy = preproxy_enabled and node[rule_name .. "_proxy_tag"] == preproxy_tag and _node_id ~= preproxy_node_id
+						local use_proxy = preproxy_tag and node[rule_name .. "_proxy_tag"] == preproxy_rule_name and _node_id ~= preproxy_node_id
 						local copied_outbound
 						for index, value in ipairs(outbounds) do
-							if value["_id"] == _node_id and value["_flag_proxy_tag"] == preproxy_tag then
+							if value["_id"] == _node_id and value["_flag_proxy_tag"] == (use_proxy and preproxy_tag or nil) then
 								copied_outbound = api.clone(value)
 								break
 							end
 						end
 						if copied_outbound then
-							copied_outbound.tag = rule_name
+							copied_outbound.tag = rule_name .. ":" .. _node.remarks
 							table.insert(outbounds, copied_outbound)
-							rule_outboundTag = rule_name
+							rule_outboundTag = copied_outbound.tag
 						else
-							if proxy then
+							if use_proxy then
 								local pre_proxy = nil
 								if _node.type ~= "sing-box" then
 									pre_proxy = true
@@ -1037,11 +1044,15 @@ function gen_config(var)
 									})
 								end
 							end
-							local outbound_tag = rule_name .. ":" .. _node.remarks
-							local _outbound = gen_outbound(flag, _node, outbound_tag, { tag = proxy and preproxy_tag or nil })
+							
+							local _outbound = gen_outbound(flag, _node, rule_name, { tag = use_proxy and preproxy_tag or nil })
 							if _outbound then
-								rule_outboundTag = set_outbound_detour(_node, _outbound, outbounds, outbound_tag)
+								_outbound.tag = _outbound.tag .. ":" .. _node.remarks
+								rule_outboundTag, last_insert_outbound = set_outbound_detour(_node, _outbound, outbounds, rule_name)
 								table.insert(outbounds, _outbound)
+								if last_insert_outbound then
+									table.insert(outbounds, last_insert_outbound)
+								end
 							end
 						end
 					elseif _node.protocol == "_iface" then
@@ -1054,21 +1065,28 @@ function gen_config(var)
 							}
 							table.insert(outbounds, _outbound)
 							rule_outboundTag = _outbound.tag
-							sys.call("touch /tmp/etc/passwall/iface/" .. _node.iface)
+							sys.call(string.format("mkdir -p %s && touch %s/%s", api.TMP_IFACE_PATH, api.TMP_IFACE_PATH, _node.iface))
 						end
 					end
 				end
 				return rule_outboundTag
 			end
+
+			if preproxy_tag and preproxy_node_id then
+				local preproxy_outboundTag = gen_shunt_node(preproxy_rule_name, preproxy_node_id)
+				if preproxy_outboundTag then
+					preproxy_tag = preproxy_outboundTag
+				end
+			end
 			--default_node
 			local default_node_id = node.default_node or "_direct"
-			local default_outboundTag = gen_shunt_node("default", default_node_id)
+			COMMON.default_outbound_tag = gen_shunt_node("default", default_node_id)
 			--shunt rule
 			uci:foreach(appname, "shunt_rules", function(e)
 				local outboundTag = gen_shunt_node(e[".name"])
 				if outboundTag and e.remarks then
 					if outboundTag == "default" then
-						outboundTag = default_outboundTag
+						outboundTag = COMMON.default_outbound_tag
 					end
 					local protocols = nil
 					if e["protocol"] and e["protocol"] ~= "" then
@@ -1103,7 +1121,6 @@ function gen_config(var)
 					local rule = {
 						inbound = inboundTag,
 						outbound = outboundTag,
-						invert = false, --匹配反选
 						protocol = protocols
 					}
 
@@ -1186,7 +1203,7 @@ function gen_config(var)
 						rule.domain_regex = #domain_table.domain_regex > 0 and domain_table.domain_regex or nil
 						rule.geosite = #domain_table.geosite > 0 and domain_table.geosite or nil
 
-						if outboundTag and outboundTag ~= "nil" then
+						if outboundTag then
 							table.insert(dns_domain_rules, api.clone(domain_table))
 						end
 					end
@@ -1211,10 +1228,6 @@ function gen_config(var)
 				end
 			end)
 
-			if default_outboundTag then
-				COMMON.default_outbound_tag = default_outboundTag
-			end
-
 			for index, value in ipairs(rules) do
 				table.insert(route.rules, rules[index])
 			end
@@ -1228,13 +1241,17 @@ function gen_config(var)
 				}
 				table.insert(outbounds, outbound)
 				COMMON.default_outbound_tag = outbound.tag
-				sys.call("touch /tmp/etc/passwall/iface/" .. node.iface)
+				sys.call(string.format("mkdir -p %s && touch %s/%s", api.TMP_IFACE_PATH, api.TMP_IFACE_PATH, node.iface))
 			end
 		else
 			local outbound = gen_outbound(flag, node)
 			if outbound then
-				COMMON.default_outbound_tag = set_outbound_detour(node, outbound, outbounds)
+				outbound.tag = outbound.tag .. ":" .. node.remarks
+				COMMON.default_outbound_tag, last_insert_outbound = set_outbound_detour(node, outbound, outbounds)
 				table.insert(outbounds, outbound)
+				if last_insert_outbound then
+					table.insert(outbounds, last_insert_outbound)
+				end
 			end
 		end
 	end
@@ -1284,6 +1301,7 @@ function gen_config(var)
 			strategy = remote_strategy,
 			address_resolver = "direct",
 			detour = default_outTag,
+			client_subnet = (remote_dns_client_ip and remote_dns_client_ip ~= "") and remote_dns_client_ip or nil,
 		}
 
 		if remote_dns_udp_server then
@@ -1323,7 +1341,7 @@ function gen_config(var)
 			experimental.cache_file = {
 				enabled = true,
 				store_fakeip = true,
-				path = "/tmp/singbox_passwall_" .. flag .. ".db"
+				path = api.CACHE_PATH .. "/singbox_" .. flag .. ".db"
 			}
 		end
 	
@@ -1482,10 +1500,97 @@ function gen_config(var)
 			tag = "block"
 		})
 		for index, value in ipairs(config.outbounds) do
+			if not value["_flag_proxy_tag"] and not value.detour and value["_id"] and value.server and value.server_port then
+				sys.call(string.format("echo '%s' >> %s", value["_id"], api.TMP_PATH .. "/direct_node_list"))
+			end
 			for k, v in pairs(config.outbounds[index]) do
 				if k:find("_") == 1 then
 					config.outbounds[index][k] = nil
 				end
+			end
+		end
+		if version_ge_1_11_0 then
+			-- Migrate logics
+			-- https://sing-box.sagernet.org/migration/
+			local endpoints = {}
+			for i = #config.outbounds, 1, -1 do
+				local value = config.outbounds[i]
+				if value.type == "wireguard" then
+					-- https://sing-box.sagernet.org/migration/#migrate-wireguard-outbound-to-endpoint
+					local endpoint = {
+						type = "wireguard",
+						tag = value.tag,
+						system = value.system_interface,
+						name = value.interface_name,
+						mtu = value.mtu,
+						address = value.local_address,
+						private_key = value.private_key,
+						peers = {
+							{
+								address = value.server,
+								port = value.server_port,
+								public_key = value.peer_public_key,
+								pre_shared_key = value.pre_shared_key,
+								allowed_ips = {"0.0.0.0/0"},
+								reserved = value.reserved
+							}
+						},
+						domain_strategy = value.domain_strategy,
+						detour = value.detour
+					}
+					endpoints[#endpoints + 1] = endpoint
+					table.remove(config.outbounds, i)
+				end
+				if value.type == "block" or value.type == "dns" then
+					-- https://sing-box.sagernet.org/migration/#migrate-legacy-special-outbounds-to-rule-actions
+					table.remove(config.outbounds, i)
+				end
+			end
+			if #endpoints > 0 then
+				config.endpoints = endpoints
+			end
+
+			-- https://sing-box.sagernet.org/migration/#migrate-legacy-special-outbounds-to-rule-actions
+			for i = #config.route.rules, 1, -1 do
+				local value = config.route.rules[i]
+				if value.outbound == "block" then
+					value.action = "reject"
+					value.outbound = nil
+				elseif value.outbound == "dns-out" then
+					value.action = "hijack-dns"
+					value.outbound = nil
+				else
+					value.action = "route"
+				end
+			end
+
+			-- https://sing-box.sagernet.org/migration/#migrate-legacy-inbound-fields-to-rule-actions
+			for i = #config.inbounds, 1, -1 do
+				local value = config.inbounds[i]
+				if value.sniff == true then
+					table.insert(config.route.rules, 1, {
+						inbound = value.tag,
+						action = "sniff"
+					})
+					value.sniff = nil
+					value.sniff_override_destination = nil
+				end
+				if value.domain_strategy then
+					table.insert(config.route.rules, 1, {
+						inbound = value.tag,
+						action = "resolve",
+						strategy = value.domain_strategy,
+						--server = ""
+					})
+					value.domain_strategy = nil
+				end
+			end
+
+			if config.route.final == "block" then
+				config.route.final = nil
+				table.insert(config.route.rules, {
+					action = "reject"
+				})
 			end
 		end
 		return jsonc.stringify(config, 1)

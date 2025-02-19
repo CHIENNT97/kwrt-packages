@@ -21,20 +21,6 @@
 +	procd_add_reload_trigger "dockerd"
 +}
 
---- a/luci-app-nezha/root/etc/init.d/nezha-agent
-+++ b/luci-app-nezha/root/etc/init.d/nezha-agent
-@@ -25,7 +25,11 @@ start_service() {
-         procd_close_instance
- }
- 
-+service_triggers() {
-+	procd_add_reload_trigger "nezha-agent"
-+}
-+
- reload_service() {
-   stop
-   start
-
 --- a/luci-app-leigod-acc/root/etc/init.d/acc
 +++ b/luci-app-leigod-acc/root/etc/init.d/acc
 @@ -164,3 +164,6 @@ start_service() {
@@ -54,16 +40,6 @@
 +
 +service_triggers() {
 +      procd_add_reload_trigger "gpoint"
-+}
-
---- a/luci-app-homebridge/files/root/etc/init.d/homebridge
-+++ b/luci-app-homebridge/files/root/etc/init.d/homebridge
-@@ -227,4 +227,7 @@ status(){
- 	fi
- }
- 
-+service_triggers() {
-+      procd_add_reload_trigger "homebridge"
 +}
 
 --- a/luci-app-xupnpd/root/etc/init.d/xupnpd
@@ -113,16 +89,44 @@
 +      procd_add_reload_trigger "dmrid"
 +}
 
---- a/luci-app-uugamebooster/root/etc/init.d/uuplugin
-+++ b/luci-app-uugamebooster/root/etc/init.d/uuplugin
-@@ -10,6 +10,10 @@ UU_BIN="/usr/share/uugamebooster/uuplugin"
- UU_CONF="/usr/share/uugamebooster/uu.conf"
- UU_LOGFILE="/tmp/uugamebooster.log"
+--- a/pgyvpn/files/etc/init.d/pgyvpn
++++ b/pgyvpn/files/etc/init.d/pgyvpn
+@@ -105,6 +105,10 @@ start_service()
+ 
+ }
  
 +service_triggers() {
-+	procd_add_reload_trigger "uuplugin"
++	procd_add_reload_trigger "pgyvpn"
 +}
 +
- start_service() {
-   config_load uuplugin
- 	local enable
+ stop_service()
+ {
+ 	#remove p2p firewall
+
+--- a/phtunnel/files/etc/init.d/phtunnel
++++ b/phtunnel/files/etc/init.d/phtunnel
+@@ -59,6 +59,10 @@ start_service()
+ 	procd_close_instance
+ }
+ 
++service_triggers() {
++	procd_add_reload_trigger "phtunnel"
++}
++
+ stop_service()
+ {
+ 	echo 'now stop phtunnel'
+
+--- a/luci-app-sms-tool/root/etc/init.d/smsled
++++ b/luci-app-sms-tool/root/etc/init.d/smsled
+@@ -20,6 +20,10 @@ stop_service() {
+ 	return 0
+ }
+ 
++service_triggers() {
++	procd_add_reload_trigger "sms_tool"
++}
++
+ restart_service() {
+     stop_service
+     start_service

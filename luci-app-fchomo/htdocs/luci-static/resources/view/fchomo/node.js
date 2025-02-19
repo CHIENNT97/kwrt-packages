@@ -8,14 +8,14 @@
 'require tools.widgets as widgets';
 
 return view.extend({
-	load: function() {
+	load() {
 		return Promise.all([
 			uci.load('fchomo')
 		]);
 	},
 
-	render: function(data) {
-		var m, s, o, ss, so;
+	render(data) {
+		let m, s, o, ss, so;
 
 		m = new form.Map('fchomo', _('Edit node'));
 
@@ -66,29 +66,22 @@ return view.extend({
 		so = ss.taboption('field_general', form.Value, 'port', _('Port'));
 		so.datatype = 'port';
 		so.rmempty = false;
-		so.depends({type: 'direct', '!reverse': true});
+		so.depends({type: /^(direct|mieru)$/, '!reverse': true});
 
 		/* HTTP / SOCKS fields */
 		/* hm.validateAuth */
 		so = ss.taboption('field_general', form.Value, 'username', _('Username'));
 		so.validate = L.bind(hm.validateAuthUsername, so);
-		so.depends({type: /^(http|socks5|ssh)$/});
+		so.depends({type: /^(http|socks5|mieru|ssh)$/});
 		so.modalonly = true;
 
 		so = ss.taboption('field_general', form.Value, 'password', _('Password'));
 		so.password = true;
 		so.validate = L.bind(hm.validateAuthPassword, so);
-		so.depends({type: /^(http|socks5|trojan|hysteria2|tuic|ssh)$/});
+		so.depends({type: /^(http|socks5|mieru|trojan|hysteria2|tuic|ssh)$/});
 		so.modalonly = true;
 
-		so = ss.taboption('field_general', form.TextValue, 'headers', _('HTTP header'));
-		so.renderWidget = function(/* ... */) {
-			var frameEl = form.TextValue.prototype.renderWidget.apply(this, arguments);
-
-			frameEl.firstChild.style.fontFamily = hm.monospacefonts.join(',');
-
-			return frameEl;
-		}
+		so = ss.taboption('field_general', hm.TextValue, 'headers', _('HTTP header'));
 		so.placeholder = '{\n  "User-Agent": [\n    "Clash/v1.18.0",\n    "mihomo/1.18.3"\n  ],\n  "Authorization": [\n    //"token 1231231"\n  ]\n}';
 		so.validate = L.bind(hm.validateJson, so);
 		so.depends('type', 'http');
@@ -158,10 +151,31 @@ return view.extend({
 		so = ss.taboption('field_general', form.Value, 'shadowsocks_password', _('Password'));
 		so.password = true;
 		so.validate = function(section_id, value) {
-			var encmode = this.section.getOption('shadowsocks_chipher').formvalue(section_id);
-			return hm.validateShadowsocksPassword.call(this, hm, encmode, section_id, value);
+			const encmode = this.section.getOption('shadowsocks_chipher').formvalue(section_id);
+			return hm.validateShadowsocksPassword.call(this, encmode, section_id, value);
 		}
 		so.depends({type: 'ss', shadowsocks_chipher: /.+/});
+		so.modalonly = true;
+
+		/* Mieru fields */
+		so = ss.taboption('field_general', form.Value, 'mieru_port_range', _('Port range'));
+		so.datatype = 'portrange';
+		so.depends('type', 'mieru');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.ListValue, 'mieru_transport', _('Transport'));
+		so.value('TCP');
+		so.default = 'TCP';
+		so.depends('type', 'mieru');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.ListValue, 'mieru_multiplexing', _('Multiplexing'));
+		so.value('MULTIPLEXING_OFF');
+		so.value('MULTIPLEXING_LOW');
+		so.value('MULTIPLEXING_MIDDLE');
+		so.value('MULTIPLEXING_HIGH');
+		so.default = 'MULTIPLEXING_LOW';
+		so.depends('type', 'mieru');
 		so.modalonly = true;
 
 		/* Snell fields */
@@ -264,8 +278,8 @@ return view.extend({
 		so = ss.taboption('field_general', form.Value, 'trojan_ss_password', _('Shadowsocks password'));
 		so.password = true;
 		so.validate = function(section_id, value) {
-			var encmode = this.section.getOption('trojan_ss_chipher').formvalue(section_id);
-			return hm.validateShadowsocksPassword.call(this, hm, encmode, section_id, value);
+			const encmode = this.section.getOption('trojan_ss_chipher').formvalue(section_id);
+			return hm.validateShadowsocksPassword.call(this, encmode, section_id, value);
 		}
 		so.depends({type: 'trojan', trojan_ss_enabled: '1'});
 		so.modalonly = true;
@@ -278,8 +292,10 @@ return view.extend({
 		so.modalonly = true;
 
 		so = ss.taboption('field_general', form.ListValue, 'vless_flow', _('Flow'));
-		so.value('', _('None'));
-		so.value('xtls-rprx-vision');
+		so.default = hm.vless_flow[0][0];
+		hm.vless_flow.forEach((res) => {
+			so.value.apply(so, res);
+		})
 		so.depends('type', 'vless');
 		so.modalonly = true;
 
@@ -316,6 +332,71 @@ return view.extend({
 		so.value('packetaddr', _('packet addr (v2ray-core v5+)'));
 		so.value('xudp', _('Xudp (Xray-core)'));
 		so.depends({type: /^(vmess|vless)$/});
+		so.modalonly = true;
+
+		/* WireGuard fields */
+		so = ss.taboption('field_general', form.Value, 'wireguard_ip', _('Local address'),
+			_('The %s address used by local machine in the Wireguard network.').format('IPv4'));
+		so.datatype = 'ip4addr(1)';
+		so.rmempty = false;
+		so.depends('type', 'wireguard');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.Value, 'wireguard_ipv6', _('Local IPv6 address'),
+			_('The %s address used by local machine in the Wireguard network.').format('IPv6'));
+		so.datatype = 'ip6addr(1)';
+		so.depends('type', 'wireguard');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.Value, 'wireguard_private_key', _('Private key'),
+			_('WireGuard requires base64-encoded private keys.'));
+		so.password = true;
+		so.validate = L.bind(hm.validateBase64Key, so, 44);
+		so.rmempty = false;
+		so.depends('type', 'wireguard');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.Value, 'wireguard_peer_public_key', _('Peer pubkic key'),
+			_('WireGuard peer public key.'));
+		so.validate = L.bind(hm.validateBase64Key, so, 44);
+		so.rmempty = false;
+		so.depends('type', 'wireguard');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.Value, 'wireguard_pre_shared_key', _('Pre-shared key'),
+			_('WireGuard pre-shared key.'));
+		so.password = true;
+		so.validate = L.bind(hm.validateBase64Key, so, 44);
+		so.depends('type', 'wireguard');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.DynamicList, 'wireguard_allowed_ips', _('Allowed IPs'),
+			_('Destination addresses allowed to be forwarded via Wireguard.'));
+		so.datatype = 'cidr';
+		so.placeholder = '0.0.0.0/0';
+		so.depends('type', 'wireguard');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.DynamicList, 'wireguard_reserved', _('Reserved field bytes'));
+		so.datatype = 'integer';
+		so.depends('type', 'wireguard');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.Value, 'wireguard_mtu', _('MTU'));
+		so.datatype = 'range(0,9000)';
+		so.placeholder = '1408';
+		so.depends('type', 'wireguard');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.Flag, 'wireguard_remote_dns_resolve', _('Remote DNS resolve'),
+			_('Force DNS remote resolution.'));
+		so.default = so.disabled;
+		so.depends('type', 'wireguard');
+		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.DynamicList, 'wireguard_dns', _('DNS server'));
+		so.datatype = 'or(host, hostport)';
+		so.depends('wireguard_remote_dns_resolve', '1');
 		so.modalonly = true;
 
 		/* Plugin fields */
@@ -391,9 +472,9 @@ return view.extend({
 		so = ss.taboption('field_general', form.Flag, 'tls', _('TLS'));
 		so.default = so.disabled;
 		so.validate = function(section_id, value) {
-			var type = this.section.getOption('type').formvalue(section_id);
-			var tls = this.section.getUIElement(section_id, 'tls').node.querySelector('input');
-			var tls_alpn = this.section.getUIElement(section_id, 'tls_alpn');
+			const type = this.section.getOption('type').formvalue(section_id);
+			let tls = this.section.getUIElement(section_id, 'tls').node.querySelector('input');
+			let tls_alpn = this.section.getUIElement(section_id, 'tls_alpn');
 
 			// Force enabled
 			if (['trojan', 'hysteria', 'hysteria2', 'tuic'].includes(type)) {
@@ -506,7 +587,7 @@ return view.extend({
 		so.value('grpc', _('gRPC'));
 		so.value('ws', _('WebSocket'));
 		so.validate = function(section_id, value) {
-			var type = this.section.getOption('type').formvalue(section_id);
+			const type = this.section.getOption('type').formvalue(section_id);
 
 			switch (type) {
 				case 'vmess':
@@ -560,14 +641,7 @@ return view.extend({
 		so.depends({transport_enabled: '1', transport_type: /^(h2|ws)$/});
 		so.modalonly = true;
 
-		so = ss.taboption('field_transport', form.TextValue, 'transport_http_headers', _('HTTP header'));
-		so.renderWidget = function(/* ... */) {
-			var frameEl = form.TextValue.prototype.renderWidget.apply(this, arguments);
-
-			frameEl.firstChild.style.fontFamily = hm.monospacefonts.join(',');
-
-			return frameEl;
-		}
+		so = ss.taboption('field_transport', hm.TextValue, 'transport_http_headers', _('HTTP header'));
 		so.placeholder = '{\n  "Host": "example.com",\n  "Connection": [\n    "keep-alive"\n  ]\n}';
 		so.validate = L.bind(hm.validateJson, so);
 		so.depends({transport_enabled: '1', transport_type: /^(http|ws)$/});
@@ -680,20 +754,21 @@ return view.extend({
 		so.default = so.disabled;
 		so.modalonly = true;
 
-		// dev: Features under development
+		/* Features are implemented in proxy chain
 		so = ss.taboption('field_dial', form.Value, 'dialer_proxy', _('dialer-proxy'));
 		so.readonly = true;
 		so.modalonly = true;
+		*/
 
 		so = ss.taboption('field_dial', widgets.DeviceSelect, 'interface_name', _('Bind interface'),
 			_('Bind outbound interface.</br>') +
-			_('Priority: Proxy Node > Proxy Group > Global.'));
+			_('Priority: Proxy Node > Global.'));
 		so.multiple = false;
 		so.noaliases = true;
 		so.modalonly = true;
 
 		so = ss.taboption('field_dial', form.Value, 'routing_mark', _('Routing mark'),
-			_('Priority: Proxy Node > Proxy Group > Global.'));
+			_('Priority: Proxy Node > Global.'));
 		so.datatype = 'uinteger';
 		so.modalonly = true;
 
@@ -720,12 +795,12 @@ return view.extend({
 		ss.sectiontitle = L.bind(hm.loadDefaultLabel, ss);
 		/* Remove idle files start */
 		ss.renderSectionAdd = function(/* ... */) {
-			var el = hm.renderSectionAdd.apply(this, [prefmt, false].concat(Array.prototype.slice.call(arguments)));
+			let el = hm.renderSectionAdd.apply(this, [prefmt, false].concat(Array.prototype.slice.call(arguments)));
 
 			el.appendChild(E('button', {
 				'class': 'cbi-button cbi-button-add',
 				'title': _('Remove idles'),
-				'click': ui.createHandlerFn(this, hm.handleRemoveIdles, hm)
+				'click': ui.createHandlerFn(this, hm.handleRemoveIdles)
 			}, [ _('Remove idles') ]));
 
 			return el;
@@ -750,33 +825,29 @@ return view.extend({
 		so = ss.taboption('field_general', form.ListValue, 'type', _('Type'));
 		so.value('file', _('Local'));
 		so.value('http', _('Remote'));
+		so.value('inline', _('Inline'));
 		so.default = 'http';
 
 		so = ss.option(form.DummyValue, '_value', _('Value'));
 		so.load = function(section_id) {
-			var option = uci.get(data[0], section_id, 'type');
+			const option = uci.get(data[0], section_id, 'type');
 
 			switch (option) {
 				case 'file':
 					return uci.get(data[0], section_id, '.name');
 				case 'http':
 					return uci.get(data[0], section_id, 'url');
+				case 'inline':
+					return uci.get(data[0], section_id, '.name');
 				default:
 					return null;
 			}
 		}
 		so.modalonly = false;
 
-		so = ss.taboption('field_general', form.TextValue, '_editer', _('Editer'),
+		so = ss.taboption('field_general', hm.TextValue, '_editer', _('Editer'),
 			_('Please type <a target="_blank" href="%s" rel="noreferrer noopener">%s</a>.')
 				.format('https://wiki.metacubex.one/config/proxy-providers/content/', _('Contents')));
-		so.renderWidget = function(/* ... */) {
-			var frameEl = form.TextValue.prototype.renderWidget.apply(this, arguments);
-
-			frameEl.firstChild.style.fontFamily = hm.monospacefonts.join(',');
-
-			return frameEl;
-		}
 		so.placeholder = _('Content will not be verified, Please make sure you enter it correctly.');
 		so.load = function(section_id) {
 			return L.resolveDefault(hm.readFile('provider', section_id), '');
@@ -788,11 +859,25 @@ return view.extend({
 		so.depends('type', 'file');
 		so.modalonly = true;
 
+		so = ss.taboption('field_general', hm.TextValue, 'payload', 'payload:',
+			_('Please type <a target="_blank" href="%s" rel="noreferrer noopener">%s</a>.')
+				.format('https://wiki.metacubex.one/config/proxy-providers/content/', _('Payload')));
+		so.placeholder = '- name: "ss1"\n  type: ss\n  server: server\n  port: 443\n  cipher: chacha20-ietf-poly1305\n  password: "password"\n# ' + _('Content will not be verified, Please make sure you enter it correctly.');
+		so.rmempty = false;
+		so.depends('type', 'inline');
+		so.modalonly = true;
+
 		so = ss.taboption('field_general', form.Value, 'url', _('Provider URL'));
 		so.validate = L.bind(hm.validateUrl, so);
 		so.rmempty = false;
 		so.depends('type', 'http');
 		so.modalonly = true;
+
+		so = ss.taboption('field_general', form.Value, 'size_limit', _('Size limit'),
+			_('In bytes. <code>%s</code> will be used if empty.').format('0'));
+		so.placeholder = '0';
+		so.validate = L.bind(hm.validateBytesize, so);
+		so.depends('type', 'http');
 
 		so = ss.taboption('field_general', form.Value, 'interval', _('Update interval'),
 			_('In seconds. <code>%s</code> will be used if empty.').format('86400'));
@@ -811,15 +896,8 @@ return view.extend({
 		//so.editable = true;
 		so.depends('type', 'http');
 
-		so = ss.taboption('field_general', form.TextValue, 'header', _('HTTP header'),
+		so = ss.taboption('field_general', hm.TextValue, 'header', _('HTTP header'),
 			_('Custom HTTP header.'));
-		so.renderWidget = function(/* ... */) {
-			var frameEl = form.TextValue.prototype.renderWidget.apply(this, arguments);
-
-			frameEl.firstChild.style.fontFamily = hm.monospacefonts.join(',');
-
-			return frameEl;
-		}
 		so.placeholder = '{\n  "User-Agent": [\n    "Clash/v1.18.0",\n    "mihomo/1.18.3"\n  ],\n  "Accept": [\n    //"application/vnd.github.v3.raw"\n  ],\n  "Authorization": [\n    //"token 1231231"\n  ]\n}';
 		so.validate = L.bind(hm.validateJson, so);
 		so.depends('type', 'http');
@@ -884,20 +962,21 @@ return view.extend({
 		so.default = so.disabled;
 		so.modalonly = true;
 
-		// dev: Features under development
+		/* Features are implemented in proxy chain
 		so = ss.taboption('field_override', form.Value, 'override_dialer_proxy', _('dialer-proxy'));
 		so.readonly = true;
 		so.modalonly = true;
+		*/
 
 		so = ss.taboption('field_override', widgets.DeviceSelect, 'override_interface_name', _('Bind interface'),
 			_('Bind outbound interface.</br>') +
-			_('Priority: Proxy Node > Proxy Group > Global.'));
+			_('Priority: Proxy Node > Global.'));
 		so.multiple = false;
 		so.noaliases = true;
 		so.modalonly = true;
 
 		so = ss.taboption('field_override', form.Value, 'override_routing_mark', _('Routing mark'),
-			_('Priority: Proxy Node > Proxy Group > Global.'));
+			_('Priority: Proxy Node > Global.'));
 		so.datatype = 'uinteger';
 		so.modalonly = true;
 
@@ -964,10 +1043,108 @@ return view.extend({
 		so.modalonly = true;
 
 		so = ss.option(form.DummyValue, '_update');
-		so.cfgvalue = L.bind(hm.renderResDownload, so, hm);
+		so.cfgvalue = L.bind(hm.renderResDownload, so);
 		so.editable = true;
 		so.modalonly = false;
 		/* Provider END */
+
+		/* Proxy chain START */
+		s.tab('dialer_proxy', _('Proxy chain'));
+
+		/* Proxy chain */
+		o = s.taboption('dialer_proxy', form.SectionValue, '_dialer_proxy', form.GridSection, 'dialer_proxy', null);
+		ss = o.subsection;
+		var prefmt = { 'prefix': 'chain_', 'suffix': '' };
+		ss.addremove = true;
+		ss.rowcolors = true;
+		ss.sortable = true;
+		ss.nodescriptions = true;
+		ss.modaltitle = L.bind(hm.loadModalTitle, ss, _('Proxy chain'), _('Add a proxy chain'));
+		ss.sectiontitle = L.bind(hm.loadDefaultLabel, ss);
+		ss.renderSectionAdd = L.bind(hm.renderSectionAdd, ss, prefmt, true);
+		ss.handleAdd = L.bind(hm.handleAdd, ss, prefmt);
+
+		so = ss.option(form.Value, 'label', _('Label'));
+		so.load = L.bind(hm.loadDefaultLabel, so);
+		so.validate = L.bind(hm.validateUniqueValue, so);
+		so.modalonly = true;
+
+		so = ss.option(form.Flag, 'enabled', _('Enable'));
+		so.default = so.enabled;
+		so.editable = true;
+
+		so = ss.option(form.ListValue, 'type', _('Type'));
+		so.value('node', _('Proxy Node'));
+		so.value('provider', _('Provider'));
+		so.default = 'node';
+		so.textvalue = L.bind(hm.textvalue2Value, so);
+
+		so = ss.option(form.DummyValue, '_value', _('Value'));
+		so.load = function(section_id) {
+			const type = uci.get(data[0], section_id, 'type');
+			const detour = uci.get(data[0], section_id, 'chain_tail_group') || uci.get(data[0], section_id, 'chain_tail');
+
+			switch (type) {
+				case 'node':
+					return '%s » %s'.format(
+						uci.get(data[0], section_id, 'chain_head'),
+						detour
+					);
+				case 'provider':
+					return '%s » %s'.format(
+						uci.get(data[0], section_id, 'chain_head_sub'),
+						detour
+					);
+				default:
+					return null;
+			}
+		}
+		so.modalonly = false;
+
+		so = ss.option(form.ListValue, 'chain_head_sub', _('Chain head'));
+		so.load = L.bind(hm.loadProviderLabel, so, [['', _('-- Please choose --')]]);
+		so.rmempty = false;
+		so.depends('type', 'provider');
+		so.modalonly = true;
+
+		so = ss.option(form.ListValue, 'chain_head', _('Chain head'),
+			_('Recommended to use UoT node.</br>such as <code>%s</code>.')
+			.format('ss|ssr|vmess|vless|trojan|tuic'));
+		so.load = L.bind(hm.loadNodeLabel, so, [['', _('-- Please choose --')]]);
+		so.rmempty = false;
+		so.validate = function(section_id, value) {
+			const chain_tail = this.section.getUIElement(section_id, 'chain_tail').getValue();
+
+			if (value === chain_tail)
+				return _('Expecting: %s').format(_('Different chain head/tail'));
+
+			return true;
+		}
+		so.depends('type', 'node');
+		so.modalonly = true;
+
+		so = ss.option(form.ListValue, 'chain_tail_group', _('Chain tail'));
+		so.load = L.bind(hm.loadProxyGroupLabel, so, [['', _('-- Please choose --')]]);
+		so.rmempty = false;
+		so.depends({chain_tail: /.+/, '!reverse': true});
+		so.modalonly = true;
+
+		so = ss.option(form.ListValue, 'chain_tail', _('Chain tail'),
+			_('Recommended to use UoT node.</br>such as <code>%s</code>.')
+			.format('ss|ssr|vmess|vless|trojan|tuic'));
+		so.load = L.bind(hm.loadNodeLabel, so, [['', _('-- Please choose --')]]);
+		so.rmempty = false;
+		so.validate = function(section_id, value) {
+			const chain_head = this.section.getUIElement(section_id, 'chain_head').getValue();
+
+			if (value === chain_head)
+				return _('Expecting: %s').format(_('Different chain head/tail'));
+
+			return true;
+		}
+		so.depends({chain_tail_group: /.+/, '!reverse': true});
+		so.modalonly = true;
+		/* Proxy chain END */
 
 		return m.render();
 	}

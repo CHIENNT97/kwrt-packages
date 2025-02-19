@@ -1,13 +1,19 @@
---- a/luci-app-nekobox/htdocs/nekobox/lib/theme.txt
-+++ b/luci-app-nekobox/htdocs/nekobox/lib/theme.txt
-@@ -1 +1 @@
--pink.css
-+light.css
+--- a/luci-app-nekobox/htdocs/nekobox/index.php
++++ b/luci-app-nekobox/htdocs/nekobox/index.php
+@@ -543,7 +543,7 @@ function readLogFile($filePath) {
+ <?php
+ $isNginx = false;
+ if (isset($_SERVER['SERVER_SOFTWARE']) && strpos($_SERVER['SERVER_SOFTWARE'], 'nginx') !== false) {
+-    $isNginx = true;
++    $isNginx = false;
+ }
+ ?>
+ 
 
 --- a/luci-app-nekobox/root/etc/uci-defaults/99_neko
 +++ b/luci-app-nekobox/root/etc/uci-defaults/99_neko
-@@ -24,11 +24,31 @@ fi
- echo "[ `date +%T` ] - Checking Files"
+@@ -9,11 +9,31 @@ tmp_dir="/tmp"
+ echo "[ `date +%T` ] - Checking Files..."
  
  files_check() {
 +    if [ -n "$(command -v nginx)" ];then
@@ -35,18 +41,18 @@
  
      /etc/init.d/uhttpd restart
 +    fi
- 
-     case "$arch" in
-     aarch64)
+ }
+ if [ -f "/tmp/neko/neko.bak" ]; then
+     echo "[ `date +%T` ] - Old Configs"
 
 --- a/luci-app-nekobox/Makefile
 +++ b/luci-app-nekobox/Makefile
 @@ -16,7 +16,7 @@ define Package/$(PKG_NAME)
  	SUBMENU:=3. Applications
- 	TITLE:=LuCI support for mihomo
+ 	TITLE:=LuCI support for mihomo & sing-box
  	PKGARCH:=all
--	DEPENDS:=+kmod-tun +bash +curl +jq +php8 +php8-cgi +php8-mod-curl +php8-mod-zip 
-+	DEPENDS:=+kmod-tun +bash +curl +jq +php8 +php8-cgi +php8-fastcgi +php8-mod-curl +php8-mod-zip 
+-	DEPENDS:=+kmod-tun +bash +curl +jq +php8 +php8-cgi +php8-mod-curl +php8-mod-intl +zoneinfo-asia 
++	DEPENDS:=+kmod-tun +bash +curl +jq +php8 +php8-cgi +php8-fastcgi +php8-mod-curl +php8-mod-intl +zoneinfo-asia 
  endef
  
  define Package/$(PKG_NAME)/description
