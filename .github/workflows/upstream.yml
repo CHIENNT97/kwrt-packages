@@ -101,6 +101,15 @@ jobs:
         git_clone https://github.com/kiddin9/luci-app-uugamebooster
         ) &
         (
+        git_clone https://github.com/kiddin9/luci-app-subconverter
+        git_clone https://github.com/kiddin9/openwrt-netdata netdata
+        git_clone https://github.com/kiddin9/luci-app-syscontrol
+        git_clone https://github.com/kiddin9/luci-app-zerotier
+        git_clone https://github.com/kiddin9/luci-app-chinadns-ng
+        git_clone https://github.com/kiddin9/openwrt-my-dnshelper && mvdir openwrt-my-dnshelper
+        git_clone https://github.com/kiddin9/qBittorrent
+        ) &
+        (
         git_clone https://github.com/xiaorouji/openwrt-passwall && mvdir openwrt-passwall
         git clone https://github.com/fw876/helloworld && rm -rf helloworld/{v2raya,naiveproxy,chinadns-ng} && mvdir helloworld
         git_clone https://github.com/xiaorouji/openwrt-passwall-packages && mvdir openwrt-passwall-packages
@@ -110,7 +119,7 @@ jobs:
         git_clone https://github.com/riverscn/openwrt-iptvhelper && mvdir openwrt-iptvhelper
         git_clone https://github.com/kongfl888/luci-app-timedreboot
         git_clone https://github.com/sbwml/luci-app-webdav
-        git_clone https://github.com/kiddin9/luci-app-subconverter
+        git_clone https://github.com/hudra0/luci-app-qosmate
         ) &
         (
         #git_clone https://github.com/jerrykuku/luci-app-vssr
@@ -195,7 +204,6 @@ jobs:
         git_clone https://github.com/xptsp/luci-mod-listening-ports
         git_clone https://github.com/xptsp/luci-app-squid-adv
         git_clone https://github.com/xptsp/openwrt-bcrypt-tool
-        git_clone https://github.com/kiddin9/openwrt-my-dnshelper && mvdir openwrt-my-dnshelper
         ) &
         (
         git_clone https://github.com/honwen/luci-app-shadowsocks-rust
@@ -207,7 +215,6 @@ jobs:
         git_clone https://github.com/4IceG/luci-app-atcommands atcommands && mvdir atcommands
         ) &
         (
-        git_clone https://github.com/kiddin9/luci-app-chinadns-ng
         git_clone https://github.com/Diciya/luci-app-broadbandacc
         git_clone https://github.com/wiwizcom/WiFiPortal && mvdir WiFiPortal
         git_clone https://github.com/vinewx/NanoHatOLED && mv NanoHatOLED/nanohatoled ./ && rm -rf NanoHatOLED
@@ -316,13 +323,10 @@ jobs:
         git_clone https://github.com/AngelaCooljx/luci-theme-material3
         ) &
         (
-        git_clone https://github.com/kiddin9/luci-app-syscontrol
         #git_clone https://github.com/bobbyunknown/luci-app-insomclash
         git_clone https://github.com/muink/luci-app-ssrust
         git_clone https://github.com/hudra0/qosmate
-        git_clone https://github.com/kiddin9/luci-app-qosmate
         git_clone https://github.com/muink/luci-app-netdata
-        git_clone https://github.com/kiddin9/openwrt-netdata netdata
         git_clone https://github.com/xptsp/luci-app-ympd
         git_clone https://github.com/xptsp/openwrt-ympd
         git_clone https://github.com/xptsp/openwrt-peanut
@@ -355,7 +359,7 @@ jobs:
 
         (
         git_sparse_clone openwrt-24.10 "https://github.com/immortalwrt/packages" net/mwol net/n2n net/dae \
-        net/sub-web net/amule net/haproxy net/cdnspeedtest net/zerotier net/minieap net/ddns-go net/sysuh3c \
+        net/sub-web net/amule net/haproxy net/cdnspeedtest net/minieap net/ddns-go net/sysuh3c \
         net/go-nats net/go-wol net/bitsrunlogin-go net/transfer net/daed net/udp2raw net/msd_lite net/netbird \
         net/subconverter net/ngrokc net/njitclient net/scutclient net/gost net/ua2f net/dufs net/qBittorrent-Enhanced-Edition \
         net/tinyportmapper net/tinyfecvpn net/nexttrace net/pcap-dnsproxy net/rustdesk-server net/tuic-server \
