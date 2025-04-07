@@ -2,6 +2,82 @@ document.addEventListener("DOMContentLoaded", function () {
     let isEnabled = localStorage.getItem('backgroundEnabled') !== 'false';
     let videoTag, bgImages, bgIndex, availableImages, switchInterval;
 
+    const ipContainer = document.querySelector('.ip-container');
+    const flag = document.getElementById('flag');
+    const ipText = document.querySelector('.ip-text');
+
+    const dIp = document.getElementById('d-ip');
+    if (dIp) {
+        dIp.style.cssText = `
+            color: #09B63F !important;
+            font-weight: bold;
+            font-size: 15px;
+            position: relative;
+            left: 1em; 
+            margin-bottom: 3px;
+            text-indent: -0.7ch; 
+        `;
+    }
+
+    const ipip = document.getElementById('ipip');
+    if (ipip) {
+        ipip.style.cssText = `
+            color: #FF00FF !important;
+            font-weight: bold;
+            font-size: 15px;
+            display: block;
+            margin-top: 3px;
+            margin-bottom: 3px;
+        `;
+    }
+
+    if (ipContainer) {
+        ipContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+            padding: 15px 20px;
+            min-width: 300px;
+            transition: all 0.3s ease;
+        `;
+        
+        const shouldHide = localStorage.getItem('hideIP') === 'true';
+        ipContainer.style.display = shouldHide ? 'none' : 'flex';
+    }
+
+    if (flag) {
+        flag.style.cssText = `
+            width: 60px;
+            height: 40px;
+            margin-right: 25px;
+            margin-left: 15px;
+            flex-shrink: 0;
+        `;
+    }
+
+    if (ipText) {
+        ipText.style.cssText = `
+            font-family: Arial, sans-serif;
+            line-height: 1.4;
+            min-width: 180px;
+            transform: translateY(1px); 
+        `;
+    }
+
+    function getFitButtonText() {
+        const savedFit = localStorage.getItem('videoObjectFit') || 'cover';
+        const texts = {
+            'contain': '正常比例',
+            'fill': '拉伸填充', 
+            'none': '原始尺寸',
+            'scale-down': '智能适应',
+            'cover': '默认裁剪'
+        };
+        return texts[savedFit] || '默认裁剪';
+    }
+
     const controlPanel = `
         <div id="settings-icon">⚙️</div>
         <div id="mode-popup">
@@ -9,6 +85,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <span>${isEnabled ? '已启用 ✅' : '已禁用 ❌'}</span>
                 <div class="status-led" style="background:${isEnabled ? '#4CAF50' : '#f44336'}"></div>
             </button>
+            <button class="theme-settings-btn">主题设置</button>
             <button data-mode="video">视频模式</button>
             <button data-mode="image">图片模式</button>
             <button data-mode="solid">暗黑模式</button>
@@ -17,17 +94,37 @@ document.addEventListener("DOMContentLoaded", function () {
                 <span>背景音效</span>
                 <div>${localStorage.getItem('videoMuted') === 'true' ? '🔇' : '🔊'}</div>
             </button>
-            <button id="redirect-btn">文件管理</button>
+            <button class="object-fit-btn" style="opacity:1 !important;pointer-events:auto !important">
+                <span>显示比例：</span>
+                <div>${getFitButtonText()}</div>
+            </button>
+            <button class="ip-toggle">
+                <span>${localStorage.getItem('hideIP') === 'true' ? '显示IP信息' : '隐藏IP信息'}</span>
+                <div class="status-led" style="background:${localStorage.getItem('hideIP') !== 'true' ? '#4CAF50' : '#f44336'}"></div>
+            </button>
             <button class="info-btn">使用说明</button>
         </div>
     `;
 
     document.body.insertAdjacentHTML('beforeend', controlPanel);
+    document.querySelector('.theme-settings-btn')?.addEventListener('click', showThemeSettings);
+    if (localStorage.getItem('hideIP') === null) {
+        localStorage.setItem('hideIP', 'false');
+    }
 
-document.getElementById('redirect-btn').addEventListener('click', function(e) {
-    e.preventDefault();
-    window.open('/luci-static/spectra/bgm/spectra.php', '_blank');
-});
+    document.addEventListener('click', function(e) {
+        const toggleBtn = e.target.closest('.ip-toggle');
+        if (toggleBtn && ipContainer) {
+            const currentState = localStorage.getItem('hideIP') === 'true';
+            const newState = !currentState;
+            
+            ipContainer.style.display = newState ? 'none' : 'flex';
+            localStorage.setItem('hideIP', newState);
+            
+            toggleBtn.querySelector('span').textContent = newState ? '显示IP信息' : '隐藏IP信息';
+            toggleBtn.querySelector('.status-led').style.background = newState ? '#f44336' : '#4CAF50';
+        }
+    });
 
     const styles = `
         #settings-icon {
@@ -123,6 +220,29 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
             background: #007BFF !important;
         }
 
+        #mode-popup button.object-fit-btn {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            background: #007BFF !important;
+        }
+        #mode-popup button.object-fit-btn div {
+            color: #FFEB3B;
+            margin-left: 8px;
+            font-weight: bold;
+        }
+
+        #mode-popup button.ip-toggle {
+            opacity: 1 !important;      
+            pointer-events: auto !important;  
+            background: #2196F3 !important;  
+        }
+
+        #mode-popup button.theme-settings-btn {
+            background: #9C27B0 !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
         @media (max-width: 600px) {
             #settings-icon {
                 right: 10px;
@@ -196,10 +316,10 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
     document.querySelector('.info-btn').addEventListener('click', () => {
         showCustomAlert('使用说明', [
             '1. 视频模式：默认名称为「bg.mp4」',
-            '2. 图片模式：默认名称为「bg1-5.jpg」',
+            '2. 图片模式：默认名称为「bg1-20.jpg」',
             '3. 暗黑模式：透明背景+光谱动画',
-            '4. 纯白模式：需到文件管理进行切换，关闭控制开关',
-            '5. 文件管理：支持自定义背景，需关闭开关，模式切换需清除背景',
+            '4. 亮色模式：主题设置进行切换，关闭控制开关',
+            '5. 主题设置：支持自定义背景，需关闭开关，模式切换需清除背景',
             '6. 项目地址：<a class="github-link" href="https://github.com/Thaolga/openwrt-nekobox" target="_blank">点击访问</a>'
         ]);
     });
@@ -323,7 +443,7 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
 }
 
     function initBackgroundSystem() {
-        bgImages = Array.from({length: 5}, (_, i) => `bg${i + 1}.jpg`);
+        bgImages = Array.from({length: 20}, (_, i) => `bg${i + 1}.jpg`);
         bgIndex = 0;
         availableImages = [];
         
@@ -451,7 +571,34 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
         }
     }
 
-    function insertVideoBackground() {
+    document.querySelector('.object-fit-btn')?.addEventListener('click', function() {
+        const videos = document.querySelectorAll('video#background-video');
+        if (videos.length === 0) return;
+
+        const currentFit = videos[0].style.objectFit || localStorage.getItem('videoObjectFit') || 'cover';
+        const fitOrder = ['cover', 'contain', 'fill', 'none', 'scale-down'];
+        const newIndex = (fitOrder.indexOf(currentFit) + 1) % fitOrder.length;
+        const newFit = fitOrder[newIndex];
+
+        videos.forEach(video => {
+            video.style.objectFit = newFit;
+            if (newFit === 'none') {
+                video.style.minWidth = 'auto';
+                video.style.minHeight = 'auto';
+                video.style.width = '100%';
+                video.style.height = '100%';
+            } else {
+                video.style.minWidth = '100%';
+                video.style.minHeight = '100%';
+            }
+        });
+    
+        localStorage.setItem('videoObjectFit', newFit);
+        this.querySelector('div').textContent = getFitButtonText();
+    });
+
+    function insertVideoBackground(src = 'bg.mp4') {
+        document.querySelectorAll('video#background-video').forEach(v => v.remove());
         videoTag = document.createElement("video");
         videoTag.className = "video-background";
         videoTag.id = "background-video";
@@ -463,6 +610,8 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
             <source src="/luci-static/spectra/bgm/bg.mp4" type="video/mp4">
             Your browser does not support the video tag.
         `;
+        const savedFit = localStorage.getItem('videoObjectFit') || 'cover';
+        videoTag.style.objectFit = savedFit;
         document.body.prepend(videoTag);
         videoTag.muted = localStorage.getItem('videoMuted') === 'true'; 
 
@@ -489,7 +638,6 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
                 min-width: 100%;
                 min-height: 100%;
                 transform: translate(-50%, -50%);
-                object-fit: cover;
                 z-index: -1;
             }
             .video-background + .wrapper span {
@@ -558,9 +706,12 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
         clearExistingBackground();
         let existingVideoTag = document.getElementById("background-video");
     
+        const savedFit = localStorage.getItem('videoObjectFit') || 'cover'; 
+
         if (existingVideoTag) {
             existingVideoTag.src = `/luci-static/spectra/bgm/${src}`;
             existingVideoTag.muted = localStorage.getItem('videoMuted') === 'true'; 
+            existingVideoTag.style.objectFit = savedFit; 
         } else {
             videoTag = document.createElement("video");
             videoTag.className = "video-background";
@@ -569,6 +720,7 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
             videoTag.loop = true;
             videoTag.muted = localStorage.getItem('videoMuted') === 'true'; 
             videoTag.playsInline = true;
+            videoTag.style.objectFit = savedFit; 
             videoTag.innerHTML = `
                 <source src="/luci-static/spectra/bgm/${src}" type="video/mp4">
                 Your browser does not support the video tag.
@@ -605,22 +757,59 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
                 min-width: 100%;
                 min-height: 100%;
                 transform: translate(-50%, -50%);
-                object-fit: cover;
-                z-index: -1;
+                z-index: -1; 
             }
             .video-background + .wrapper span {
                 display: none !important;
             }
         `;
 
+        if (savedFit === 'none') {
+            videoTag.style.minWidth = 'auto';
+            videoTag.style.minHeight = 'auto';
+            videoTag.style.width = '100%';
+            videoTag.style.height = '100%';
+        } else {
+            videoTag.style.minWidth = '100%';
+            videoTag.style.minHeight = '100%';
+        }
+
         localStorage.setItem('phpBackgroundSrc', src);
         localStorage.setItem('phpBackgroundType', 'video');
     
         const currentMuted = localStorage.getItem('videoMuted') === 'true';
         document.querySelector('.sound-toggle div').textContent = currentMuted ? '🔇' : '🔊';
-    
-        checkAndReload();
     }
+
+    document.querySelector('.object-fit-btn')?.addEventListener('click', function() {
+        const videos = document.querySelectorAll('video#background-video');
+        if (videos.length === 0) return;
+
+        const currentFit = videos[0].style.objectFit || localStorage.getItem('videoObjectFit') || 'cover';
+        const fitOrder = ['cover', 'contain', 'fill', 'none', 'scale-down'];
+        const newIndex = (fitOrder.indexOf(currentFit) + 1) % fitOrder.length;
+        const newFit = fitOrder[newIndex];
+
+        videos.forEach(video => {
+            video.style.objectFit = newFit;
+            if (newFit === 'none') {
+                video.style.minWidth = 'auto';
+                video.style.minHeight = 'auto';
+                video.style.width = '100%';
+                video.style.height = '100%';
+            } else {
+                video.style.minWidth = '100%';
+                video.style.minHeight = '100%';
+            }
+        
+            if(video.src.includes('bg.mp4') === false) {
+                localStorage.setItem('phpBackgroundType', 'video');
+            }
+        });
+    
+        localStorage.setItem('videoObjectFit', newFit);
+        this.querySelector('div').textContent = getFitButtonText();
+    });
 
     document.querySelector('.sound-toggle').addEventListener('click', function() {
         const newMuted = !(localStorage.getItem('videoMuted') === 'true');
@@ -640,10 +829,105 @@ document.getElementById('redirect-btn').addEventListener('click', function(e) {
         if (existingVideoTag) {
             existingVideoTag.remove(); 
         }
+
         let styleTag = document.querySelector("#video-style");
         if (styleTag) {
             styleTag.remove(); 
         }
     }
+
+    function showThemeSettings() {
+        const existing = document.getElementById('theme-settings-overlay');
+        if (existing) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'theme-settings-overlay';
+        overlay.innerHTML = `
+            <div id="theme-settings-dialog">
+                <div class="dialog-header">
+                    <h3>Spectra 主题设置</h3>
+                    <button class="close-btn">&times;</button>
+                </div>
+                <iframe id="theme-iframe" 
+                    src="${window.location.protocol}//${window.location.host}/luci-static/spectra/bgm/spectra.php"
+                    style="width: 100%; height: calc(100% - 40px); border: none; border-radius: 0 0 5px 5px;">
+                </iframe>
+            </div>
+        `;
+
+        const style = document.createElement('style');
+        style.textContent = `
+            #theme-settings-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                z-index: 9999;
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                padding-top: 5vh;  
+                backdrop-filter: blur(3px);
+            }
+            #theme-settings-dialog {
+                background: rgba(0,0,0,0.9);
+                width: 70%;
+                height: 80vh;
+                margin-top: 0;
+                border-radius: 8px;
+                box-shadow: 0 0 20px rgba(0,0,0,0.5);
+                transform: translateY(0);
+            }
+            .dialog-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 20px;
+                background: linear-gradient(135deg, #6f42c1, #9C27B0);
+                border-radius: 8px 8px 0 0;
+            }
+            .dialog-header h3 {
+                margin: 0;
+                color: #9C27B0;
+                font-size: 1.2em;
+            }
+            .close-btn {
+                background: none;
+                border: none;
+                color: white;
+                font-size: 24px;
+                cursor: pointer;
+                padding: 0 8px;
+            }
+
+            @media (max-width: 768px) {
+                #theme-settings-dialog {
+                    width: 90%;
+                    height: 90vh;
+                }
+            }
+        `;
+
+        document.body.appendChild(overlay);
+        document.head.appendChild(style);
+
+        overlay.querySelector('.close-btn').addEventListener('click', () => {
+            overlay.remove();
+            style.remove();
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                style.remove();
+            }
+        });
+    }
+
+
+
+
 
 
