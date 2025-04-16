@@ -2,7 +2,7 @@
 ini_set('memory_limit', '256M');
 $base_dir = __DIR__;
 $upload_dir = $base_dir;
-$allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov', 'mkv', 'mp3', 'wav', 'flac'];
+$allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm', 'mkv', 'mp3', 'wav', 'flac'];
 $background_type = '';
 $background_src = '';
 
@@ -201,13 +201,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="utf-8">
     <title>媒体文件管理</title>
+    <link href="/luci-static/spectra/css/bootstrap-icons.css" rel="stylesheet">
+    <link href="/luci-static/spectra/css/all.min.css" rel="stylesheet">
     <link href="/luci-static/spectra/css/bootstrap.min.css" rel="stylesheet">
     <script src="/luci-static/spectra/js/jquery.min.js"></script>
     <script src="/luci-static/spectra/js/bootstrap.bundle.min.js"></script>
     <script src="/luci-static/spectra/js/custom.js"></script>
     <script src="/luci-static/spectra/js/interact.min.js"></script>
-    <link href="/luci-static/spectra/css//bootstrap-icons.css" rel="stylesheet">
-
+    <script src="/luci-static/spectra/js/Sortable.min.js"></script>
     <script>
         const phpBackgroundType = '<?= $background_type ?>';
         const phpBackgroundSrc = '<?= $background_src ?>';
@@ -217,6 +218,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	--base-hue: 260;
 	--base-chroma: 0.03;
 	--danger-base: 15;
+        --base-hue-1: 20;
+        --base-hue-2: 200;
+        --base-hue-3: 135;
+        --base-hue-4: 80;
+        --base-hue-5: 270;
+        --base-hue-6: 170;
+        --base-hue-7: 340;
+        --l: 85%;
+        --c: 0.18;
 	
 	--bg-body: oklch(20% var(--base-chroma) var(--base-hue) / 50%);
 	--bg-container: oklch(30% var(--base-chroma) var(--base-hue));
@@ -242,13 +252,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	--danger-hover: oklch(75% 0.3 var(--danger-base));
 	--btn-info-bg: oklch(50% 0.2 220);  
 	--btn-info-hover: color-mix(in oklch, var(--btn-info-bg), white 10%);
-	--btn-warning-bg: oklch(50% 0.25 50);  
+	--btn-warning-bg: oklch(70% 0.18 80); 
 	--btn-warning-hover: color-mix(in oklch, var(--btn-warning-bg), white 10%);
+	--color-accent: oklch(55% 0.18 240);
+
 }
 
 [data-theme="light"] {
 	--base-hue: 200;
 	--base-chroma: 0.01;
+        --l: 60%;
+        --c: 0.25;
 	
 	--bg-body: oklch(95% var(--base-chroma) var(--base-hue) / 90%);
 	--bg-container: oklch(99% var(--base-chroma) var(--base-hue));
@@ -273,16 +287,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	--danger-hover: oklch(40% 0.35 var(--danger-base));
 	--btn-info-bg: oklch(65% 0.18 220);
 	--btn-info-hover: color-mix(in oklch, var(--btn-info-bg), black 10%);
-	--btn-warning-bg: oklch(60% 0.3 50);
+	--btn-warning-bg: oklch(85% 0.22 80);
 	--btn-warning-hover: color-mix(in oklch, var(--btn-warning-bg), black 15%);
+	--color-accent: oklch(75% 0.14 220);
+}
 
+@font-face {
+  font-display: swap; 
+  font-family: 'Fredoka One';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/luci-static/spectra/fonts/fredoka-v16-latin-regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-display: swap; 
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/luci-static/spectra/fonts/noto-serif-sc-v31-latin-regular.woff2') format('woff2'); 
+}
+
+@font-face {
+  font-display: swap; 
+  font-family: 'Comic Neue';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/luci-static/spectra/fonts/comic-neue-v8-latin-regular.woff2') format('woff2'); 
 }
 
 body {
-        background: var(--body-bg-color, #1a1a2e);
-	color: var(--text-primary);
-	-webkit-backdrop-filter: blur(10px);
-	transition: all 0.3s ease;
+        background: var(--body-bg-color, #ffecff);
+        color: var(--text-primary);
+        -webkit-backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        font-family: 'Fredoka One', cursive;
+        font-weight: 400; 
+        background: oklch(var(--bg-l) var(--base-chroma) var(--base-hue));
+}
+
+body.default-font {
+        font-family: system-ui, sans-serif;
+        font-weight: 400;
+}
+
+body.system-nofo-font {
+        font-family: 'Noto Serif SC';
+        font-weight: 400;
+}
+
+
+body.system-mono-font {
+        font-family: 'Comic Neue';
+        font-weight: 400;
 }
 
 .container-bg,
@@ -301,8 +358,7 @@ body {
 }
 
 .time-display {
-	font-family: system-ui, -apple-system, "Segoe UI", Roboto !important;
-	font-size: 1.2rem !important;
+	font-size: 1.4rem !important;
 	color: var(--text-primary);
 	padding: 6px 12px !important;
 	display: flex !important;
@@ -313,13 +369,11 @@ body {
 
 .week-display {
 	color: var(--text-secondary);
-	font-size: 0.95em !important;
 	margin-left: 6px !important;
 }
 
 .lunar-text {
 	color: var(--text-secondary);
-	font-size: 0.9em !important;
 }
 
 #timeDisplay {
@@ -333,10 +387,8 @@ body {
 }
 
 .ancient-time {
-	font-size: 0.9em !important;
 	margin-left: 4px !important;
 	letter-spacing: 1px !important;
-	font-family: "Noto Serif SC", serif !important;
 }
 
 .custom-tooltip-wrapper {
@@ -432,6 +484,7 @@ body {
 h5,
 h2 {
 	color: var(--accent-color) !important;
+        font-weight: bold;
 }
 
 .img-thumbnail {
@@ -459,6 +512,7 @@ h2 {
 }
 
 .modal-body {
+	background: var(--card-bg);
 	color: var(--text-primary);
 }
 
@@ -473,10 +527,9 @@ label[for="selectAll"] {
 
 .preview-container {
 	position: relative;
+	width: 100%;
+	height: 300px; 
 	overflow: hidden;
-	cursor: pointer;
-	min-height: 300px;
-	background: #2a2a2a;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -514,12 +567,14 @@ label[for="selectAll"] {
 }
 
 .preview-img {
-	object-fit: contain !important;
-	max-height: 300px;
-	width: auto;
-	height: auto;
-	max-width: 100%;
-	padding: 8px;
+        position: absolute;
+        min-width: 100%;
+        min-height: 100%;
+        object-fit: cover; 
+}
+
+.preview-container:hover .preview-img {
+	transform: scale(1.05);
 }
 
 .video-wrapper {
@@ -657,22 +712,21 @@ label[for="selectAll"] {
 }
 
 #playlistContainer .list-group-item.active {
-	background: linear-gradient(145deg, var(--accent-color), var(--accent-color)) !important;
-	border-color: var(--accent-color);
-	transform: scale(1.02);
-	box-shadow: 0 4px 16px color-mix(in oklch, var(--accent-color), black 15%);
+	background: var(--color-accent) !important;  
+	border-color: var(--color-accent);      
+	box-shadow: none;
 	z-index: 2;
 	color: var(--text-primary);
 }
 
 #playlistContainer .list-group-item:hover {
-	background-color: var(--btn-primary-bg);
+	background-color: var(--color-accent);
 	transform: translateX(5px);
 	cursor: pointer;
 }
 
 .text-muted {
-	color: var(--text-secondary) !important;
+	color: var(--accent-color) !important;
 	font-size: 0.9em;
 	letter-spacing: 0.5px;
 	opacity: 0.7;
@@ -685,13 +739,12 @@ label[for="selectAll"] {
 }
 
 ::-webkit-scrollbar-thumb {
-	background: linear-gradient(to bottom, #007bff, #00a8ff);
+	background: var(--accent-color);
 	border-radius: 4px;
 }
 
 ::-webkit-scrollbar-track {
-	background-color: rgba(255, 255, 255, 0.1);
-	margin: 120px 0;
+	margin: 50px 0;
 }
 
 body:hover, 
@@ -725,21 +778,45 @@ body:hover,
 }
 
 .drop-zone {
-	border: 2px dashed var(--accent-color);
-	background: color-mix(in oklch, var(--bg-container), transparent 30%);
-	min-height: 200px;
-	transition: border-color 0.3s ease,
-		background 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
-		box-shadow 0.3s ease;
+	position: relative;
+	border: 2px dashed transparent;
+	border-radius: 10px;
+	padding: 2rem;
+	z-index: 1;
 }
 
-.drop-zone.dragover {
-	border-color: color-mix(in oklch, var(--accent-color), white 20%);
-	background: var(--drag-over-bg);
-	box-shadow: var(--drag-over-shadow);
-	.upload-icon {
-		animation: pulse-glow 1.5s ease infinite;
+.drop-zone::before {
+	content: "";
+	position: absolute;
+	top: -2px;
+	left: -2px;
+	right: -2px;
+	bottom: -2px;
+	z-index: -1;
+	border: 2px dashed var(--bs-primary);
+	border-radius: 10px;
+	animation: border-wave 2s linear infinite;
+	pointer-events: none;
+	mask-image: linear-gradient(90deg, #000 50%, transparent 0%);
+	mask-size: 10px 100%;
+	mask-repeat: repeat;
+	-webkit-mask-image: linear-gradient(90deg, #000 50%, transparent 0%);
+	-webkit-mask-size: 10px 100%;
+	-webkit-mask-repeat: repeat;
 }
+
+@keyframes border-wave {
+	0% {
+		mask-position: 0 0;
+	}
+
+	100% {
+		mask-position: 100% 0;
+	}
+}
+
+.drop-zone:hover::before {
+	border-color: var(--accent-color);
 }
 
 .upload-icon {
@@ -973,8 +1050,8 @@ body:hover,
 }
 
 .hover-tips {
-    font-size: 0.8rem;
-    color: var(--hover-tips-color);
+    font-size: 1.3rem;
+    color: var(--accent-color);
     margin-top: 10px; 
 
 }
@@ -1027,6 +1104,54 @@ body:hover,
     100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.drag-handle {
+    cursor: grab;
+    z-index: 10;
+    user-select: none;
+}
+.sortable-chosen .drag-handle {
+    cursor: grabbing;
+}
+
+[data-filename] {
+    cursor: grab;
+}
+.sortable-chosen {
+    cursor: grabbing !important;
+}
+
+.upload-area i {
+    animation: pulse 1s infinite;
+}
+
+.file-checkbox-wrapper {
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.fileCheckbox:checked + .file-checkbox-wrapper,
+.file-checkbox-wrapper.force-visible {
+    opacity: 1 !important;
+}
+
+@media (min-width: 768px) {
+    .card:hover .file-checkbox-wrapper:not(.force-visible) {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .file-checkbox-wrapper {
+        opacity: 1 !important;
+    }
+}
+
 @media (max-width: 576px) {
     .card-body .btn {
         font-size: 0.75rem !important;  
@@ -1066,16 +1191,62 @@ body:hover,
         padding: 0.1rem 0.2rem; 
     }
 }
+
+@media (max-width: 575.98px) {
+  .time-display {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.25rem 0.5rem !important;
+    font-size: 1.05rem !important;
+  }
+
+  .time-display > span {
+    flex: 1 1 45% !important; 
+    box-sizing: border-box;
+    white-space: nowrap !important;
+  }
+
+  .time-display > span:nth-child(1),
+  .time-display > span:nth-child(2) {
+    order: 1; 
+  }
+
+  .time-display > span:nth-child(3),
+  .time-display > span:nth-child(4) {
+    order: 2; 
+    margin-top: 0.25rem !important;
+  }
+
+  .time-display > span { 
+    min-width: 45% !important;
+    overflow: visible !important; 
+  }
+
+  .lunar-text { 
+    font-size: 1.05rem !important;
+    letter-spacing: -0.3px !important; 
+  }
+}
+
+  @media (max-width: 576px) {
+    #fontToggleBtn {
+      margin-right: 8px;
+    }
+    #langBtnWrapper {
+      margin-left: 6px;
+    }
+  }
+
 </style>
 
 <div class="container-sm container-bg text-center mt-4">
     <div class="alert alert-secondary d-none" id="toolbar">
         <div class="d-flex justify-content-between">
             <div>
-                <button class="btn btn-outline-primary" id="selectAllBtn">全选</button>
+                <button class="btn btn-outline-primary" id="selectAllBtn" data-translate="select_all"></button>
                 <span id="selectedInfo"></span>
             </div>
-            <button class="btn btn-danger" id="batchDeleteBtn">批量删除选中文件</button>
+            <button class="btn btn-danger" id="batchDeleteBtn" data-translate="batch_delete"></button>
         </div>
     </div>
 <div class="card">
@@ -1088,9 +1259,9 @@ body:hover,
     </div>
 </div>
     <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-center text-center gap-2">
-        <h5 class="mb-0" style="line-height: 40px; height: 40px;">Spectra 配置管理</h5>
-        <p id="status" class="mb-0">当前模式: 加载中...</p>
-        <button id="toggleButton" onclick="toggleConfig()" class="btn btn-primary">切换模式</button>
+        <h5 class="mb-0" style="line-height: 40px; height: 40px;" data-translate="spectra_config"></h5>
+        <p id="status" class="mb-0"><span data-translate="current_mode">当前模式:</span> 加载中...</p>
+        <button id="toggleButton" onclick="toggleConfig()" class="btn btn-primary" data-translate="toggle_mode"></button>
     </div>
         <div class="d-flex align-items-center">
             <?php
@@ -1109,31 +1280,38 @@ body:hover,
                 return round($bytes, 2) . ' ' . $units[$index];
             }
             ?>  
-            <div class="me-3 d-flex gap-2 mt-4 ps-2 custom-tooltip-wrapper" 
+            <div class="me-3 d-flex gap-2 mt-2 ps-2 custom-tooltip-wrapper gap-2" 
                  data-tooltip="挂载点：<?= $mountPoint ?>｜已用空间：<?= formatSize($usedSpace) ?>">
-                <span class="btn btn-primary btn-sm"><i class="bi bi-hdd"></i> 总共：<?= $totalSpace ? formatSize($totalSpace) : 'N/A' ?></span>
-                <span class="btn btn-success btn-sm"><i class="bi bi-hdd"></i> 剩余：<?= $freeSpace ? formatSize($freeSpace) : 'N/A' ?></span>
+                <span class="btn btn-primary btn-sm mb-2 d-none d-sm-inline"><i class="bi bi-hdd"></i> <span data-translate="total">Total：</span><?= $totalSpace ? formatSize($totalSpace) : 'N/A' ?></span>
+                <span class="btn btn-success btn-sm mb-2"><i class="bi bi-hdd"></i> <span data-translate="free">Free：</span><?= $freeSpace ? formatSize($freeSpace) : 'N/A' ?></span>
             </div>
-            <button class="btn btn-info mt-4" data-bs-toggle="modal" data-bs-target="#updateConfirmModal" title="检查更新"><i class="bi bi-cloud-download"></i> <span class="btn-label"></span></button>
-            <button class="btn btn-warning ms-2 mt-4" data-bs-toggle="modal" data-bs-target="#uploadModal" title="批量上传"><i class="bi bi-upload"></i> <span class="btn-label"></span></button>
-            <button class="btn btn-primary ms-2 mt-4" id="openPlayerBtn" data-bs-toggle="modal" data-bs-target="#playerModal" title="勾选添加到播放列表"><i class="bi bi-play-btn"></i> <span class="btn-label"></span></button>
-            <button class="btn btn-primary ms-2 mt-4" data-bs-toggle="modal" data-bs-target="#musicModal"><i class="bi bi-music-note"></i></button>
-            <button class="btn btn-danger ms-2 mt-4" id="clearBackgroundBtn" title="清除背景"><i class="bi bi-trash"></i> <span class="btn-label"></span></button>
+            <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#updateConfirmModal" data-translate-title="check_update"><i class="fas fa-cloud-download-alt"></i> <span class="btn-label"></span></button>
+            <button class="btn btn-warning ms-2" data-bs-toggle="modal" data-bs-target="#uploadModal" data-translate-title="batch_upload"><i class="bi bi-upload"></i> <span class="btn-label"></span></button>
+            <button class="btn btn-primary ms-2" id="openPlayerBtn" data-bs-toggle="modal" data-bs-target="#playerModal" data-translate-title="add_to_playlist"><i class="bi bi-play-btn"></i> <span class="btn-label"></span></button>
+            <button class="btn btn-success ms-2" data-bs-toggle="modal" data-bs-target="#musicModal" data-translate-title="music_player"><i class="bi bi-music-note-beamed"></i></button>
+            <button class="btn btn-danger ms-2" id="clear-cache-btn" data-translate-title="clear_config"><i class="bi bi-trash3-fill"></i></button>
+            <button class="btn btn-danger ms-2" id="clearBackgroundBtn" data-translate-title="clear_background"><i class="bi bi-trash"></i> <span class="btn-label"></span></button> 
         </div>
     </div>
-        <h2 class="mt-3 mb-0">文件列表</h2>
+        <h2 class="mt-3 mb-0" data-translate="file_list">File List</h2>
     <div class="card-body">
         <?php if (isset($error)): ?>
             <div class="alert alert-danger"><?= $error ?></div>
         <?php endif; ?>
         
-        <div class="d-flex align-items-center mb-3 ps-2">
+        <div class="d-flex align-items-center mb-3 ps-2" id="selectAll-container">
             <input type="checkbox" id="selectAll" class="form-check-input me-2 shadow-sm" style="width: 1.05em; height: 1.05em; border-radius: 0.35em; margin-left: 1px; transform: scale(1.2)">
-            <label for="selectAll" class="form-check-label fs-5 ms-1" style="margin-right: 10px;">全选</label>
-            <input type="color" id="colorPicker" style="margin-right: 10px;" value="#ff6600" title="选择组件背景色" />
-            <input type="color" id="bodyBgColorPicker" value="#1a1a2e" title="选择页面背景色" />
+            <label for="selectAll" class="form-check-label fs-5 ms-1" style="margin-right: 10px;" data-translate="select_all">Select All'</label>
+            <input type="color" id="colorPicker" style="margin-right: 10px;" value="#ff6600" data-translate-title="component_bg_color"/>
+            <input type="color" id="bodyBgColorPicker"  style="margin-right: 10px; value="#ffecff" data-translate-title="page_bg_color" />
+            <button id="fontToggleBtn" style="border: 1px solid var(--accent-color); border-radius: 4px; width: 50px; display: flex; align-items: center; background-color: var(--accent-color); justify-content: center;" data-translate-title="toggle_font">🅰️</button>
+        <div class="ms-auto" style="margin-right: 20px;">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#langModal">
+                <img id="flagIcon" src="/luci-static/ipip/flags/<?php echo $currentLang; ?>.png" style="width:24px; height:16px">
+                <span data-translate="change_language">Change Language</span>
+            </button>
         </div>
-
+    </div>
         <?php
             $history_file = 'background_history.txt';
             $background_history = file_exists($history_file) ? file($history_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
@@ -1145,7 +1323,7 @@ body:hover,
             });
         ?>
 
-        <div class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-4">
+        <div  id="fileGrid" class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-4">
             <?php foreach ($files as $file): 
                 $path = $upload_dir . '/' . $file;
                 $size = filesize($path);
@@ -1182,36 +1360,53 @@ body:hover,
                         if (preg_match('/bitrate: (\d+) kb\/s/', $output, $matches)) {
                             $bitrate = $matches[1] . ' kbps';
                         }
-                
                     } else {
                         $resolution = '无法获取分辨率';
                         $duration = '无法获取时长';
                         $bitrate = '无法获取比特率';
                     }
+                } elseif ($isAudio) { 
+                    $ffmpegPath = '/usr/bin/ffmpeg';
+                    $cmd = "$ffmpegPath -i \"$path\" 2>&1";
+                    $output = shell_exec($cmd);
+
+                    if ($output) {
+                        if (preg_match('/Duration:\s*(\d+):(\d+):(\d+)/', $output, $matches)) {
+                            $duration = sprintf("%02d:%02d:%02d", $matches[1], $matches[2], $matches[3]);
+                        }
+
+                        if (preg_match('/bitrate:\s*(\d+)\s*kb\/s/', $output, $matches) || 
+                           preg_match('/Stream.*Audio:.*?(\d+)\s*kb\/s/', $output, $matches)) {
+                            $bitrate = $matches[1] . ' kbps';
+                        }
+                    } else {
+                        $duration = '无法获取时长';
+                        $bitrate = '无法获取比特率';
+                    }
                 }
             ?>
-            <div class="col">
+            <div class="col" data-filename="<?= htmlspecialchars($file) ?>">
                 <div class="card h-100 shadow-sm position-relative"> 
-                    <div class="position-absolute start-0 top-0 m-2 z-2">
+                    <div class="file-checkbox-wrapper position-absolute start-0 top-0 m-2 z-2">
                         <input type="checkbox" 
                                class="fileCheckbox form-check-input shadow" 
                                value="<?= htmlspecialchars($file) ?>"
                                data-size="<?= $size ?>"
-                               style="width: 1.05em; height: 1.05em; border-radius: 0.35em; transform: scale(1.2);">
+                               style="width: 1.05em !important; height: 1.05em !important; border-radius: 0.35em; transform: scale(1.2);">
                     </div>
                     <div class="position-relative">
                         <?php if ($isMedia): ?>
                         <div class="preview-container">
                             <div class="file-type-indicator">
                                 <?php if ($isImage): ?>
-                                    <i class="bi bi-image-fill text-white"></i>
-                                    <span class="text-white small">图片</span>
+                                    <i class="fas fa-image text-white"></i>
+                                    <span class="text-white small" data-translate="image">Image</span>
                                 <?php elseif ($isVideo): ?>
-                                    <i class="bi bi-play-circle-fill text-white"></i>
-                                    <span class="text-white small">视频</span>
+                                    <i class="fas fa-play-circle text-white"></i>
+                                    <span class="text-white small" data-translate="video">Video</span>
                                 <?php elseif ($isAudio): ?>
-                                    <i class="bi bi-music-note-beamed text-white"></i>
-                                    <span class="text-white small">音频</span>
+                                    <i class="fas fa-music text-white"></i>
+                                    <span class="text-white small" data-translate="audio">Audio</span>
                                 <?php endif; ?>
                             </div>
 
@@ -1240,26 +1435,26 @@ body:hover,
                                      data-type="audio">
                                     <div class="audio-placeholder">
                                         <i class="bi bi-file-music fs-1 text-muted"></i>
-                                        <div class="hover-tips">点击激活悬停播放</div>
+                                        <div class="hover-tips" data-translate="hover_to_preview">Click to activate hover preview</div>
                                     </div>
                                         <audio class="hover-audio" preload="none"></audio>
                                 </div>
                             <?php endif; ?>
 
                             <div class="file-info-overlay">
-                                <p class="mb-1 small">名称：<?= htmlspecialchars($file) ?></p>
-                                <p class="mb-1 small">大小：<?= round($size/(1024*1024),2) ?> MB</p>
-                                <?php if ($duration): ?><p class="mb-1 small">时长：<?= $duration ?></p><?php endif; ?>
-                                <?php if ($resolution): ?><p class="mb-1 small">分辨率：<?= $resolution ?></p><?php endif; ?>
-                                <?php if ($bitrate): ?><p class="mb-1 small">比特率：<?= $bitrate ?></p><?php endif; ?>
-                                <p class="mb-0 small text-uppercase">类型：<?= $ext ?></p>
+                                <p class="mb-1 small"><span data-translate="filename">Name：</span> <?= htmlspecialchars($file) ?></p>
+                                <p class="mb-1 small"><span data-translate="filesize">Size：</span> <?= round($size/(1024*1024),2) ?> MB</p>
+                                <?php if ($duration): ?><p class="mb-1 small"><span data-translate="duration">Duration：</span><?= $duration ?></p><?php endif; ?>
+                                <?php if ($resolution): ?><p class="mb-1 small"><span data-translate="resolution">Resolution：</span> <?= $resolution ?></p><?php endif; ?>
+                                <?php if ($bitrate): ?><p class="mb-1 small"><span data-translate="bitrate">Bitrate：</span> <?= $bitrate ?></p><?php endif; ?>
+                                <p class="mb-0 small text-uppercase"><span data-translate="type">Type：</span> <?= $ext ?></p>
                             </div>
                         </div>
                         <?php else: ?>
                         <div class="card-body text-center">
                             <div class="file-type-indicator">
                                 <i class="bi bi-file-earmark-text-fill text-white"></i>
-                                <span class="text-white small">文档</span>
+                                <span class="text-white small" data-translate="document">Document</span>
                             </div>
                             <i class="bi bi-file-earmark fs-1 text-muted"></i>
                             <p class="small mb-0"><?= htmlspecialchars($file) ?></p>
@@ -1270,11 +1465,17 @@ body:hover,
                     <div class="card-body pt-2 mt-2">
                         <div class="d-flex flex-nowrap align-items-center justify-content-between gap-2">                         
                             <div class="d-flex flex-nowrap gap-1 flex-grow-1" style="min-width: 0;">
-                                <button class="btn btn-danger" onclick="if(confirm('确定删除？')) window.location='?delete=<?= urlencode($file) ?>'"  title="删除"><i class="bi bi-trash"></i></button>
-                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#renameModal-<?= md5($file) ?>" title="重命名"><i class="bi bi-pencil"></i></button>
-                                <a href="?download=<?= urlencode($file) ?>" class="btn btn-success" title="下载"><i class="bi bi-download"></i></a>                     
+                                <button class="btn btn-danger" onclick="handleDeleteConfirmation('<?= urlencode($file) ?>')" data-translate-title="delete"><i class="bi bi-trash"></i></button>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#renameModal-<?= md5($file) ?>" data-translate-title="rename"><i class="bi bi-pencil"></i></button>
+                                <a href="?download=<?= urlencode($file) ?>" class="btn btn-success"><i class="bi bi-download" data-translate-title="download"></i></a>                     
                                 <?php if ($isMedia): ?>
-                                <button class="btn btn-info set-bg-btn" data-src="<?= htmlspecialchars($file) ?>" data-type="<?= $isVideo ? 'video' : ($isAudio ? 'audio' : 'image') ?>" title="设置背景" onclick="setBackground('<?= htmlspecialchars($file) ?>')"><i class="bi bi-image"></i></button>
+                                <button class="btn btn-info set-bg-btn" 
+                                        data-src="<?= htmlspecialchars($file) ?>"
+                                        data-type="<?= $isVideo ? 'video' : ($isAudio ? 'audio' : 'image') ?>"
+                                        onclick="setBackground('<?= htmlspecialchars($file) ?>')"
+                                        data-translate-title="set_background">
+                                    <i class="bi <?= $isVideo ? 'bi-play-btn' : ($isAudio ? 'bi-music-note-beamed' : 'bi-image') ?>"></i>
+                                </button>
                                 <?php endif; ?>  
                             </div>
                         </div>
@@ -1290,7 +1491,7 @@ body:hover,
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">预览</h5>
+                    <h5 class="modal-title" data-translate="preview">Preview</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center position-relative">
@@ -1304,7 +1505,7 @@ body:hover,
                     </video>
               </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" id="fullscreenToggle">切换全屏</button>
+                    <button class="btn btn-primary" id="fullscreenToggle" data-translate="toggle_fullscreen">Toggle Fullscreen</button>
                 </div>
             </div>
         </div>
@@ -1319,21 +1520,21 @@ body:hover,
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">选择文件进行批量上传</h5>
+                    <h5 class="modal-title" data-translate="batch_upload"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                  <div class="alert alert-warning">支持格式：[ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]</div>
+                  <div class="alert alert-warning" data-translate="supported_formats"></div>
                     <form id="uploadForm" method="post" enctype="multipart/form-data">
                         <div class="drop-zone border rounded p-5 text-center mb-3">
                             <input type="file" name="upload_file[]" id="upload_file" multiple 
                                    style="opacity: 0; position: absolute; z-index: -1">
                             <div class="upload-area">
-                                <i class="bi bi-cloud-upload-fill text-primary mb-3" style="font-size: 4rem;"></i>
-                                <div class="fs-5 mb-2">拖放文件到这里</div>
-                                <div class="text-muted upload-or mb-3">或</div>
+                                <i class="fas fa-cloud-upload-alt text-primary mb-3" style="font-size: 4rem;"></i>
+                                <div class="fs-5 mb-2" data-translate="drop_files_here"></div>
+                                <div class="text-muted upload-or mb-3" data-translate="or"></div>
                                 <button type="button" class="btn btn-primary btn-lg" id="customUploadButton">
-                                    <i class="bi bi-folder2-open me-2"></i>选择文件
+                                    <i class="bi bi-folder2-open me-2"></i><span data-translate="select_files"></span>
                                 </button>
                                 <div class="file-list mt-3"></div>
                             </div>
@@ -1341,9 +1542,9 @@ body:hover,
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-warning" id="updatePhpConfig">解锁 PHP 上传限制</button>
-                    <button class="btn btn-primary" onclick="$('#uploadForm').submit()">上传</button>
-                    <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning" id="updatePhpConfig" data-translate="unlock_php_upload_limit"></button>
+                    <button class="btn btn-primary" onclick="$('#uploadForm').submit()" data-translate="upload"></button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
                 </div>
             </div>
         </div>
@@ -1356,22 +1557,22 @@ body:hover,
                 <form method="post" action="">
                     <input type="hidden" name="old_name" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
                     <div class="modal-header">
-                        <h5 class="modal-title">重命名 <?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?></h5>
+                        <h5 class="modal-title" data-translate="rename_file"><?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?></h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label>新文件名</label>
+                            <label data-translate="new_filename"></label>
                             <input type="text" 
                                    class="form-control" 
                                    name="new_name"
                                    value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>"
-                                   title="文件名不能包含以下字符：\/:*?&quot;<>|">
+                                   data-translate-title="invalid_filename_chars">
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                        <button type="submit" class="btn btn-primary" name="rename">确认</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
+                        <button type="submit" class="btn btn-primary" name="rename" data-translate="confirm"></button>
                     </div>
                 </form>
             </div>
@@ -1383,7 +1584,7 @@ body:hover,
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="playerModalLabel">媒体播放器</h5>
+                    <h5 class="modal-title" id="playerModalLabel" data-translate="media_player"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body d-flex flex-column" style="height: 65vh;"> 
@@ -1396,46 +1597,47 @@ body:hover,
                         </div>
                     
                         <div class="col-md-4 d-flex flex-column h-100">
-                            <h6 class="mb-3">播放列表</h6>
+                            <h6 class="mb-3" data-translate="playlist"></h6>
                             <div class="list-group flex-grow-1 overflow-auto" id="playlistContainer">
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-danger" id="clearPlaylist"><i class="bi bi-trash"></i> 清除列表</button>
-                    <button class="btn btn-sm btn-primary" id="togglePlaylist"><i class="bi bi-list-ul"></i> 隐藏列表</button>
-                    <button class="btn btn-sm btn-info" id="togglePip" style="display: none;"><i class="bi bi-pip"></i> 画中画</button>
-                    <button class="btn btn-sm btn-success" id="toggleFullscreen"><i class="bi bi-arrows-fullscreen"></i> 全屏</button>
-                    <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> 关闭</button>
+                    <button class="btn btn-sm btn-danger" id="clearPlaylist"><i class="bi bi-trash"></i> <span data-translate="clear_list"></span></button>
+                    <button class="btn btn-sm btn-primary" id="togglePlaylist"><i class="bi bi-list-ul"></i> <span data-translate="toggle_list"></span></button>
+                    <button class="btn btn-sm btn-info" id="togglePip" style="display: none;"><i class="bi bi-pip"></i> <span data-translate="picture_in_picture"></span></button>
+                    <button class="btn btn-sm btn-success" id="toggleFullscreen"><i class="bi bi-arrows-fullscreen"></i> <span data-translate="fullscreen"></span></button>
+                    <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> <span data-translate="close"></span></button>
                 </div>
             </div>
         </div>
     </div>
 <div id="floatingLyrics">
     <div class="floating-controls">
-        <button class="ctrl-btn" onclick="changeTrack(-1)" title="上一首">
+        <button class="ctrl-btn" onclick="changeTrack(-1, true)" data-translate-title="previous_track">
             <i class="bi bi-skip-backward-fill"></i>
         </button>
-        <button class="ctrl-btn" id="floatingPlayBtn" onclick="togglePlay()" title="播放/暂停">
+        <button class="ctrl-btn" id="floatingPlayBtn" onclick="togglePlay()"  data-translate-title="play_pause">
             <i class="bi bi-play-fill"></i>
         </button>
-        <button class="ctrl-btn" onclick="changeTrack(1)" title="下一首">
+        <button class="ctrl-btn" onclick="changeTrack(1, true)" data-translate-title="next_track">
             <i class="bi bi-skip-forward-fill"></i>
         </button>
-        <button class="ctrl-btn" id="floatingRepeatBtn" onclick="toggleRepeat()" title="顺序播放">
+        <button class="ctrl-btn" id="floatingRepeatBtn" onclick="toggleRepeat()">
             <i class="bi bi-arrow-repeat"></i>
         </button>
-        <button class="ctrl-btn" id="toggleFloatingLyrics" onclick="toggleFloating()" title="关闭歌词"><i id="floatingIcon" class="bi bi-display"></i></button>
+        <button class="ctrl-btn" id="toggleFloatingLyrics" onclick="toggleFloating()" data-translate-title="toggle_floating_lyrics"><i id="floatingIcon" class="bi bi-display"></i></button>
     </div>
     <div id="currentSong" class="vertical-title"></div>
     <div class="vertical-lyrics"></div>
 </div>
+<span id="clearConfirmText" data-translate="clear_confirm" class="d-none"></span>
     <div class="modal fade" id="musicModal" tabindex="-1">
         <div class="modal-dialog modal-xl">
             <div class="modal-content bg-dark text-white">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="langModalLabel">音乐播放器</h5>
+                    <h5 class="modal-title" id="langModalLabel" data-translate="music_player"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -1454,22 +1656,21 @@ body:hover,
                     </div> 
                  
                     <div class="controls d-flex justify-content-center gap-3 mt-4">
-                        <button class="btn btn-outline-light control-btn" id="toggleFloatingLyrics" onclick="toggleFloating()" title="桌面歌词"><i id="floatingIcon" class="bi bi-display"></i></button>
+                        <button class="btn btn-outline-light control-btn" id="toggleFloatingLyrics" onclick="toggleFloating()" data-translate-title="toggle_floating_lyrics"><i id="floatingIcon" class="bi bi-display"></i></button>
                         <button class="btn btn-outline-light control-btn" id="repeatBtn" onclick="toggleRepeat()">
                             <i class="bi bi-arrow-repeat"></i>
                         </button>
-                        <button class="btn btn-outline-light control-btn" onclick="changeTrack(-1)">
+                        <button class="btn btn-outline-light control-btn" onclick="changeTrack(-1, true)" data-translate-title="previous_track">
                             <i class="bi bi-caret-left-fill"></i>
                         </button>
-                        <button class="btn btn-success control-btn" id="playPauseBtn" onclick="togglePlay()">
+                        <button class="btn btn-success control-btn" id="playPauseBtn" onclick="togglePlay()" data-translate-title="play_pause">
                             <i class="bi bi-play-fill"></i>
                         </button>
-                        <button class="btn btn-outline-light control-btn" onclick="changeTrack(1)">
+                        <button class="btn btn-outline-light control-btn" onclick="changeTrack(1, true)" data-translate-title="next_track">
                             <i class="bi bi-caret-right-fill"></i>
                         </button>
-                        <button class="btn btn-outline-light control-btn" id="clear-cache-btn" title="清除配置"><i class="bi bi-trash3-fill"></i></button>
-                       <button class="btn btn-outline-light control-btn" type="button" data-bs-toggle="modal" data-bs-target="#urlModal" title="自定义播放列表"><i class="bi bi-music-note-list"></i></button>
-                        <button class="btn btn-volume position-relative" id="volumeToggle">
+                       <button class="btn btn-outline-light control-btn" type="button" data-bs-toggle="modal" data-bs-target="#urlModal" data-translate-title="custom_playlist"><i class="bi bi-music-note-list"></i></button>
+                        <button class="btn btn-volume position-relative" id="volumeToggle" data-translate-title="volume">
                             <i class="bi bi-volume-up-fill"></i>
                             <div class="volume-slider-container position-absolute bottom-100 start-50 translate-middle-x mb-1 p-2"
                                  id="volumePanel"
@@ -1482,7 +1683,7 @@ body:hover,
                                        step="0.01"
                                        value="1">
                                 </div>
-                            </button>
+                            </button> 
                         </div>
                     <div class="playlist mt-3" id="playlist"></div>
                 </div>
@@ -1494,7 +1695,7 @@ body:hover,
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">更新播放列表</h5>
+                    <h5 class="modal-title" data-translate="update_playlist"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -1505,14 +1706,14 @@ body:hover,
                     <?php endif; ?>               
                     <form method="POST">
                         <div class="mb-3">
-                            <label>播放列表地址</label>
+                            <label data-translate="playlist_url"></label>
                             <input type="text" name="new_url" id="new_url" class="form-control" 
                                    value="<?= htmlspecialchars($new_url) ?>" required>
                         </div>
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">保存</button>
-                            <button type="submit" name="reset_default" class="btn btn-secondary">恢复默认</button>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="submit" class="btn btn-primary" data-translate="save"></button>
+                            <button type="submit" name="reset_default" class="btn btn-secondary" data-translate="reset_default"></button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
                         </div>
                     </form>
                 </div>
@@ -1524,15 +1725,36 @@ body:hover,
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">主题下载</h5>
+                    <h5 class="modal-title" data-translate="theme_download"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="themeVersionInfo" class="alert alert-warning">正在获取版本信息...</div>
+                    <div id="currentVersionInfo" class="alert alert-info" data-translate="current_version"></div>
+                    <div id="themeVersionInfo" class="alert alert-warning" data-translate="fetching_version"></div>
+                    <textarea id="copyCommand" class="form-control" rows="3" readonly>opkg update && opkg install wget grep sed && LATEST_FILE=$(wget -qO- https://github.com/Thaolga/openwrt-nekobox/releases/expanded_assets/1.8.8 | grep -o 'luci-theme-spectra_[0-9A-Za-z.\-_]*_all.ipk' | head -n1) && wget -O /tmp/"$LATEST_FILE" "https://github.com/Thaolga/openwrt-nekobox/releases/download/1.8.8/$LATEST_FILE" && opkg install --force-reinstall /tmp/"$LATEST_FILE" && rm -f /tmp/"$LATEST_FILE"</textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <a id="confirmUpdateLink" href="#" class="btn btn-danger" target="_blank">下载到本地</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
+                    <a id="confirmUpdateLink" href="#" class="btn btn-danger" target="_blank" data-translate="download_local"></a>
+                    <button id="copyCommandBtn" class="btn btn-info" data-translate="copy_command"></button>
+                    <button id="updatePluginBtn" class="btn btn-primary" data-translate="update_plugin">update_plugin</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="updateModalLabel" data-translate="updateModalLabel">Update status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="updateDescription" class="alert alert-info mb-3" data-translate="updateDescription"></div>
+                    <pre id="logOutput" style="white-space: pre-wrap; word-wrap: break-word; text-align: left; display: inline-block;" data-translate="waitingMessage">Waiting for the operation to begin...</pre>
                 </div>
             </div>
         </div>
@@ -1648,8 +1870,8 @@ body:hover,
 
             $('#batchDeleteBtn').click(function() {
                 const files = $('.fileCheckbox:checked').map(function() { return $(this).val(); }).get();
-                if (files.length === 0) { alert('请先选择要删除的文件！'); return; }
-                if (confirm(`确定要删除选中的 ${files.length} 个文件吗？`)) {
+                if (files.length === 0) { alert(translations['select_files_to_delete'] || 'Please select files to delete first');  return; }
+                if (confirm((translations['confirm_batch_delete'] || 'Are you sure you want to delete the selected %d files?').replace('%d', files.length))) {
                     const batchDeleteForm = $('#batchDeleteForm');
                     batchDeleteForm.empty();
                     batchDeleteForm.append('<input type="hidden" name="batch_delete" value="1">');
@@ -1666,7 +1888,7 @@ body:hover,
                 const totalSize = checked.toArray().reduce((sum, el) => sum + parseInt($(el).data('size')), 0);
                 if (count > 0) {
                     $('#toolbar').removeClass('d-none');
-                    $('#selectedInfo').html(`已选择 ${count} 个文件，合计 ${(totalSize / (1024 * 1024)).toFixed(2)} MB`);
+                    $('#selectedInfo').html((translations['selected_info'] || 'Selected %d files，total %s MB').replace('%d', count).replace('%s', (totalSize / (1024 * 1024)).toFixed(2)));
                 } else {
                     $('#toolbar').addClass('d-none');
                 }
@@ -1717,10 +1939,18 @@ body:hover,
             e.preventDefault();
             const formData = $(this).serialize();
             $.post('', formData, function(response) {
+                let message = '';
                 if (response.success) {
-                    location.reload();
+                    message = translations['batch_delete_success'] || '✅ Batch delete successful';
+                    showLogMessage(message);
+                    speakMessage(message);
+                    setTimeout(() => {
+                          location.reload();
+                    }, 2500);
                 } else {
-                    alert('批量删除操作失败');
+                    message = translations['batch_delete_failed'] || '❌ Batch delete failed';
+                    showLogMessage(message);
+                    speakMessage(message);
                 }
             }, 'json');
         });
@@ -1843,14 +2073,14 @@ body:hover,
 
     <script>
         document.getElementById("updatePhpConfig").addEventListener("click", function() {
-            if (confirm("您确定要更新 PHP 配置吗？")) {
+            if (confirm(translations['confirm_update_php'] || "Are you sure you want to update PHP configuration?")) {
                 fetch("update_php_config.php", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" }
                 })
                 .then(response => response.json())
                 .then(data => alert(data.message))
-                .catch(error => alert("请求失败: " + error.message));
+                .catch(error => alert(translations['request_failed'] || "Request failed: " + error.message));
             }
         });
     </script>
@@ -2169,7 +2399,7 @@ document.getElementById("fullscreenToggle").addEventListener("click", function (
         if (modalDialog.requestFullscreen) modalDialog.requestFullscreen();
         
         modalDialog.classList.add("fullscreen-modal");
-        btn.innerText = "退出全屏";
+        btn.innerText = translations['exit_fullscreen'] || 'Exit Fullscreen';
     } else {
         if (document.exitFullscreen) document.exitFullscreen();
         
@@ -2180,7 +2410,7 @@ document.getElementById("fullscreenToggle").addEventListener("click", function (
             modalDialog.style.width = modalDialog.dataset.originalWidth;
             modalDialog.style.height = modalDialog.dataset.originalHeight;
         }
-        btn.innerText = "进入全屏";
+        btn.innerText = translations['enter_fullscreen'] || 'Enter Fullscreen';
     }
 });
 
@@ -2198,7 +2428,7 @@ function handleFullscreenChange() {
             modalDialog.style.width = modalDialog.dataset.originalWidth;
             modalDialog.style.height = modalDialog.dataset.originalHeight;
         }
-        btn.innerText = "进入全屏";
+        btn.innerText = translations['enter_fullscreen'] || 'Enter Fullscreen';
     }
 }
 
@@ -2262,23 +2492,25 @@ if ('pictureInPictureEnabled' in document) {
                 await document.exitPictureInPicture();
             } else {
                 if (mainPlayer.classList.contains('d-none')) {
-                    return alert('当前媒体不支持画中画');
+                    return alert(translations['pip_not_supported'] || 'Current media does not support Picture-in-Picture');
                 }
                 await mainPlayer.requestPictureInPicture();
             }
         } catch (error) {
-            console.error('画中画操作失败:', error);
+            console.error(translations['pip_operation_failed'] || 'Picture-in-Picture operation failed:', error);
         }
     });
 
     mainPlayer.addEventListener('enterpictureinpicture', () => {
         pipButton.querySelector('i').className = 'bi bi-pip-fill';
-        pipButton.innerHTML = pipButton.querySelector('i').outerHTML + ' 退出画中画';
+        pipButton.innerHTML = pipButton.querySelector('i').outerHTML + 
+            ` ${translations['exit_picture_in_picture'] || 'Exit Picture-in-Picture'}`;
     });
 
     mainPlayer.addEventListener('leavepictureinpicture', () => {
         pipButton.querySelector('i').className = 'bi bi-pip';
-        pipButton.innerHTML = pipButton.querySelector('i').outerHTML + ' 画中画';
+        pipButton.innerHTML = pipButton.querySelector('i').outerHTML + 
+            ` ${translations['picture_in_picture'] || 'Picture-in-Picture'}`;
     });
 }
 
@@ -2289,7 +2521,7 @@ playlistToggleBtn.addEventListener('click', () => {
     const icon = playlistToggleBtn.querySelector('i');
     icon.className = isPlaylistVisible ? 'bi bi-list-ul' : 'bi bi-layout-sidebar';
     playlistToggleBtn.innerHTML = icon.outerHTML + ' ' + 
-        (isPlaylistVisible ? '隐藏列表' : '显示列表');
+        (isPlaylistVisible ? translations['hide_playlist'] || 'Hide Playlist' : translations['show_playlist'] || 'Show Playlist');
     
     const mainColumn = document.querySelector('.col-md-8');
     mainColumn.classList.toggle('col-md-12');
@@ -2312,10 +2544,10 @@ function updateFullscreenButton(isFullscreen) {
     const icon = fullscreenBtn.querySelector('i');
     if (isFullscreen) {
         icon.className = 'bi bi-fullscreen-exit';
-        fullscreenBtn.innerHTML = icon.outerHTML + ' 退出全屏';
+        fullscreenBtn.innerHTML = icon.outerHTML + ` ${translations['exit_fullscreen'] || 'Exit Fullscreen'}`;
     } else {
         icon.className = 'bi bi-arrows-fullscreen';
-        fullscreenBtn.innerHTML = icon.outerHTML + ' 全屏';
+        fullscreenBtn.innerHTML = icon.outerHTML + ` ${translations['enter_fullscreen'] || 'Enter Fullscreen'}`;
     }
 }
 
@@ -2400,24 +2632,32 @@ document.addEventListener('DOMContentLoaded', function () {
 document.addEventListener('DOMContentLoaded', function () {
     const modalElement = document.getElementById('updateConfirmModal');
     const versionInfo = document.getElementById('themeVersionInfo');
+    const currentVersionInfo = document.getElementById('currentVersionInfo');
     const downloadLink = document.getElementById('confirmUpdateLink');
 
     modalElement.addEventListener('shown.bs.modal', function () {
-        versionInfo.textContent = '正在获取版本信息...';
+        versionInfo.textContent = translations['fetching_version'] || 'Fetching version info...';
+        currentVersionInfo.textContent = translations['unable_to_fetch_current_version'] || 'Fetching current version...';
         downloadLink.href = '#';
 
         fetch('check_theme_update.php')
             .then(response => response.json())
             .then(data => {
+                if (data.currentVersion) {
+                    currentVersionInfo.textContent = `${translations['current_version'] || 'Current Version'}: ${data.currentVersion}`;
+                } else {
+                    currentVersionInfo.textContent = translations['unable_to_fetch_current_version'] || 'Unable to fetch the current version info';
+                }
+
                 if (data.version && data.url) {
-                    versionInfo.textContent = '最新版本：' + data.version;
+                    versionInfo.textContent = `${translations['latest_version'] || 'Latest Version'}: ${data.version}`;
                     downloadLink.href = data.url;
                 } else {
-                    versionInfo.textContent = '无法获取最新版本信息';
+                    versionInfo.textContent = translations['unable_to_fetch_version'] || 'Unable to fetch the latest version info';
                 }
             })
             .catch(() => {
-                versionInfo.textContent = '请求失败，请稍后再试';
+                versionInfo.textContent = translations['request_failed'] || 'Request failed, please try again later';
             });
     });
 });
@@ -2511,218 +2751,228 @@ document.getElementById('nextBtn').addEventListener('click', () => {
 </script>
 
 <script>
-    function hexToOklch(hex) {
-        const rgb = hexToRgb(hex);
-        return rgbToOklch(rgb.r, rgb.g, rgb.b);
-    }
+  let userInteracted = false;
 
-    function rgbToOklch(r, g, b) {
-        const [lr, lg, lb] = [r, g, b].map(c => {
-            c /= 255;
-            return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-        });
+  function hexToRgb(hex) {
+    return {
+      r: parseInt(hex.slice(1, 3), 16),
+      g: parseInt(hex.slice(3, 5), 16),
+      b: parseInt(hex.slice(5, 7), 16)
+    };
+  }
 
-        const x = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb;
-        const y = 0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb;
-        const z = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb;
-
-        const l = Math.cbrt(0.8189330101 * x + 0.3618667424 * y - 0.1288997136 * z);
-        const m = Math.cbrt(-0.0321965433 * x + 0.9295746987 * y + 0.0361446476 * z);
-        const s = Math.cbrt(0.0481421477 * x - 0.0192659616 * y + 0.9902282127 * z);
-
-        const l_ = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
-        const a = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
-        const b_ = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
-
-        const c = Math.sqrt(a * a + b_ * b_);
-        let h = Math.atan2(b_, a) * 180 / Math.PI;
-        h = h < 0 ? h + 360 : h;
-
-        return {
-            l: l_ * 100, 
-            c: c,      
-            h: h       
-        };
-    }
-
-    function updateBaseHueFromColorPicker(event) {
-        const color = event.target.value;
-        const oklch = hexToOklch(color);
-        const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
-        
-        const hueKey = `${currentTheme}BaseHue`;
-        const chromaKey = `${currentTheme}BaseChroma`;
-        
-        document.documentElement.style.setProperty('--base-hue', oklch.h);
-        document.documentElement.style.setProperty('--base-chroma', oklch.c);
-        
-        localStorage.setItem(hueKey, oklch.h);
-        localStorage.setItem(chromaKey, oklch.c);
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-        const savedTheme = localStorage.getItem("theme") || "dark";
-        const hueKey = `${savedTheme}BaseHue`;
-        const chromaKey = `${savedTheme}BaseChroma`;
-        
-        const savedHue = localStorage.getItem(hueKey) || (savedTheme === "dark" ? 260 : 200);
-        const savedChroma = localStorage.getItem(chromaKey) || (savedTheme === "dark" ? 0.03 : 0.01);
-        
-        document.documentElement.style.setProperty('--base-hue', savedHue);
-        document.documentElement.style.setProperty('--base-chroma', savedChroma);
-        
-        const colorPicker = document.getElementById("colorPicker");
-        colorPicker.value = oklchToHex(savedHue, savedChroma, 50); 
-        
-        colorPicker.addEventListener('input', updateBaseHueFromColorPicker);
+  function rgbToOklch(r, g, b) {
+    const [lr, lg, lb] = [r, g, b].map(c => {
+      c /= 255;
+      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     });
 
-    function oklchToHex(h, c, l) {
-        const hslHue = h;
-        const hslSat = c * 100; 
-        return hslToHex(hslHue, hslSat, 50);
+    const x = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb;
+    const y = 0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb;
+    const z = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb;
+
+    const l = Math.cbrt(0.8189330101 * x + 0.3618667424 * y - 0.1288997136 * z);
+    const m = Math.cbrt(-0.0321965433 * x + 0.9295746987 * y + 0.0361446476 * z);
+    const s = Math.cbrt(0.0481421477 * x - 0.0192659616 * y + 0.9902282127 * z);
+
+    const l_ = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
+    const a  = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
+    const b_ = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
+
+    const c = Math.sqrt(a * a + b_ * b_);
+    let h = Math.atan2(b_, a) * 180 / Math.PI;
+    if (h < 0) { 
+      h += 360; 
     }
 
-    function hexToRgb(hex) {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return { r, g, b };
+    return { l: l_ * 100, c: c, h: h };
+  }
+
+  function hexToOklch(hex) {
+    const rgb = hexToRgb(hex);
+    return rgbToOklch(rgb.r, rgb.g, rgb.b);
+  }
+
+  function oklchToHex(h, c, l = 50) {
+    const hslSat = c * 100;
+    return hslToHex(h, hslSat, l);
+  }
+
+  function hslToHex(h, s, l) {
+    h = h % 360;
+    s = Math.max(0, Math.min(100, s)) / 100;
+    l = Math.max(0, Math.min(100, l)) / 100;
+
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r, g, b;
+
+    if (h < 60) {
+      [r, g, b] = [c, x, 0];
+    } else if (h < 120) {
+      [r, g, b] = [x, c, 0];
+    } else if (h < 180) {
+      [r, g, b] = [0, c, x];
+    } else if (h < 240) {
+      [r, g, b] = [0, x, c];
+    } else if (h < 300) {
+      [r, g, b] = [x, 0, c];
+    } else {
+      [r, g, b] = [c, 0, x];
     }
 
-    function rgbToHsl(r, g, b) {
-        r /= 255;
-        g /= 255;
-        b /= 255;
-        
-        let max = Math.max(r, g, b);
-        let min = Math.min(r, g, b);
-        let h = (max + min) / 2;
-        let s = (max + min) / 2;
-        let l = (max + min) / 2;
-        
-        if (max === min) {
-            h = s = 0;
+    const toHex = channel => Math.round((channel + m) * 255)
+                                  .toString(16)
+                                  .padStart(2, "0");
+    return "#" + [r, g, b].map(toHex).join("").toUpperCase();
+  }
+
+  function updateTextPrimary(currentL) {
+    const textL = currentL > 60 ? 20 : 95;
+    document.documentElement.style.setProperty('--text-primary', `oklch(${textL}% 0 0)`);
+  }
+
+  function updateBaseHueFromColorPicker(event) {
+    const color = event.target.value;
+    const oklch = hexToOklch(color);
+    const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+    const hueKey = `${currentTheme}BaseHue`;
+    const chromaKey = `${currentTheme}BaseChroma`;
+    const currentL = document.documentElement.getAttribute('data-theme') === 'dark' ? 30 : 80;
+
+    document.documentElement.style.setProperty('--base-hue', oklch.h);
+    document.documentElement.style.setProperty('--base-chroma', oklch.c);
+
+    localStorage.setItem(hueKey, oklch.h);
+    localStorage.setItem(chromaKey, oklch.c);
+
+    updateTextPrimary(currentL);
+  }
+
+  function toggleConfig() {
+    fetch("/luci-static/spectra/bgm/theme-switcher.php", { method: "POST" })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          updateButton(data.mode);
         } else {
-            let d = max - min;
-            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-            switch (max) {
-                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                case g: h = (b - r) / d + 2; break;
-                case b: h = (r - g) / d + 4; break;
-            }
-            h /= 6;
+          document.getElementById("status").innerText = "更新失败: " + data.error;
         }
-        
-        return { h: h * 360, s, l };
+      })
+      .catch(error => {
+        document.getElementById("status").innerText = "请求出错: " + error;
+      });
+  }
+
+  function updateButton(theme) {
+    const body = document.documentElement;
+    const btn = document.getElementById("toggleButton");
+    const status = document.getElementById("status");
+    const oldTheme = body.getAttribute("data-theme") || "dark";
+
+    localStorage.setItem(`${oldTheme}BaseHue`, parseFloat(getComputedStyle(body).getPropertyValue('--base-hue')));
+    localStorage.setItem(`${oldTheme}BaseChroma`, parseFloat(getComputedStyle(body).getPropertyValue('--base-chroma')));
+
+    const hueKey = `${theme}BaseHue`;
+    const chromaKey = `${theme}BaseChroma`;
+    const baseHue = parseFloat(localStorage.getItem(hueKey)) || (theme === "dark" ? 260 : 200);
+    const baseChroma = parseFloat(localStorage.getItem(chromaKey)) || (theme === "dark" ? 0.03 : 0.01);
+
+    body.style.setProperty('--base-hue', baseHue);
+    body.style.setProperty('--base-chroma', baseChroma);
+    body.setAttribute("data-theme", theme);
+
+    const colorPicker = document.getElementById("colorPicker");
+    colorPicker.value = oklchToHex(baseHue, baseChroma, 50);
+
+    if (theme === "dark") {
+        const message = translations['current_mode_dark'] || "Current Mode: Dark Mode";
+        btn.innerHTML = `<i class="bi bi-sun"></i> ${translations['switch_to_light_mode'] || 'Switch to Light Mode'}`;
+        btn.className = "btn btn-primary light";
+        status.innerText = message;
+
+        if (userInteracted && typeof speakMessage === 'function') {
+            speakMessage(message);
+        }
+        if (userInteracted && typeof showLogMessage === 'function') {
+            showLogMessage(message);
+        }
+    } else {
+        const message = translations['current_mode_light'] || "Current Mode: Light Mode";
+        btn.innerHTML = `<i class="bi bi-moon"></i> ${translations['switch_to_dark_mode'] || 'Switch to Dark Mode'}`;
+        btn.className = "btn btn-primary dark";
+        status.innerText = message;
+        if (userInteracted && typeof speakMessage === 'function') {
+            speakMessage(message);
+        }
+        if (userInteracted && typeof showLogMessage === 'function') {
+            showLogMessage(message);
+        }
     }
 
-    function hslToHex(h, s, l) {
-        h = h % 360;
-        s = Math.max(0, Math.min(100, s)) / 100;
-        l = Math.max(0, Math.min(100, l)) / 100;
+    const currentL = theme === "dark" ? 35 : 95;
+    updateTextPrimary(currentL);
 
-        let c = (1 - Math.abs(2 * l - 1)) * s;
-        let x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-        let m = l - c / 2;
+    localStorage.setItem("theme", theme);
+    const bodyBgKey = `${theme}BodyBgColor`;
+    const defaultBg = theme === "dark" ? "#1C4792" : "#ffecff";
+    document.body.style.background = localStorage.getItem(bodyBgKey) || defaultBg;
+    
+    document.getElementById("bodyBgColorPicker").value = document.body.style.background;
+  }
 
-        let [r, g, b] = [0, 0, 0];
+  function getContrastColor(hex) {
+    const rgb = hexToRgb(hex);
+    const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+    return luminance > 0.45 ? '#000000' : '#FFFFFF';
+  }
 
-        if (0 <= h && h < 60) [r, g, b] = [c, x, 0];
-        else if (60 <= h && h < 120) [r, g, b] = [x, c, 0];
-        else if (120 <= h && h < 180) [r, g, b] = [0, c, x];
-        else if (180 <= h && h < 240) [r, g, b] = [0, x, c];
-        else if (240 <= h && h < 300) [r, g, b] = [x, 0, c];
-        else [r, g, b] = [c, 0, x];
+  document.addEventListener("DOMContentLoaded", () => {
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+    const hueKey = `${savedTheme}BaseHue`;
+    const chromaKey = `${savedTheme}BaseChroma`;
+    const defaultHue = savedTheme === "dark" ? 260 : 332.5;
+    const defaultChroma = savedTheme === "dark" ? 0.03 : 0.045;
 
-        return "#" + [r, g, b]
-            .map(channel => Math.round((channel + m) * 255)
-            .toString(16)
-            .padStart(2, "0"))
-            .join("")
-            .toUpperCase();
+    const savedHueValue = localStorage.getItem(hueKey) || defaultHue;
+    const savedChromaValue = localStorage.getItem(chromaKey) || defaultChroma;
+
+    document.documentElement.style.setProperty('--base-hue', savedHueValue);
+    document.documentElement.style.setProperty('--base-chroma', savedChromaValue);
+
+    const colorPicker = document.getElementById("colorPicker");
+    colorPicker.value = oklchToHex(savedHueValue, savedChromaValue, 50);
+    colorPicker.addEventListener('input', updateBaseHueFromColorPicker);
+
+    const penIcon = document.getElementById("penIcon");
+    if (penIcon) {
+      penIcon.addEventListener("click", () => colorPicker.click());
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        const savedHue = localStorage.getItem("baseHue") || 200;
-        
-        document.documentElement.style.setProperty('--base-hue', savedHue);
-        
-        const colorPicker = document.getElementById("colorPicker");
-        const savedColor = hslToHex(savedHue, 50, 50); 
-        colorPicker.value = savedColor; 
-
-        colorPicker.addEventListener('input', updateBaseHueFromColorPicker);
-
-        const penIcon = document.getElementById("penIcon");
-        penIcon.addEventListener("click", () => {
-            colorPicker.click(); 
-        });
+    const toggleBtn = document.getElementById("toggleButton");
+    toggleBtn.addEventListener("click", () => {
+      userInteracted = true;
     });
 
-    function toggleConfig() {
-        fetch("/luci-static/spectra/bgm/theme-switcher.php", { method: "POST" })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateButton(data.mode);
-                } else {
-                    document.getElementById("status").innerText = "更新失败: " + data.error;
-                }
-            })
-            .catch(error => {
-                document.getElementById("status").innerText = "请求出错: " + error;
-            });
-    }
-
-    function updateButton(value) {
-        const body = document.documentElement;
-        const btn = document.getElementById("toggleButton");
-        const status = document.getElementById("status");
-
-        const oldTheme = body.getAttribute("data-theme") || "dark";
-        const oldHueKey = `${oldTheme}BaseHue`;
-        const oldChromaKey = `${oldTheme}BaseChroma`;
-        const oldHue = parseFloat(getComputedStyle(body).getPropertyValue('--base-hue'));
-        const oldChroma = parseFloat(getComputedStyle(body).getPropertyValue('--base-chroma'));
-        localStorage.setItem(oldHueKey, oldHue);
-        localStorage.setItem(oldChromaKey, oldChroma);
-
-        const hueKey = `${value}BaseHue`;
-        const chromaKey = `${value}BaseChroma`;
-        const baseHue = parseFloat(localStorage.getItem(hueKey)) || (value === "dark" ? 260 : 200);
-        const chroma = parseFloat(localStorage.getItem(chromaKey)) || (value === "dark" ? 0.03 : 0.01);
-
-        body.style.setProperty('--base-hue', baseHue);
-        body.style.setProperty('--base-chroma', chroma);
-        body.setAttribute("data-theme", value);
-
-        const colorPicker = document.getElementById("colorPicker");
-        colorPicker.value = oklchToHex(baseHue, chroma, 50);
-
-        if (value === "dark") {
-            btn.innerHTML = '<i class="bi bi-sun"></i> 切换到亮色模式';
-            btn.className = "btn btn-primary light";
-            status.innerText = "当前模式: 暗色模式";
-        } else {
-            btn.innerHTML = '<i class="bi bi-moon"></i> 切换到暗色模式';
-            btn.className = "btn btn-primary dark";
-            status.innerText = "当前模式: 亮色模式";
-        }
-
-        localStorage.setItem("theme", value);
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-        fetch("/luci-static/spectra/bgm/theme-switcher.php")
-            .then(res => res.json())
-            .then(data => {
-                updateButton(data.mode);
-            })
-            .catch(error => {
-                document.getElementById("status").innerText = "读取失败: " + error;
-            });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.keyCode === 40) {
+        userInteracted = true;
+      }
     });
+
+    fetch("/luci-static/spectra/bgm/theme-switcher.php")
+      .then(res => res.json())
+      .then(data => {
+        if(data.mode) {
+          updateButton(data.mode);
+        }
+      })
+      .catch(error => {
+        document.getElementById("status").innerText = "读取失败: " + error;
+      });
+  });
 </script>
 
 <script>
@@ -2738,16 +2988,19 @@ function setBackground(filename) {
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    const savedBodyBg = localStorage.getItem("bodyBgColor") || "#1a1a2e";
-    document.body.style.background = savedBodyBg;
+    const theme = localStorage.getItem("theme") || "dark";
+    const bodyBgKey = `${theme}BodyBgColor`;
+    const defaultBg = theme === "dark" ? "#1C4792" : "#ffecff"; 
+    document.body.style.background = localStorage.getItem(bodyBgKey) || defaultBg;
 
     const bodyBgPicker = document.getElementById("bodyBgColorPicker");
-    bodyBgPicker.value = savedBodyBg;
+    bodyBgPicker.value = document.body.style.background;
     
     bodyBgPicker.addEventListener("input", (e) => {
-        const selectedColor = e.target.value;
-        document.body.style.background = selectedColor;
-        localStorage.setItem("bodyBgColor", selectedColor); 
+        const color = e.target.value;
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        document.body.style.background = color;
+        localStorage.setItem(`${currentTheme}BodyBgColor`, color); 
     });
 });
 </script>
@@ -2764,27 +3017,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-
-const localeConfig = {
-    'zh-CN': {
-        weekDays: ['日', '一', '二', '三', '四', '五', '六'],
-        labels: {
-            year: '年',
-            month: '月',
-            day: '号',
-            week: '星期'
-        }
-    },
-    'en-US': {
-        weekDays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-        labels: {
-            year: ' Year ',
-            month: ' Month ',
-            day: ' Day ',
-            week: ' '
-        }
-    }
-};
 
 function getLunar(date) {
     const lunarInfo = [
@@ -2805,13 +3037,23 @@ function getLunar(date) {
         0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0
     ];
 
-    const zodiacs = ['猴','鸡','狗','猪','鼠','牛','虎','兔','龙','蛇','马','羊'];
-    const Gan = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
-    const Zhi = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-    const lunarMonths = ['正','二','三','四','五','六','七','八','九','十','冬','腊'];
-    const lunarDays = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
-                      '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
-                      '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+    const defaultZodiacs = ['Monkey','Rooster','Dog','Pig','Rat','Ox','Tiger','Rabbit','Dragon','Snake','Horse','Goat'];
+    const defaultGan = ['Jia','Yi','Bing','Ding','Wu','Ji','Geng','Xin','Ren','Gui'];
+    const defaultZhi = ['Zi','Chou','Yin','Mao','Chen','Si','Wu','Wei','Shen','You','Xu','Hai'];
+    const defaultMonths = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'];
+    const defaultDays = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th',
+        '11th','12th','13th','14th','15th','16th','17th','18th','19th','20th',
+        '21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th'];
+
+    const zodiacs = translations.zodiacs || defaultZodiacs;
+    const Gan = translations.heavenlyStems || defaultGan;
+    const Zhi = translations.earthlyBranches || defaultZhi;
+    const lunarMonths = translations.months || defaultMonths;
+    const lunarDays = translations.days || defaultDays;
+    const leapPrefix = translations.leap_prefix || 'Leap ';
+    const yearSuffix = translations.year_suffix || ' Year';
+    const monthSuffix = translations.month_suffix || ' Month';
+    const daySuffix = translations.day_suffix || '';
 
     let year = date.getFullYear();
     let month = date.getMonth();
@@ -2866,13 +3108,13 @@ function getLunar(date) {
     let lunarDay = offset + 1;
 
     const zodiac = zodiacs[lunarYear % 12];
-    const monthName = (isLeap ? '闰' : '') + lunarMonths[lunarMonth-1] + '月';
+    const monthName = (isLeap ? leapPrefix : '') + lunarMonths[lunarMonth-1] + monthSuffix;
     const dayName = lunarDays[lunarDay-1];
     const ganZhiYear = Gan[(lunarYear - 4) % 10] + Zhi[(lunarYear - 4) % 12];
 
     return {
         zodiac: zodiac,
-        year: ganZhiYear + '年',
+        year: ganZhiYear + yearSuffix,
         month: monthName,
         day: dayName
     };
@@ -2901,14 +3143,14 @@ function getLunar(date) {
 function updateDateTime() {
     try {
         const now = new Date();
-        const lang = navigator.language;
-        const config = localeConfig[lang] || localeConfig['zh-CN'];
+        const lang = localStorage.getItem('language') || 'zh'; 
+        const translations = langData[lang] || langData['en']; 
 
         const hours = now.getHours();
         const minutes = now.getMinutes();
-        const ancientTime = getAncientTime(hours); 
+        const ancientTime = getAncientTime(now, translations);
         const weekDayIndex = now.getDay();
-        const weekDay = config.weekDays[weekDayIndex];
+        const weekDay = translations.weekDays ? translations.weekDays[weekDayIndex] : weekDayIndex;
 
         const timeStr = [
             now.getHours().toString().padStart(2, '0'),
@@ -2918,10 +3160,10 @@ function updateDateTime() {
 
         const timeElement = document.getElementById('timeDisplay');
         if (timeElement) {
-            if (lang.startsWith('zh')) {
+            if (['zh', 'hk', 'jp', 'kr'].includes(lang)) {
                 timeElement.innerHTML = `
+                    <span class="ancient-time">${ancientTime}</span>
                     <span class="modern-time">${timeStr}</span>
-                    <span class="ancient-time">【${ancientTime}】</span>
                 `;
             } else {
                 timeElement.textContent = timeStr;
@@ -2929,15 +3171,15 @@ function updateDateTime() {
         }
 
         if (minutes === 0 && now.getSeconds() === 0) {
-            if (lastAnnouncedHour !== hours) {  
+            if (lastAnnouncedHour !== hours) {
                 let announcement;
-                if (lang.startsWith('zh')) {
-                    announcement = `整点报时，现在是北京时间${hours}点整`;  
+                if (lang === 'zh' || lang === 'hk') {
+                    announcement = `${translations['hour_announcement'] || '??'}${hours}${translations['hour_exact'] || '??'}`;
                 } else {
-                    announcement = `It's ${hours} hundred hours`;  
+                    announcement = `${translations['hour_announcement_en'] || "It's"} ${hours} ${translations['hour_exact_en'] || "o'clock"}`;
                 }
                 speakMessage(announcement);
-                lastAnnouncedHour = hours;  
+                lastAnnouncedHour = hours;
             }
         } else if (minutes !== 0) {
             lastAnnouncedHour = -1;  
@@ -2945,106 +3187,174 @@ function updateDateTime() {
 
         const dateElement = document.getElementById('dateDisplay');
         if (dateElement) {
-            dateElement.textContent = 
-                `${now.getFullYear()}${config.labels.year}${now.getMonth() + 1}${config.labels.month}${now.getDate()}${config.labels.day}`;
+            let dateStr;
+            switch(lang) {
+                case 'zh':
+                case 'hk':
+                    dateStr = `${now.getFullYear()}${translations.labels.year}${now.getMonth()+1}${translations.labels.month}${now.getDate()}${translations.labels.day}`;
+                    break;
+                case 'vn':
+                    dateStr = `${translations.labels.day} ${now.getDate()} ${translations.labels.month} ${now.getMonth()+1} ${translations.labels.year} ${now.getFullYear()}`;
+                    break;
+                case 'kr':
+                    dateStr = `${now.getFullYear()}${translations.labels.year} ${now.getMonth()+1}${translations.labels.month} ${now.getDate()}${translations.labels.day}`;
+                    break;
+                case 'jp':
+                    dateStr = `${now.getFullYear()}${translations.labels.year}${now.getMonth()+1}${translations.labels.month}${now.getDate()}${translations.labels.day}`;
+                    break;
+                default:
+                    dateStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+            }
+            dateElement.textContent = dateStr;
         }
 
         const weekElement = document.getElementById('weekDisplay');
         if (weekElement) {
-            weekElement.className = 'week-display';
-            weekElement.textContent = `${config.labels.week}${weekDay}`;
-
-            if (lang.startsWith('en')) {
+            if (['zh', 'hk', 'kr', 'jp'].includes(lang)) {
+                weekElement.textContent = `${translations.labels.week}${weekDay}`;
+            } else if (lang === 'vn') {
+                weekElement.textContent = '';
+            } else {
                 weekElement.textContent = weekDay;
-                weekElement.style.fontSize = '0.95em';
             }
         }
 
         const lunarElement = document.getElementById('lunarDisplay');
-        if (lang.startsWith('zh') && lunarElement) {
-            const lunar = getLunar(now);
-            lunarElement.textContent = `${lunar.year} ${lunar.month}${lunar.day} ${lunar.zodiac}年`;
+        if (['zh', 'hk', 'jp', 'kr'].includes(lang) && lunarElement) {
+            const lunar = getLunar(now); 
+            lunarElement.textContent = (() => {
+                switch(lang) {
+                    case 'zh':
+                    case 'hk':
+                        return `${lunar.year} ${lunar.month}${lunar.day} ${lunar.zodiac}年`;
+                    case 'jp':
+                        return `${lunar.year} ${lunar.month}${lunar.day} ${lunar.zodiac}年`;
+                    case 'kr':
+                        return `${lunar.year} ${lunar.month}${lunar.day} ${lunar.zodiac}띠`;
+                    default: 
+                        return '';
+                }
+            })();
+        } else if (lunarElement) {
+            lunarElement.textContent = '';
         }
 
-        if (now.getHours() === 0 && 
-            now.getMinutes() === 0 && 
-            now.getSeconds() === 0) {
+        if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
             setTimeout(() => location.reload(), 1000);
         }
 
     } catch (error) {
-        console.error('时间更新失败:', error);
+        showLogMessage(translations['error_loading_time'] || 'Error loading time');
 
         const dateElement = document.getElementById('dateDisplay');
         if (dateElement) {
-            dateElement.textContent = '时间显示异常';
+            dateElement.textContent = translations['error_loading_time'] || 'Error loading time';
         }
     }
 }
 
-function getAncientTime(hours) {
+function getAncientTime(date, translations) {
+    let hours = date.getHours();
+    let minutes = date.getMinutes();
+
+    hours += Math.floor(minutes / 60);
+    minutes = minutes % 60;
+    hours = hours % 24;
+    if (hours < 0) hours += 24;
+
+    const defaultPeriods = ['Zi', 'Chou', 'Yin', 'Mao', 'Chen', 'Si', 'Wu', 'Wei', 'Shen', 'You', 'Xu', 'Hai'];
+    const periodLabels = translations?.periods || defaultPeriods;
+
     const periods = [
-        { start: 23, end: 1, name: '子', overnight: true },  
-        { start: 1, end: 3, name: '丑' },
-        { start: 3, end: 5, name: '寅' },
-        { start: 5, end: 7, name: '卯' },  
-        { start: 7, end: 9, name: '辰' },
-        { start: 9, end: 11, name: '巳'},
-        { start: 11, end: 13, name: '午'},
-        { start: 13, end: 15, name: '未'},
-        { start: 15, end: 17, name: '申'},
-        { start: 17, end: 19, name: '酉'},
-        { start: 19, end: 21, name: '戌'},
-        { start: 21, end: 23, name: '亥'}
+        { start: 23, end: 1, name: periodLabels[0], overnight: true },
+        { start: 1, end: 3, name: periodLabels[1] },
+        { start: 3, end: 5, name: periodLabels[2] },
+        { start: 5, end: 7, name: periodLabels[3] },
+        { start: 7, end: 9, name: periodLabels[4] },
+        { start: 9, end: 11, name: periodLabels[5] },
+        { start: 11, end: 13, name: periodLabels[6] },
+        { start: 13, end: 15, name: periodLabels[7] },
+        { start: 15, end: 17, name: periodLabels[8] },
+        { start: 17, end: 19, name: periodLabels[9] },
+        { start: 19, end: 21, name: periodLabels[10] },
+        { start: 21, end: 23, name: periodLabels[11] }
     ];
 
     const match = periods.find(p => {
-        if (p.overnight) { 
-            return hours >= p.start || hours < p.end;
-        }
+        if (p.overnight) return hours >= p.start || hours < p.end;
         return hours >= p.start && hours < p.end;
     });
 
-    return match ? `${match.name}時` : '亥時';
-}
+    if (!match) return periodLabels[11];
 
-const colorList = [
-    '#ff6b6b',
-    '#4dabf7', 
-    '#51cf66', 
-    '#f59f00', 
-    '#845ef7', 
-    '#20c997', 
-    '#f783ac', 
-];
+    let totalMinutes = date.getHours() * 60 + date.getMinutes();
+    let periodStartMinutes = match.start * 60;
+    let periodEndMinutes = match.end * 60;
 
-let usedColors = [];
-const elements = document.querySelectorAll('.time-display span');
-const currentSong = document.querySelector('#currentSong'); 
-
-function getNextColor() {
-    if (usedColors.length === colorList.length) {
-        usedColors = []; 
+    if (match.overnight) {
+        if (hours < match.start) totalMinutes += 24 * 60; 
+        periodEndMinutes += 24 * 60;
     }
 
-    const remainingColors = colorList.filter(c => !usedColors.includes(c));
-    const nextColor = remainingColors[Math.floor(Math.random() * remainingColors.length)];
-    usedColors.push(nextColor);
-    return nextColor;
+    const relativeMinutes = totalMinutes - periodStartMinutes;
+    const periodLength = periodEndMinutes - periodStartMinutes;
+    const stageDuration = periodLength / 3;
+
+    let sub;
+    if (relativeMinutes < stageDuration) {
+        sub = translations?.initial || 'Initial';
+    } else if (relativeMinutes < stageDuration * 2) {
+        sub = translations?.middle || 'Middle';
+    } else {
+        sub = translations?.final || 'Final';
+    }
+
+    return `${match.name}${sub}`; 
+}
+
+const elements = document.querySelectorAll('.time-display span');
+const currentSong = document.querySelector('#currentSong');
+
+let usedColors = [];
+
+function getColorListFromTheme() {
+    const styles = getComputedStyle(document.documentElement);
+    const lightness = styles.getPropertyValue('--l').trim();
+    const chroma = styles.getPropertyValue('--c').trim();
+
+    const colors = [];
+    for (let i = 1; i <= 7; i++) {
+        const hue = styles.getPropertyValue(`--base-hue-${i}`).trim();
+        const color = `oklch(${lightness} ${chroma} ${hue})`;
+        colors.push(color);
+    }
+    return colors;
+}
+
+function getNextColor(colorList) {
+    if (usedColors.length === colorList.length) {
+        usedColors = [];
+    }
+
+    const remaining = colorList.filter(c => !usedColors.includes(c));
+    const next = remaining[Math.floor(Math.random() * remaining.length)];
+    usedColors.push(next);
+    return next;
 }
 
 function rotateColors() {
+    const colorList = getColorListFromTheme();
+
     elements.forEach(el => {
-        const color = getNextColor();
-        el.style.color = color;
+        el.style.color = getNextColor(colorList);
     });
 
     if (currentSong) {
-        currentSong.style.color = getNextColor();
+        currentSong.style.color = getNextColor(colorList);
     }
 }
 
-setInterval(rotateColors, 4000); 
+setInterval(rotateColors, 4000);
 </script>
 
 <style>
@@ -3059,7 +3369,6 @@ setInterval(rotateColors, 4000);
 
 body {
     margin: 0;
-    font-family: 'Zen Old Mincho', 'Noto Serif SC', 'Segoe UI', serif;
     background: linear-gradient(145deg, var(--bg-body), var(--bg-container));
     color: var(--text-color);
     background-attachment: fixed;
@@ -3089,7 +3398,6 @@ body {
     border-radius: var(--radius);
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    font-family: 'SimSun', 'Songti SC', '宋体', serif; 
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -3231,17 +3539,19 @@ body {
 
 .playlist-item:hover {
     background: var(--item-hover-bg);
+    font-weight: bold;
 }
 
 .playlist-item.active {
-    background: var(--accent-color);
-    color: var(--text-primary);
+    background: var(--color-accent);
+    color: white;
+    font-weight: bold;
 }
 
 #floatingLyrics {
     position: fixed;
     top: 2%;
-    left: 4.5%;
+    right: 4.5%;
     background: var(--bg-body);
     padding: 15px 10px;
     border-radius: 20px;
@@ -3252,10 +3562,11 @@ body {
     writing-mode: vertical-rl;
     text-orientation: mixed;
     line-height: 2;
-    font-family: 'Noto Serif SC', serif;
+    z-index: 2;
     display: flex;
     flex-direction: column; 
     gap: 0.5em;
+
 }
 
 #floatingLyrics.visible {
@@ -3269,7 +3580,8 @@ body {
     writing-mode: vertical-rl;
     padding-right: 0.5em;
     margin-right: 0.5em;
-    text-shadow: none !important; 
+    text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3), 
+                 0px -1px 2px rgba(255, 255, 255, 0.4);
 }
 
 #floatingLyrics .vertical-lyrics {
@@ -3307,7 +3619,7 @@ body {
 }
 
 .ctrl-btn:hover {
-    background: var(--card-bg);
+    background: var(--item-hover-bg);
     transform: scale(1.1);
 }
 
@@ -3393,20 +3705,28 @@ body {
     min-height: 100px;
 }
 
-.lyrics-loading::after {
-    content: "歌词加载中...";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: var(--text-secondary);
-}
-
-.no-lyrics {
+#no-lyrics {
     text-align: center;
     color: var(--text-secondary);
     padding: 2rem;
     font-size: 1.8em;
+}
+
+#noLyricsFloating {
+    width: min-content; 
+    max-width: 4em;
+    text-align: center;
+    color: var(--text-secondary);
+    line-height: 1.2;
+    font-size: 1.5rem;
+    padding: 10px 2px;
+    letter-spacing: 0.2em;
+}
+
+@keyframes glow {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
 }
 
 .progress-bar {
@@ -3428,7 +3748,8 @@ body {
 #currentSong {
     font-weight: bold !important;
     color: var(--accent-color);
-    text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.5); 
+    text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3), 
+                 0px -1px 2px rgba(255, 255, 255, 0.4);
 }
 
 #volumePanel {
@@ -3484,14 +3805,33 @@ body {
     }
 }
 
-.list-group-item.active {
-    color: #fff !important;
+.list-group-item {
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--bg-container);
+    border: 1px solid var(--border-color);
+    transition: background 0.3s ease;
 }
 
+.list-group-item:hover {
+    background: var(--item-hover-bg);
+}
+
+.list-group-item.active {
+    background: var(--accent-color);
+    color: white;
+    border: 1px solid var(--accent-color);
+}
+
+.list-group-item.active .badge,
 .list-group-item.active .text-truncate,
-.list-group-item.active .text-muted,
-.list-group-item.active .badge {
-    color: #fff !important;
+.list-group-item.active small,
+.list-group-item.active i {
+    color: white !important;
+}
+
+.list-group-item .delete-item {
+    cursor: pointer;
 }
 
 .modal-xl {
@@ -3593,19 +3933,21 @@ document.head.appendChild(styleSheet);
 
 function speakMessage(message) {
     const utterance = new SpeechSynthesisUtterance(message);
-    utterance.lang = 'zh-CN';
+    utterance.lang = currentLang;  
     speechSynthesis.speak(utterance);
-}
+} 
 
 function togglePlay() {
     if (isPlaying) {
         audioPlayer.pause();
-        showLogMessage('暂停播放');
-        speakMessage('暂停播放');
+        const pauseMessage = translations['pause_playing'] || 'Pause_Playing';
+        showLogMessage(pauseMessage);
+        speakMessage(pauseMessage);
     } else {
         audioPlayer.play();
-        showLogMessage('开始播放');
-        speakMessage('开始播放');
+        const playMessage = translations['start_playing'] || 'Start_Playing';
+        showLogMessage(playMessage);
+        speakMessage(playMessage);
     }
     isPlaying = !isPlaying;
     updatePlayButton();
@@ -3627,8 +3969,7 @@ function updatePlayButton() {
     floatingBtn.innerHTML = `<i class="bi ${icon}"></i>`;
 }
 
-function changeTrack(direction) {
-    const isManual = event && event.type === 'click'; 
+function changeTrack(direction, isManual = false) {
     const oldSong = songs[currentTrackIndex];
     
     if (repeatMode === 2 && !isManual) { 
@@ -3642,12 +3983,14 @@ function changeTrack(direction) {
     );
 
     if (isManual) {
-        const action = direction === -1 ? '上一首' : '下一首';
-        showLogMessage(`手动切换${action}：${songName}`);
-        speakMessage(`切换到${action}：${songName}`);
+        const action = direction === -1
+            ? translations['previous_track'] || 'Previous Track'
+            : translations['next_track'] || 'Next Track';
+        showLogMessage(`${translations['manual_switch'] || 'Manual Switch'}${action}：${songName}`);
+        speakMessage(`${translations['switch_to'] || 'Switch to'}${action}：${songName}`);
     } else {
-        showLogMessage(`自动切换到：${songName}`);
-        speakMessage(`自动播放：${songName}`);
+        showLogMessage(`${translations['auto_switch'] || 'Auto Switch to'}：${songName}`);
+        speakMessage(`${translations['auto_play'] || 'Auto Play'}：${songName}`);
     }
 
     loadTrack(songs[currentTrackIndex]);
@@ -3657,28 +4000,40 @@ function toggleRepeat() {
     repeatMode = (repeatMode + 1) % 3;
     const mainBtn = document.getElementById('repeatBtn');
     const floatingBtn = document.getElementById('floatingRepeatBtn');
-    
+
     [mainBtn, floatingBtn].forEach(btn => {
         btn.classList.remove('btn-success', 'btn-warning');
-        btn.title = ['顺序播放', '单曲循环', '随机播放'][repeatMode];
-        
-        switch(repeatMode) {
+        btn.title = [
+            translations['order_play'] || 'Order_Play',
+            translations['single_loop'] || 'Single_Loop',
+            translations['shuffle_play'] || 'Shuffle_Play'
+        ][repeatMode];
+
+        switch (repeatMode) {
             case 0:
                 btn.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
                 break;
             case 1:
                 btn.innerHTML = '<i class="bi bi-repeat-1"></i>';
-                btn.classList.add('btn-success'); 
+                btn.classList.add('btn-success');
                 break;
             case 2:
                 btn.innerHTML = '<i class="bi bi-shuffle"></i>';
-                btn.classList.add('btn-warning'); 
+                btn.classList.add('btn-warning');
                 break;
         }
     });
 
-    showLogMessage(['顺序播放', '单曲循环', '随机播放'][repeatMode]);
-    speakMessage(['顺序播放', '单曲循环', '随机播放'][repeatMode]);
+    showLogMessage([
+        translations['order_play'] || 'Order_Play',
+        translations['single_loop'] || 'Single_Loop',
+        translations['shuffle_play'] || 'Shuffle_Play'
+    ][repeatMode]);
+    speakMessage([
+        translations['order_play'] || 'Order_Play',
+        translations['single_loop'] || 'Single_Loop',
+        translations['shuffle_play'] || 'Shuffle_Play'
+    ][repeatMode]);
     savePlayerState();
 }
 
@@ -3696,7 +4051,9 @@ function updatePlaylistUI() {
 
 function playTrack(index) {
     const songName = decodeURIComponent(songs[index].split('/').pop().replace(/\.\w+$/, ''));
-    showLogMessage(`播放列表点击：索引：${index + 1}，歌曲名称：${songName}`);
+    showLogMessage(
+        `${translations['playlist_click'] || 'Playlist Click'}：${translations['index'] || 'Index'}：${index + 1}，${translations['song_name'] || 'Song Name'}：${songName}`
+    );
     currentTrackIndex = index;
     loadTrack(songs[index]);
 }
@@ -3719,13 +4076,17 @@ function loadLyrics(songUrl) {
         document.getElementById('lyricsContainer'),
         document.querySelector('#floatingLyrics .vertical-lyrics')
     ];
+    
     containers.forEach(container => {
-        container.innerHTML = '<div class="no-lyrics">歌词加载中...</div>';
+        const statusMsg = container.id === 'lyricsContainer' 
+            ? `<div id="no-lyrics">${translations['loading_lyrics'] || 'Loading Lyrics...'}</div>`
+            : `<div id="noLyricsFloating">${translations['loading_lyrics'] || 'Loading Lyrics...'}</div>`;
+        container.innerHTML = statusMsg;
     });
 
     fetch(lyricsUrl)
         .then(response => {
-            if (!response.ok) throw new Error('歌词不存在');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response.arrayBuffer();
         })
         .then(buffer => {
@@ -3735,12 +4096,15 @@ function loadLyrics(songUrl) {
             document.dispatchEvent(new Event('lyricsLoaded'));
         })
         .catch(error => {
-            console.error('歌词加载失败:', error);
+            console.error(`${translations['lyrics_load_failed'] || 'Lyrics Load Failed'}:`, error);
             containers.forEach(container => {
-                container.innerHTML = '<div class="no-lyrics">暂无歌词</div>';
+                const errorMsg = container.id === 'lyricsContainer'
+                    ? `<div id="no-lyrics">${translations['no_lyrics'] || 'No Lyrics Available'}</div>`
+                    : `<div id="noLyricsFloating">${translations['no_lyrics'] || 'No Lyrics Available'}</div>`;
+                container.innerHTML = errorMsg;
             });
         });
-}
+} 
 
 function parseLyrics(text) {
     window.lyrics = {};
@@ -3855,8 +4219,8 @@ function displayLyrics() {
     floatingLyrics.innerHTML = '';
 
     if (Object.keys(window.lyrics).length === 0) {
-        lyricsContainer.innerHTML = '<div class="no-lyrics">暂无歌词</div>';
-        floatingLyrics.innerHTML = '<div class="no-lyrics">暂无歌词</div>';
+        lyricsContainer.innerHTML = `<div id="no-lyrics">${translations['no_lyrics'] || 'No Lyrics Available'}</div>`;
+        floatingLyrics.innerHTML = `<div id="noLyricsFloating">${translations['no_lyrics'] || 'No Lyrics Available'}</div>`;
         return;
     }
 
@@ -4017,7 +4381,7 @@ function loadTrack(url) {
     ];
     
     lyricsContainers.forEach(container => {
-        container.innerHTML = '<div class="no-lyrics">歌词加载中...</div>';
+        container.innerHTML = `<div class="no-lyrics">${translations['loading_lyrics'] || 'Loading Lyrics...'}</div>`;
     });
 
     audioPlayer.src = url;
@@ -4029,7 +4393,7 @@ function loadTrack(url) {
     
     if (isPlaying) {
         audioPlayer.play().catch((error) => {
-            console.log('自动播放被阻止:', error);
+            console.log(`${translations['autoplay_blocked'] || 'Autoplay Blocked'}:`, error);
             isPlaying = false;
             updatePlayButton();
             savePlayerState();
@@ -4053,7 +4417,7 @@ function initializePlayer() {
     
     if (isPlaying) {
         audioPlayer.play().catch((error) => {
-            console.log('自动播放被阻止:', error);
+            console.log(`${translations['autoplay_blocked'] || 'Autoplay Blocked'}:`, error);
             isPlaying = false;
             saveCoreState();
             updatePlayButton();
@@ -4150,7 +4514,11 @@ function setRepeatButtonState() {
     
     [mainBtn, floatingBtn].forEach(btn => {
         btn.classList.remove('btn-success', 'btn-warning');
-        btn.title = ['顺序播放', '单曲循环', '随机播放'][repeatMode];
+        btn.title = [
+            translations['order_play'] || 'Order_Play',
+            translations['single_loop'] || 'Single_Loop',
+            translations['shuffle_play'] || 'Shuffle_Play'
+        ][repeatMode];
         
         switch(repeatMode) {
             case 1:
@@ -4301,34 +4669,37 @@ updateVolumeIcon();
 </script>
 
 <script>
-const notificationMessage = '配置已清除';
-const speechMessage = '配置已清除';
-
 document.addEventListener('keydown', function(event) {
     if (event.ctrlKey && event.shiftKey && event.code === 'KeyC') {
-        clearCache();
-        event.preventDefault();  
+        confirmAndClearCache();
+        event.preventDefault();
     }
 });
 
 document.getElementById('clear-cache-btn').addEventListener('click', function() {
-    clearCache();
+    confirmAndClearCache();
 });
 
+function confirmAndClearCache() {
+    const confirmed = confirm(translations['clear_confirm'] || 'Are you sure you want to clear the configuration?');
+    if (confirmed) {
+        clearCache();
+    }
+}
+
 function clearCache() {
-    location.reload(true); 
+    location.reload(true);
     localStorage.clear();
     sessionStorage.clear();
     sessionStorage.setItem('cacheCleared', 'true');
-    showLogMessage(notificationMessage);
-    speakMessage(speechMessage);
 }
 
 window.addEventListener('load', function() {
     if (sessionStorage.getItem('cacheCleared') === 'true') {
-        showLogMessage(notificationMessage);
-        speakMessage(speechMessage);
-        sessionStorage.removeItem('cacheCleared'); 
+        const message = translations['cache_cleared'] || 'Cache Cleared';
+        showLogMessage(message);
+        speakMessage(message);
+        sessionStorage.removeItem('cacheCleared');
     }
 });
 
@@ -4345,7 +4716,7 @@ document.addEventListener('keydown', function(event) {
     if (event.ctrlKey && event.shiftKey && event.key === 'V') {
         var urlModal = new bootstrap.Modal(document.getElementById('urlModal'));
         urlModal.show();
-        speakMessage('打开自定义播放列表');
+        speakMessage(translations['open_custom_playlist'] || 'Open Custom Playlist');
     }
 });
 
@@ -4364,11 +4735,11 @@ document.getElementById('resetButton').addEventListener('click', function() {
 
         document.getElementById('new_url').value = '<?php echo $default_url; ?>';
 
-        showNotification('已恢复默认播放列表链接');
+        showNotification(translations['reset_default_playlist'] || 'Default Playlist Link Restored');
     })
     .catch(error => {
-        console.error('恢复默认链接时出错:', error);
-        showNotification('恢复默认链接失败');
+        console.error(translations['reset_default_error'] || 'Error Restoring Default Link:', error);
+        showNotification(translations['reset_default_failed'] || 'Failed to Restore Default Link');
     });
 });
 
@@ -4405,13 +4776,2377 @@ function loadNewPlaylist(url) {
             });
         })
         .catch(error => {
-            console.error('加载歌单失败:', error);
-            showNotification('加载歌单失败');
+            console.error(translations['playlist_load_failed'] || 'Failed to Load Playlist:', error);
+            showNotification(translations['playlist_load_failed_message'] || 'Failed to Load Playlist');
         });
 }
 
 document.getElementById('urlModal').addEventListener('hidden.bs.modal', function() {
     const newUrl = document.getElementById('new_url').value;
     loadNewPlaylist(newUrl);
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("fontToggleBtn");
+  const body = document.body;
+  const storageKey = "fontToggle";
+
+  const fonts = [
+    { class: "default-font", key: "font_default" },
+    { class: "fredoka-font", key: "font_fredoka" },
+    { class: "system-nofo-font", key: "font_noto" },
+    { class: "system-mono-font", key: "font_mono" } 
+  ];
+
+  const savedFont = localStorage.getItem(storageKey);
+  if (savedFont) {
+    body.classList.add(savedFont);
+  }
+
+  btn.addEventListener("click", () => {
+    const currentIndex = fonts.findIndex(f => body.classList.contains(f.class));
+    const nextIndex = (currentIndex + 1) % fonts.length;
+    const nextFont = fonts[nextIndex];
+
+    fonts.forEach(f => body.classList.remove(f.class));
+    body.classList.add(nextFont.class);
+    localStorage.setItem(storageKey, nextFont.class);
+
+    const message = translations[nextFont.key] || "Switched font";
+
+    if (typeof speakMessage === "function") {
+      speakMessage(message);
+    }
+
+    if (typeof showLogMessage === "function") {
+      showLogMessage(message);
+    }
+  });
+});
+</script>
+
+<html lang="<?php echo $currentLang; ?>">
+<div class="modal fade" id="langModal" tabindex="-1" aria-labelledby="langModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="langModalLabel" data-translate="select_language">Select Language</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <select id="langSelect" class="form-select" onchange="changeLanguage(this.value)">
+                    <option value="zh" data-translate="simplified_chinese">Simplified Chinese</option>
+                    <option value="hk" data-translate="traditional_chinese">Traditional Chinese</option>
+                    <option value="en" data-translate="english">English</option>
+                    <option value="kr" data-translate="korean">Korean</option>
+                    <option value="vn" data-translate="vietnamese">Vietnamese</option>
+                    <option value="th" data-translate="thailand">Thailand</option>
+                    <option value="jp" data-translate="japanese"></option>
+                    <option value="ru" data-translate="russian"></option>
+                    <option value="de" data-translate="germany">Germany</option>
+                    <option value="fr" data-translate="france">France</option>
+                    <option value="ar" data-translate="arabic"></option>
+                    <option value="es" data-translate="spanish">spanish</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="close">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php
+$langFilePath = __DIR__ . '/language.txt';
+$defaultLang = 'en';
+
+$langData = [
+    'zh' => [
+        'select_language'        => '选择语言',
+        'simplified_chinese'     => '简体中文',
+        'traditional_chinese'    => '繁體中文',
+        'english'                => '英文',
+        'korean'                 => '韩语',
+        'vietnamese'             => '越南语',
+        'thailand'             => '泰语',
+        'japanese'               => '日语',
+        'russian'                => '俄语',
+        'germany'                => '德语',
+        'france'                 => '法语',
+        'arabic'                 => '阿拉伯语',
+        'spanish'                => '西班牙语',
+        'close'                  => '关闭',
+        'save'                   => '保存',
+        'theme_download'         => '主题下载',
+        'select_all'             => '全选',
+        'batch_delete'           => '批量删除选中文件',
+        'batch_delete_success' => '✅ 批量删除成功',
+        'batch_delete_failed' => '❌ 批量删除失败',
+        'confirm_delete' => '确定删除？',
+        'total'                  => '总共：',
+        'free'                   => '剩余：',
+        'hover_to_preview'       => '点击激活悬停播放',
+        'spectra_config'         => 'Spectra 配置管理',
+        'current_mode'           => '当前模式: 加载中...',
+        'toggle_mode'            => '切换模式',
+        'check_update'           => '检查更新',
+        'batch_upload'           => '选择文件进行批量上传',
+        'add_to_playlist'        => '勾选添加到播放列表',
+        'clear_background'       => '清除背景',
+        'clear_background_label' => '清除背景',
+        'file_list'              => '文件列表',
+        'component_bg_color'     => '选择组件背景色',
+        'page_bg_color'          => '选择页面背景色',
+        'toggle_font'            => '切换字体',
+        'filename'               => '名称：',
+        'filesize'               => '大小：',
+        'duration'               => '时长：',
+        'resolution'             => '分辨率：',
+        'bitrate'                => '比特率：',
+        'type'                   => '类型：',
+        'image'                  => '图片',
+        'video'                  => '视频',
+        'audio'                  => '音频',
+        'document'               => '文档',
+        'delete'                 => '删除',
+        'rename'                 => '重命名',
+        'download'               => '下载',
+        'set_background'         => '设置背景',
+        'preview'                => '预览',
+        'toggle_fullscreen'      => '切换全屏',
+        'supported_formats'      => '支持格式：[ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => '拖放文件到这里',
+        'or'                     => '或',
+        'select_files'           => '选择文件',
+        'unlock_php_upload_limit'=> '解锁 PHP 上传限制',
+        'upload'                 => '上传',
+        'cancel'                 => '取消',
+        'rename_file'            => '重命名',
+        'new_filename'           => '新文件名',
+        'invalid_filename_chars' => '文件名不能包含以下字符：\\/：*?"<>|',
+        'confirm'                => '确认',
+        'media_player'           => '媒体播放器',
+        'playlist'               => '播放列表',
+        'clear_list'             => '清除列表',
+        'toggle_list'            => '隐藏列表',
+        'picture_in_picture'     => '画中画',
+        'fullscreen'             => '全屏',
+        'music_player'           => '音乐播放器',
+        'play_pause'             => '播放/暂停',
+        'previous_track'         => '上一首',
+        'next_track'             => '下一首',
+        'repeat_mode'            => '顺序播放',
+        'toggle_floating_lyrics' => '桌面歌词',
+        'clear_config'           => '清除配置',
+        'custom_playlist'        => '自定义播放列表',
+        'volume'                 => '音量',
+        'update_playlist'        => '更新播放列表',
+        'playlist_url'           => '播放列表地址',
+        'reset_default'          => '恢复默认',
+        'toggle_lyrics'          => '关闭歌词',
+        'fetching_version'       => '正在获取版本信息...',
+        'download_local'         => '下载到本地',
+        'change_language'        => '更改语言',
+        'pause_playing'          => '暂停播放',
+        'start_playing'          => '开始播放',
+        'manual_switch'          => '手动切换',
+        'auto_switch'            => '自动切换到',
+        'switch_to'              => '切换到',
+        'auto_play'              => '自动播放',
+        'lyrics_load_failed'     => '歌词加载失败',
+        'order_play'             => '顺序播放',
+        'single_loop'            => '单曲循环',
+        'shuffle_play'           => '随机播放',
+        'playlist_click'         => '播放列表点击',
+        'index'                  => '索引',
+        'song_name'              => '歌曲名称',
+        'no_lyrics'              => '暂无歌词',
+        'loading_lyrics'         => '歌词加载中...',
+        'autoplay_blocked'       => '自动播放被阻止',
+        'cache_cleared'               => '配置已清除',
+        'open_custom_playlist'        => '打开自定义播放列表',
+        'reset_default_playlist'      => '已恢复默认播放列表链接',
+        'reset_default_error'         => '恢复默认链接时出错',
+        'reset_default_failed'        => '恢复默认链接失败',
+        'playlist_load_failed'        => '加载歌单失败',
+        'playlist_load_failed_message'=> '加载歌单失败',
+        'hour_announcement'      => '整点报时，现在是北京时间',  
+        'hour_exact'             => '点整',
+        'weekDays' => ['日', '一', '二', '三', '四', '五', '六'],
+        'labels' => [
+            'year' => '年',
+            'month' => '月',
+            'day' => '号',
+            'week' => '星期'
+        ],
+        'zodiacs' => ['猴','鸡','狗','猪','鼠','牛','虎','兔','龙','蛇','马','羊'],
+        'heavenlyStems' => ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
+        'earthlyBranches' => ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'],
+        'months' => ['正','二','三','四','五','六','七','八','九','十','冬','腊'],
+        'days' => ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
+                   '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
+                   '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'],
+        'leap_prefix' => '闰',
+        'year_suffix' => '年',
+        'month_suffix' => '月',
+        'day_suffix' => '',
+        'periods' => ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'],
+        'default_period' => '時',
+        'initial' => '初',  
+        'middle' => '正',   
+        'final' =>'末',  
+        'clear_confirm' =>'确定要清除配置吗？', 
+        'back_to_first' => '已返回播放列表第一首歌曲',
+        'font_default' => '已切换为圆润字体',
+        'font_fredoka' => '已切换为默认字体',
+        'font_mono'   => '已切换为趣味手写字体',
+        'font_noto'     => '已切换为中文衬线字体',
+        'error_loading_time' => '时间显示异常',
+        'switch_to_light_mode' => '切换到亮色模式',
+        'switch_to_dark_mode' => '切换到暗色模式',
+        'current_mode_dark' => '当前模式: 暗色模式',
+        'current_mode_light' => '当前模式: 亮色模式',
+        'fetching_version' => '正在获取版本信息...',
+        'latest_version' => '最新版本',
+        'unable_to_fetch_version' => '无法获取最新版本信息',
+        'request_failed' => '请求失败，请稍后再试',
+        'pip_not_supported' => '当前媒体不支持画中画',
+        'pip_operation_failed' => '画中画操作失败',
+        'exit_picture_in_picture' => '退出画中画',
+        'picture_in_picture' => '画中画',
+        'hide_playlist' => '隐藏列表',
+        'show_playlist' => '显示列表',
+        'enter_fullscreen' => '进入全屏',
+        'exit_fullscreen' => '退出全屏',
+        'confirm_update_php' => '您确定要更新 PHP 配置吗？',
+        'select_files_to_delete' => '请先选择要删除的文件！',
+        'confirm_batch_delete' => '确定要删除选中的 %d 个文件吗？',
+        'unable_to_fetch_current_version' => '正在获取当前版本...',
+        'current_version' => '当前版本',
+        'copy_command'     => '复制命令',
+        'command_copied'   => '命令已复制到剪贴板！',
+        "updateModalLabel" => "更新状态",
+        "updateDescription" => "更新过程即将开始。",
+        "waitingMessage" => "等待操作开始...",
+        "update_plugin" => "更新插件",
+        "installation_complete" => "安装完成！",
+        'selected_info' => '已选择 %d 个文件，合计 %s MB'
+    ],
+
+    'hk' => [
+        'select_language'        => '選擇語言',
+        'simplified_chinese'     => '簡體中文',
+        'traditional_chinese'    => '繁體中文',
+        'english'                => '英文',
+        'korean'                 => '韓語',
+        'vietnamese'             => '越南語',
+        'thailand'            => '泰語',
+        'japanese'               => '日語',
+        'russian'                => '俄語',
+        'germany'                => '德語',
+        'france'                 => '法語',
+        'arabic'                 => '阿拉伯語',
+        'spanish'                => '西班牙語',
+        'close'                  => '關閉',
+        'save'                   => '保存',
+        'theme_download'         => '主題下載',
+        'select_all'             => '全選',
+        'batch_delete'           => '批量刪除選中文件',
+        'total'                  => '總共：',
+        'free'                   => '剩餘：',
+        'hover_to_preview'       => '點擊激活懸停播放',
+        'mount_info'             => '掛載點：{{mount}}｜已用空間：{{used}}',
+        'spectra_config'         => 'Spectra 配置管理',
+        'current_mode'           => '當前模式: 加載中...',
+        'toggle_mode'            => '切換模式',
+        'check_update'           => '檢查更新',
+        'batch_upload'           => '選擇文件進行批量上傳',
+        'add_to_playlist'        => '勾選添加到播放列表',
+        'clear_background'       => '清除背景',
+        'clear_background_label' => '清除背景',
+        'file_list'              => '文件列表',
+        'component_bg_color'     => '選擇組件背景色',
+        'page_bg_color'          => '選擇頁面背景色',
+        'toggle_font'            => '切換字體',
+        'filename'               => '名稱：',
+        'filesize'               => '大小：',
+        'duration'               => '時長：',
+        'resolution'             => '分辨率：',
+        'bitrate'                => '比特率：',
+        'type'                   => '類型：',
+        'image'                  => '圖片',
+        'video'                  => '視頻',
+        'audio'                  => '音頻',
+        'document'               => '文檔',
+        'delete'                 => '刪除',
+        'rename'                 => '重命名',
+        'download'               => '下載',
+        'set_background'         => '設置背景',
+        'preview'                => '預覽',
+        'toggle_fullscreen'      => '切換全屏',
+        'supported_formats'      => '支持格式：[ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => '拖放文件到這裡',
+        'or'                     => '或',
+        'select_files'           => '選擇文件',
+        'unlock_php_upload_limit'=> '解鎖 PHP 上傳限制',
+        'upload'                 => '上傳',
+        'cancel'                 => '取消',
+        'rename_file'            => '重命名',
+        'new_filename'           => '新文件名',
+        'invalid_filename_chars' => '文件名不能包含以下字符：\\/：*?"<>|',
+        'confirm'                => '確認',
+        'media_player'           => '媒體播放器',
+        'playlist'               => '播放列表',
+        'clear_list'             => '清除列表',
+        'toggle_list'            => '隱藏列表',
+        'picture_in_picture'     => '畫中畫',
+        'fullscreen'             => '全屏',
+        'music_player'           => '音樂播放器',
+        'play_pause'             => '播放/暫停',
+        'previous_track'         => '上一首',
+        'next_track'             => '下一首',
+        'repeat_mode'            => '順序播放',
+        'toggle_floating_lyrics' => '桌面歌詞',
+        'clear_config'           => '清除配置',
+        'custom_playlist'        => '自定義播放列表',
+        'volume'                 => '音量',
+        'update_playlist'        => '更新播放列表',
+        'playlist_url'           => '播放列表地址',
+        'reset_default'          => '恢復默認',
+        'toggle_lyrics'          => '關閉歌詞',
+        'fetching_version'       => '正在獲取版本信息...',
+        'download_local'         => '下載到本地',
+        'change_language'        => '更改語言',
+        'pause_playing'          => '暫停播放',
+        'start_playing'          => '開始播放',
+        'manual_switch'          => '手動切換',
+        'auto_switch'            => '自動切換到',
+        'switch_to'              => '切換到',
+        'auto_play'              => '自動播放',
+        'lyrics_load_failed'     => '歌詞加載失敗',
+        'order_play'             => '順序播放',
+        'single_loop'            => '單曲循環',
+        'shuffle_play'           => '隨機播放',
+        'playlist_click'         => '播放列表點擊',
+        'index'                  => '索引',
+        'song_name'              => '歌曲名稱',
+        'no_lyrics'              => '暫無歌詞',
+        'loading_lyrics'         => '歌詞加載中...',
+        'autoplay_blocked'       => '自動播放被阻止',
+        'cache_cleared'               => '配置已清除',
+        'open_custom_playlist'        => '打開自定義播放列表',
+        'reset_default_playlist'      => '已恢復默認播放列表鏈接',
+        'reset_default_error'         => '恢復默認鏈接時出錯',
+        'reset_default_failed'        => '恢復默認鏈接失敗',
+        'playlist_load_failed'        => '加載歌單失敗',
+        'playlist_load_failed_message'=> '加載歌單失敗',
+        'hour_announcement'      => '整點報時，現在是北京時間',  
+        'hour_exact'             => '點整',
+        'weekDays' => ['日', '一', '二', '三', '四', '五', '六'],
+        'labels' => [
+            'year' => '年',
+            'month' => '月',
+            'day' => '號',
+            'week' => '星期'
+        ],
+        'zodiacs' => ['猴','雞','狗','豬','鼠','牛','虎','兔','龍','蛇','馬','羊'],
+        'heavenlyStems' => ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
+        'earthlyBranches' => ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'],
+        'months' => ['正','二','三','四','五','六','七','八','九','十','冬','臘'],
+        'days' => ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
+                   '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
+                   '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'],
+        'leap_prefix' => '閏',
+        'year_suffix' => '年',
+        'month_suffix' => '月',
+        'day_suffix' => '',
+        'periods' => ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'],
+        'default_period' => '時',
+        'initial' => '初',  
+        'middle' => '正',   
+        'final' =>'末',   
+        'clear_confirm' => '確定要清除配置嗎？',
+        'back_to_first' => '已返回播放列表第一首歌曲', 
+        'error_loading_time' => '時間顯示異常',
+        'switch_to_light_mode' => '切換到亮色模式',
+        'switch_to_dark_mode' => '切換到暗色模式',
+        'current_mode_dark' => '當前模式: 暗色模式',
+        'current_mode_light' => '當前模式: 亮色模式',
+        'fetching_version' => '正在獲取版本信息...',
+        'latest_version' => '最新版本',
+        'unable_to_fetch_version' => '無法獲取最新版本信息',
+        'request_failed' => '請求失敗，請稍後再試',
+        'pip_not_supported' => '當前媒體不支持畫中畫',
+        'pip_operation_failed' => '畫中畫操作失敗',
+        'exit_picture_in_picture' => '退出畫中畫',
+        'picture_in_picture' => '畫中畫',
+        'hide_playlist' => '隱藏列表',
+        'show_playlist' => '顯示列表',
+        'enter_fullscreen' => '進入全屏',
+        'exit_fullscreen' => '退出全屏',
+        'confirm_update_php' => '您確定要更新 PHP 配置嗎？',
+        'select_files_to_delete' => '請先選擇要刪除的文件！',
+        'confirm_batch_delete' => '確定要刪除選中的 %d 個文件嗎？',
+        'font_default' => '已切換為圓潤字體',
+        'font_fredoka' => '已切換為預設字體',
+        'font_mono'    => '已切換為趣味手寫字體',
+        'font_noto'    => '已切換為中文襯線字體',
+        'batch_delete_success' => '✅ 批量刪除成功',
+        'batch_delete_failed' => '❌ 批量刪除失敗',
+        'confirm_delete' => '確定刪除？',
+        'unable_to_fetch_current_version' => '正在獲取當前版本...',
+        'current_version' => '當前版本',
+        'copy_command'     => '複製命令',
+        'command_copied'   => '命令已複製到剪貼簿！',
+        "updateModalLabel" => "更新狀態",
+        "updateDescription" => "更新過程即將開始。",
+        "waitingMessage" => "等待操作開始...",
+        "update_plugin" => "更新插件",
+        "installation_complete" => "安裝完成！",
+        'selected_info' => '已選擇 %d 個文件，合計 %s MB'
+    ],
+
+    'kr' => [
+        'select_language'        => '언어 선택',
+        'simplified_chinese'     => '중국어 간체',
+        'traditional_chinese'    => '중국어 번체',
+        'english'                => '영어',
+        'korean'                 => '한국어',
+        'vietnamese'             => '베트남어',
+        'thailand'               => '태국어',
+        'japanese'               => '일본어',
+        'russian'                => '러시아어',
+        'germany'                => '독일어',
+        'france'                 => '프랑스어',
+        'arabic'                 => '아랍어',
+        'spanish'                => '스페인어',
+        'close'                  => '닫기',
+        'save'                   => '저장',
+        'theme_download'         => '테마 다운로드',
+        'select_all'             => '전체 선택',
+        'batch_delete'           => '선택한 파일 일괄 삭제',
+        'total'                  => '총합:',
+        'free'                   => '남은 공간:',
+        'hover_to_preview'       => '클릭하여 미리보기 활성화',
+        'mount_info'             => '마운트 포인트: {{mount}}｜사용 공간: {{used}}',
+        'spectra_config'         => 'Spectra 설정 관리',
+        'current_mode'           => '현재 모드: 로드 중...',
+        'toggle_mode'            => '모드 전환',
+        'check_update'           => '업데이트 확인',
+        'batch_upload'           => '파일 선택하여 일괄 업로드',
+        'add_to_playlist'        => '체크한 항목을 재생 목록에 추가',
+        'clear_background'       => '배경 지우기',
+        'clear_background_label' => '배경 지우기',
+        'file_list'              => '파일 목록',
+        'component_bg_color'     => '구성 요소 배경색 선택',
+        'page_bg_color'          => '페이지 배경색 선택',
+        'toggle_font'            => '글꼴 전환',
+        'filename'               => '이름:',
+        'filesize'               => '크기:',
+        'duration'               => '재생 시간:',
+        'resolution'             => '해상도:',
+        'bitrate'                => '비트레이트:',
+        'type'                   => '유형:',
+        'image'                  => '이미지',
+        'video'                  => '비디오',
+        'audio'                  => '오디오',
+        'document'               => '문서',
+        'delete'                 => '삭제',
+        'rename'                 => '이름 변경',
+        'download'               => '다운로드',
+        'set_background'         => '배경 설정',
+        'preview'                => '미리보기',
+        'toggle_fullscreen'      => '전체 화면 전환',
+        'supported_formats'      => '지원 포맷: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => '파일을 여기에 드롭하세요',
+        'or'                     => '또는',
+        'select_files'           => '파일 선택',
+        'unlock_php_upload_limit'=> 'PHP 업로드 제한 해제',
+        'upload'                 => '업로드',
+        'cancel'                 => '취소',
+        'rename_file'            => '파일 이름 변경',
+        'new_filename'           => '새 파일 이름',
+        'invalid_filename_chars' => '파일 이름에 다음 문자를 포함할 수 없습니다: \\/:*?"<>|',
+        'confirm'                => '확인',
+        'media_player'           => '미디어 플레이어',
+        'playlist'               => '재생 목록',
+        'clear_list'             => '목록 지우기',
+        'toggle_list'            => '목록 숨기기',
+        'picture_in_picture'     => '화면 속 화면',
+        'fullscreen'             => '전체 화면',
+        'music_player'           => '음악 플레이어',
+        'play_pause'             => '재생/일시정지',
+        'previous_track'         => '이전 곡',
+        'next_track'             => '다음 곡',
+        'repeat_mode'            => '반복 재생',
+        'toggle_floating_lyrics' => '플로팅 가사',
+        'clear_config'           => '설정 지우기',
+        'custom_playlist'        => '사용자 정의 재생 목록',
+        'volume'                 => '볼륨',
+        'update_playlist'        => '재생 목록 업데이트',
+        'playlist_url'           => '재생 목록 URL',
+        'reset_default'          => '기본값으로 재설정',
+        'toggle_lyrics'          => '가사 끄기',
+        'fetching_version'       => '버전 정보를 가져오는 중...',
+        'download_local'         => '로컬에 다운로드',
+        'change_language'        => '언어 변경',
+        'pause_playing'          => '재생 일시정지',
+        'start_playing'          => '재생 시작',
+        'manual_switch'          => '수동 전환',
+        'auto_switch'            => '자동 전환',
+        'switch_to'              => '전환:',
+        'auto_play'              => '자동 재생',
+        'lyrics_load_failed'     => '가사 로드 실패',
+        'order_play'             => '순차 재생',
+        'single_loop'            => '단일 반복',
+        'shuffle_play'           => '랜덤 재생',
+        'playlist_click'         => '재생 목록 클릭',
+        'index'                  => '인덱스',
+        'song_name'              => '곡 이름',
+        'no_lyrics'              => '가사 없음',
+        'loading_lyrics'         => '가사 로드 중...',
+        'autoplay_blocked'       => '자동 재생이 차단되었습니다',
+        'cache_cleared'               => '설정이 지워졌습니다',
+        'open_custom_playlist'        => '사용자 정의 재생 목록 열기',
+        'reset_default_playlist'      => '기본 재생 목록 링크로 복원되었습니다',
+        'reset_default_error'         => '기본 링크 복원 중 오류 발생',
+        'reset_default_failed'        => '기본 링크 복원 실패',
+        'playlist_load_failed'        => '재생 목록 로드 실패',
+        'playlist_load_failed_message'=> '재생 목록 로드 실패',
+        'hour_announcement'      => '정각 알림, 현재 시간은',
+        'hour_exact'             => '시 정각',
+        'weekDays' =>  ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'],
+        'labels' => [
+            'year' => '년',
+            'month' => '월',
+            'day' => '일',
+            'week' => ''
+        ],
+        'zodiacs' => ['원숭이','닭','개','돼지','쥐','소','호랑이','토끼','용','뱀','말','양'],
+        'heavenlyStems' => ['갑','을','병','정','무','기','경','신','임','계'],
+        'earthlyBranches' => ['자','축','인','묘','진','사','오','미','신','유','술','해'],
+        'months' => ['1','2','3','4','5','6','7','8','9','10','11','12'],
+        'days' => ['1일','2일','3일','4일','5일','6일','7일','8일','9일','10일',
+                   '11일','12일','13일','14일','15일','16일','17일','18일','19일','20일',
+                   '21일','22일','23일','24일','25일','26일','27일','28일','29일','30일'],
+        'leap_prefix' => '윤',
+        'year_suffix' => '년',
+        'month_suffix' => '월',
+        'day_suffix' => '',
+        'initial' => '초',  
+        'middle' => '정',   
+        'final' =>'말',  
+        'clear_confirm' => '구성을 지우시겠습니까?',
+        'back_to_first' => '플레이리스트 첫 번째 곡으로 돌아갔습니다',
+        'periods' => ['자', '축', '인', '묘', '진', '사', '오', '미', '신', '유', '술', '해'],
+        'default_period' => '시',
+        'error_loading_time' => '시간 표시 오류',
+        'switch_to_light_mode' => '밝은 모드로 전환',
+        'switch_to_dark_mode' => '어두운 모드로 전환',
+        'current_mode_dark' => '현재 모드: 어두운 모드',
+        'current_mode_light' => '현재 모드: 밝은 모드',
+        'fetching_version' => '버전 정보를 가져오는 중...',
+        'latest_version' => '최신 버전',
+        'unable_to_fetch_version' => '최신 버전 정보를 가져올 수 없습니다',
+        'request_failed' => '요청 실패, 나중에 다시 시도하세요',
+        'pip_not_supported' => '현재 미디어는 화면 속 화면을 지원하지 않습니다',
+        'pip_operation_failed' => '화면 속 화면 작업 실패',
+        'exit_picture_in_picture' => '화면 속 화면 종료',
+        'picture_in_picture' => '화면 속 화면',
+        'hide_playlist' => '목록 숨기기',
+        'show_playlist' => '목록 표시',
+        'enter_fullscreen' => '전체 화면으로 전환',
+        'exit_fullscreen' => '전체 화면 종료',
+        'confirm_update_php' => 'PHP 설정을 업데이트하시겠습니까?',
+        'select_files_to_delete' => '삭제할 파일을 선택하세요!',
+        'confirm_batch_delete' => '선택된 %d개의 파일을 삭제하시겠습니까?',
+        'font_default' => '둥근 글꼴로 전환되었습니다',
+        'font_fredoka' => '기본 글꼴로 전환되었습니다',
+        'font_mono'    => '재미있는 손글씨 글꼴로 전환되었습니다',
+        'font_noto'    => '중국어 명조체 글꼴로 전환되었습니다',
+        'batch_delete_success' => '✅ 배치 삭제 성공',
+        'batch_delete_failed' => '❌ 배치 삭제 실패',
+        'confirm_delete' => '삭제하시겠습니까?',
+        'unable_to_fetch_current_version' => '현재 버전 정보를 가져오는 중...',
+        'current_version' => '현재 버전',
+        'copy_command'     => '명령 복사',
+        'command_copied'   => '명령이 클립보드에 복사되었습니다!',
+        "updateModalLabel" => "업데이트 상태",
+        "updateDescription" => "업데이트 과정이 곧 시작됩니다.",
+        "waitingMessage" => "작업이 시작될 때까지 기다리는 중...",
+        "update_plugin" => "플러그인 업데이트",
+        "installation_complete" => "설치 완료!",
+        'selected_info' => '선택된 파일: %d개, 총합: %s MB'
+    ],
+
+    'jp' => [
+        'select_language'        => '言語を選択',
+        'simplified_chinese'     => '簡体字中国語',
+        'traditional_chinese'    => '繁体字中国語',
+        'english'                => '英語',
+        'korean'                 => '韓国語',
+        'vietnamese'             => 'ベトナム語',
+        'thailand'              => 'タイ語',
+        'japanese'               => '日本語',
+        'russian'                => 'ロシア語',
+        'germany'                => 'ドイツ語',
+        'france'                 => 'フランス語',
+        'arabic'                 => 'アラビア語',
+        'spanish'                => 'スペイン語',
+        'close'                  => '閉じる',
+        'save'                   => '保存',
+        'theme_download'         => 'テーマをダウンロード',
+        'select_all'             => 'すべて選択',
+        'batch_delete'           => '選択したファイルを一括削除',
+        'total'                  => '合計：',
+        'free'                   => '残り：',
+        'hover_to_preview'       => 'クリックしてプレビューを有効化',
+        'mount_info'             => 'マウントポイント：{{mount}}｜使用済み容量：{{used}}',
+        'spectra_config'         => 'Spectra 設定管理',
+        'current_mode'           => '現在のモード：読み込み中...',
+        'toggle_mode'            => 'モード切り替え',
+        'check_update'           => '更新を確認',
+        'batch_upload'           => 'ファイルを選択して一括アップロード',
+        'add_to_playlist'        => 'チェックを入れてプレイリストに追加',
+        'clear_background'       => '背景をクリア',
+        'clear_background_label' => '背景をクリア',
+        'file_list'              => 'ファイルリスト',
+        'component_bg_color'     => 'コンポーネント背景色を選択',
+        'page_bg_color'          => 'ページ背景色を選択',
+        'toggle_font'            => 'フォント切り替え',
+        'filename'               => '名前：',
+        'filesize'               => 'サイズ：',
+        'duration'               => '再生時間：',
+        'resolution'             => '解像度：',
+        'bitrate'                => 'ビットレート：',
+        'type'                   => 'タイプ：',
+        'image'                  => '画像',
+        'video'                  => 'ビデオ',
+        'audio'                  => 'オーディオ',
+        'document'               => 'ドキュメント',
+        'delete'                 => '削除',
+        'rename'                 => '名前を変更',
+        'download'               => 'ダウンロード',
+        'set_background'         => '背景を設定',
+        'preview'                => 'プレビュー',
+        'toggle_fullscreen'      => '全画面切り替え',
+        'supported_formats'      => '対応形式：[ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'ここにファイルをドロップ',
+        'or'                     => 'または',
+        'select_files'           => 'ファイルを選択',
+        'unlock_php_upload_limit'=> 'PHPのアップロード制限を解除',
+        'upload'                 => 'アップロード',
+        'cancel'                 => 'キャンセル',
+        'rename_file'            => 'ファイル名を変更',
+        'new_filename'           => '新しいファイル名',
+        'invalid_filename_chars' => 'ファイル名に次の文字を含めることはできません：\\/：*?"<>|',
+        'confirm'                => '確認',
+        'media_player'           => 'メディアプレイヤー',
+        'playlist'               => 'プレイリスト',
+        'clear_list'             => 'リストをクリア',
+        'toggle_list'            => 'リストを非表示',
+        'picture_in_picture'     => 'ピクチャ・イン・ピクチャ',
+        'fullscreen'             => '全画面',
+        'music_player'           => '音楽プレイヤー',
+        'play_pause'             => '再生/一時停止',
+        'previous_track'         => '前のトラック',
+        'next_track'             => '次のトラック',
+        'repeat_mode'            => 'リピート再生',
+        'toggle_floating_lyrics' => 'フローティング歌詞',
+        'clear_config'           => '設定をクリア',
+        'custom_playlist'        => 'カスタムプレイリスト',
+        'volume'                 => '音量',
+        'update_playlist'        => 'プレイリストを更新',
+        'playlist_url'           => 'プレイリストURL',
+        'reset_default'          => 'デフォルトにリセット',
+        'toggle_lyrics'          => '歌詞を非表示',
+        'fetching_version'       => 'バージョン情報を取得中...',
+        'download_local'         => 'ローカルにダウンロード',
+        'change_language'        => '言語を変更',
+        'pause_playing'          => '再生を一時停止',
+        'start_playing'          => '再生を開始',
+        'manual_switch'          => '手動切り替え',
+        'auto_switch'            => '自動切り替え',
+        'switch_to'              => '切り替え：',
+        'auto_play'              => '自動再生',
+        'lyrics_load_failed'     => '歌詞の読み込みに失敗しました',
+        'order_play'             => '順番再生',
+        'single_loop'            => '単一ループ',
+        'shuffle_play'           => 'シャッフル再生',
+        'playlist_click'         => 'プレイリストクリック',
+        'index'                  => 'インデックス',
+        'song_name'              => '曲名',
+        'no_lyrics'              => '歌詞がありません',
+        'loading_lyrics'         => '歌詞を読み込み中...',
+        'autoplay_blocked'       => '自動再生がブロックされました',
+        'cache_cleared'               => '設定がクリアされました',
+        'open_custom_playlist'        => 'カスタムプレイリストを開く',
+        'reset_default_playlist'      => 'デフォルトのプレイリストリンクに戻りました',
+        'reset_default_error'         => 'デフォルトリンク復元中にエラーが発生しました',
+        'reset_default_failed'        => 'デフォルトリンクの復元に失敗しました',
+        'playlist_load_failed'        => 'プレイリストの読み込みに失敗しました',
+        'playlist_load_failed_message'=> 'プレイリストの読み込みに失敗しました',
+        'hour_announcement'      => '時報、現在の時間は',
+        'hour_exact'             => '時ちょうど',
+        'weekDays' =>  ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'],
+        'labels' => [
+            'year' => '年',
+            'month' => '月',
+            'day' => '日',
+            'week' => ''
+        ],
+        'zodiacs' => ['申','酉','戌','亥','子','丑','寅','卯','辰','巳','午','未'],
+        'heavenlyStems' => ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
+        'earthlyBranches' => ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'],
+        'months' => ['1','2','3','4','5','6','7','8','9','10','11','12'],
+        'days' => ['1日','2日','3日','4日','5日','6日','7日','8日','9日','10日',
+                   '11日','12日','13日','14日','15日','16日','17日','18日','19日','20日',
+                   '21日','22日','23日','24日','25日','26日','27日','28日','29日','30日'],
+        'leap_prefix' => '閏',
+        'year_suffix' => '年',
+        'month_suffix' => '月',
+        'day_suffix' => '',
+        'periods' => ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'],
+        'default_period' => '時',
+        'initial' => '初',  
+        'middle' => '正',   
+        'final' =>'末',  
+        'clear_confirm' => '設定を削除してもよろしいですか？',
+        'back_to_first' => 'プレイリストの最初の曲に戻りました',
+        'error_loading_time' => '時間表示エラー',
+        'switch_to_light_mode' => 'ライトモードに切り替え',
+        'switch_to_dark_mode' => 'ダークモードに切り替え',
+        'current_mode_dark' => '現在のモード：ダークモード',
+        'current_mode_light' => '現在のモード：ライトモード',
+        'fetching_version' => 'バージョン情報を取得中...',
+        'latest_version' => '最新バージョン',
+        'unable_to_fetch_version' => '最新バージョン情報を取得できません',
+        'request_failed' => 'リクエストに失敗しました。後でもう一度試してください',
+        'pip_not_supported' => '現在のメディアはピクチャ・イン・ピクチャをサポートしていません',
+        'pip_operation_failed' => 'ピクチャ・イン・ピクチャ操作に失敗しました',
+        'exit_picture_in_picture' => 'ピクチャ・イン・ピクチャを終了',
+        'picture_in_picture' => 'ピクチャ・イン・ピクチャ',
+        'hide_playlist' => 'リストを非表示',
+        'show_playlist' => 'リストを表示',
+        'enter_fullscreen' => '全画面に切り替え',
+        'exit_fullscreen' => '全画面を終了',
+        'confirm_update_php' => 'PHP設定を更新しますか？',
+        'select_files_to_delete' => '削除するファイルを選択してください！',
+        'confirm_batch_delete' => '選択された%d個のファイルを削除しますか？',
+        'font_default' => '丸みのあるフォントに切り替えました',
+        'font_fredoka' => 'デフォルトフォントに切り替えました',
+        'font_mono'    => '手書き風フォントに切り替えました',
+        'font_noto'    => '中国語セリフ体フォントに切り替えました',
+        'batch_delete_success' => '✅ 一括削除成功',
+        'batch_delete_failed' => '❌ 一括削除失敗',
+        'confirm_delete' => '削除してもよろしいですか？',
+        'unable_to_fetch_current_version' => '現在のバージョン情報を取得しています...',
+        'current_version' => '現在のバージョン',
+        'copy_command'     => 'コマンドをコピー',
+        'command_copied'   => 'コマンドがクリップボードにコピーされました！',
+        "updateModalLabel" => "更新ステータス",
+        "updateDescription" => "更新プロセスが間もなく開始されます。",
+        "waitingMessage" => "操作が開始されるのを待っています...",
+        "update_plugin" => "プラグインを更新する",
+        "installation_complete" => "インストール完了！",
+        'selected_info' => '選択されたファイル：%d個、合計：%s MB'
+    ],
+
+    'vn' => [
+        'select_language'        => 'Chọn ngôn ngữ',
+        'simplified_chinese'     => 'Tiếng Trung giản thể',
+        'traditional_chinese'    => 'Tiếng Trung phồn thể',
+        'english'                => 'Tiếng Anh',
+        'korean'                 => 'Tiếng Hàn',
+        'thailand'               => 'Thái',
+        'vietnamese'             => 'Tiếng Việt',
+        'japanese'               => 'Tiếng Nhật',
+        'russian'                => 'Tiếng Nga',
+        'germany'                => 'Tiếng Đức',
+        'france'                 => 'Tiếng Pháp',
+        'arabic'                 => 'Tiếng Ả Rập',
+        'spanish'                => 'Tiếng Tây Ban Nha',
+        'close'                  => 'Đóng',
+        'save'                   => 'Lưu',
+        'theme_download'         => 'Tải xuống chủ đề',
+        'select_all'             => 'Chọn tất cả',
+        'batch_delete'           => 'Xóa nhiều tệp đã chọn',
+        'total'                  => 'Tổng cộng:',
+        'free'                   => 'Còn lại:',
+        'hover_to_preview'       => 'Nhấn để kích hoạt xem trước',
+        'mount_info'             => 'Điểm gắn kết: {{mount}}｜Dung lượng đã sử dụng: {{used}}',
+        'spectra_config'         => 'Quản lý cấu hình Spectra',
+        'current_mode'           => 'Chế độ hiện tại: Đang tải...',
+        'toggle_mode'            => 'Chuyển đổi chế độ',
+        'check_update'           => 'Kiểm tra cập nhật',
+        'batch_upload'           => 'Chọn tệp để tải lên hàng loạt',
+        'add_to_playlist'        => 'Chọn để thêm vào danh sách phát',
+        'clear_background'       => 'Xóa nền',
+        'clear_background_label' => 'Xóa nền',
+        'file_list'              => 'Danh sách tệp',
+        'component_bg_color'     => 'Chọn màu nền của thành phần',
+        'page_bg_color'          => 'Chọn màu nền trang',
+        'toggle_font'            => 'Chuyển đổi phông chữ',
+        'filename'               => 'Tên:',
+        'filesize'               => 'Kích thước:',
+        'duration'               => 'Thời lượng:',
+        'resolution'             => 'Độ phân giải:',
+        'bitrate'                => 'Tốc độ bit:',
+        'type'                   => 'Loại:',
+        'image'                  => 'Hình ảnh',
+        'video'                  => 'Video',
+        'audio'                  => 'Âm thanh',
+        'document'               => 'Tài liệu',
+        'delete'                 => 'Xóa',
+        'rename'                 => 'Đổi tên',
+        'download'               => 'Tải xuống',
+        'set_background'         => 'Đặt nền',
+        'preview'                => 'Xem trước',
+        'toggle_fullscreen'      => 'Chuyển đổi chế độ toàn màn hình',
+        'supported_formats'      => 'Định dạng được hỗ trợ: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'Kéo thả tệp vào đây',
+        'or'                     => 'hoặc',
+        'select_files'           => 'Chọn tệp',
+        'unlock_php_upload_limit'=> 'Mở khóa giới hạn tải lên của PHP',
+        'upload'                 => 'Tải lên',
+        'cancel'                 => 'Hủy',
+        'rename_file'            => 'Đổi tên tệp',
+        'new_filename'           => 'Tên tệp mới',
+        'invalid_filename_chars' => 'Tên tệp không được chứa các ký tự sau: \\/:*?"<>|',
+        'confirm'                => 'Xác nhận',
+        'media_player'           => 'Trình phát đa phương tiện',
+        'playlist'               => 'Danh sách phát',
+        'clear_list'             => 'Xóa danh sách',
+        'toggle_list'            => 'Ẩn danh sách',
+        'picture_in_picture'     => 'Hình trong hình',
+        'fullscreen'             => 'Toàn màn hình',
+        'music_player'           => 'Trình phát nhạc',
+        'play_pause'             => 'Phát / Dừng',
+        'previous_track'         => 'Bài trước',
+        'next_track'             => 'Bài tiếp theo',
+        'repeat_mode'            => 'Phát lặp lại',
+        'toggle_floating_lyrics' => 'Lời bài hát nổi',
+        'clear_config'           => 'Xóa cấu hình',
+        'custom_playlist'        => 'Danh sách phát tùy chỉnh',
+        'volume'                 => 'Âm lượng',
+        'update_playlist'        => 'Cập nhật danh sách phát',
+        'playlist_url'           => 'URL danh sách phát',
+        'reset_default'          => 'Đặt lại mặc định',
+        'toggle_lyrics'          => 'Ẩn lời bài hát',
+        'fetching_version'       => 'Đang lấy thông tin phiên bản...',
+        'download_local'         => 'Tải về máy',
+        'change_language'        => 'Thay đổi ngôn ngữ',
+        'pause_playing'          => 'Tạm dừng phát',
+        'start_playing'          => 'Bắt đầu phát',
+        'manual_switch'          => 'Chuyển đổi thủ công',
+        'auto_switch'            => 'Chuyển đổi tự động',
+        'switch_to'              => 'Chuyển sang:',
+        'auto_play'              => 'Tự động phát',
+        'lyrics_load_failed'     => 'Không tải được lời bài hát',
+        'order_play'             => 'Phát theo thứ tự',
+        'single_loop'            => 'Lặp lại một bài',
+        'shuffle_play'           => 'Phát ngẫu nhiên',
+        'playlist_click'         => 'Nhấn vào danh sách phát',
+        'index'                  => 'Mục lục',
+        'song_name'              => 'Tên bài hát',
+        'no_lyrics'              => 'Không có lời bài hát',
+        'loading_lyrics'         => 'Đang tải lời bài hát...',
+        'autoplay_blocked'       => 'Tự động phát bị chặn',
+        'cache_cleared'               => 'Cấu hình đã được xóa',
+        'open_custom_playlist'        => 'Mở danh sách phát tùy chỉnh',
+        'reset_default_playlist'      => 'Đã khôi phục liên kết danh sách phát mặc định',
+        'reset_default_error'         => 'Lỗi khi khôi phục liên kết mặc định',
+        'reset_default_failed'        => 'Không thể khôi phục liên kết mặc định',
+        'playlist_load_failed'        => 'Không thể tải danh sách phát',
+        'playlist_load_failed_message'=> 'Không thể tải danh sách phát',
+        'hour_announcement'      => 'Thông báo giờ, hiện tại là',
+        'hour_exact'             => 'giờ đúng',
+        'weekDays' => ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'],
+        'labels' => [
+            'year' => 'Năm',
+            'month' => 'Tháng',
+            'day' => 'Ngày',
+            'week' => ''
+        ],
+        'zodiacs' => ['Khỉ','Gà','Chó','Lợn','Chuột','Trâu','Hổ','Thỏ','Rồng','Rắn','Ngựa','Dê'],
+        'heavenlyStems' => ['Giáp','Ất','Bính','Đinh','Mậu','Kỷ','Canh','Tân','Nhâm','Quý'],
+        'earthlyBranches' => ['Tí','Sửu','Dần','Mão','Thìn','Tỵ','Ngọ','Mùi','Thân','Dậu','Tuất','Hợi'],
+        'months' => ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'],
+        'days' => ['Ngày 1','Ngày 2','Ngày 3','Ngày 4','Ngày 5','Ngày 6','Ngày 7','Ngày 8','Ngày 9','Ngày 10',
+                   'Ngày 11','Ngày 12','Ngày 13','Ngày 14','Ngày 15','Ngày 16','Ngày 17','Ngày 18','Ngày 19','Ngày 20',
+                   'Ngày 21','Ngày 22','Ngày 23','Ngày 24','Ngày 25','Ngày 26','Ngày 27','Ngày 28','Ngày 29','Ngày 30'],
+        'leap_prefix' => 'Nhuận',
+        'year_suffix' => ' Năm',
+        'month_suffix' => '',
+        'day_suffix' => '',
+        'periods' => ['Tý', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tỵ', 'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi'],
+        'default_period' => ' Giờ',
+        'clear_confirm' => 'Bạn có chắc chắn muốn xóa cấu hình không?',
+        'back_to_first' => 'Đã quay lại bài hát đầu tiên trong danh sách phát',
+        'year_format' => '{heavenlyStem} {earthlyBranch}{suffix}',
+        'error_loading_time' => 'Lỗi hiển thị thời gian',
+        'switch_to_light_mode' => 'Chuyển sang chế độ sáng',
+        'switch_to_dark_mode' => 'Chuyển sang chế độ tối',
+        'current_mode_dark' => 'Chế độ hiện tại: Chế độ tối',
+        'current_mode_light' => 'Chế độ hiện tại: Chế độ sáng',
+        'fetching_version' => 'Đang lấy thông tin phiên bản...',
+        'latest_version' => 'Phiên bản mới nhất',
+        'unable_to_fetch_version' => 'Không thể lấy thông tin phiên bản mới nhất',
+        'request_failed' => 'Yêu cầu thất bại, vui lòng thử lại sau',
+        'pip_not_supported' => 'Phương tiện hiện tại không hỗ trợ Hình trong hình',
+        'pip_operation_failed' => 'Thao tác Hình trong hình thất bại',
+        'exit_picture_in_picture' => 'Thoát Hình trong hình',
+        'picture_in_picture' => 'Hình trong hình',
+        'hide_playlist' => 'Ẩn danh sách phát',
+        'show_playlist' => 'Hiện danh sách phát',
+        'enter_fullscreen' => 'Chuyển sang toàn màn hình',
+        'exit_fullscreen' => 'Thoát toàn màn hình',
+        'confirm_update_php' => 'Bạn có chắc muốn cập nhật cấu hình PHP không?',
+        'select_files_to_delete' => 'Vui lòng chọn tệp để xóa!',
+        'confirm_batch_delete' => 'Bạn có chắc muốn xóa %d tệp đã chọn không?',
+        'font_default' => 'Đã chuyển sang phông tròn',
+        'font_fredoka' => 'Đã chuyển sang phông mặc định',
+        'font_mono'    => 'Đã chuyển sang phông chữ viết tay thú vị',
+        'font_noto'    => 'Đã chuyển sang phông chữ chân Trung Quốc',
+        'batch_delete_success' => '✅ Xóa hàng loạt thành công',
+        'batch_delete_failed' => '❌ Xóa hàng loạt thất bại',
+        'confirm_delete' => 'Bạn có chắc chắn muốn xóa không?',
+        'unable_to_fetch_current_version' => 'Đang lấy thông tin phiên bản hiện tại...',
+        'current_version' => 'Phiên bản hiện tại',
+        'copy_command'     => 'Sao chép lệnh',
+        'command_copied'   => 'Lệnh đã được sao chép vào bảng tạm!',
+        "updateModalLabel" => "Trạng thái cập nhật",
+        "updateDescription" => "Quá trình cập nhật sẽ sớm bắt đầu.",
+        "waitingMessage" => "Đang chờ bắt đầu thao tác...",
+        "update_plugin" => "Cập nhật plugin",
+        "installation_complete" => "Cài đặt hoàn tất!",
+        'selected_info' => 'Đã chọn %d tệp, tổng cộng %s MB'
+    ],
+
+    'th' => [
+        'select_language'        => 'เลือกภาษา',
+        'simplified_chinese'     => 'ภาษาจีนตัวย่อ',
+        'traditional_chinese'    => 'ภาษาจีนตัวเต็ม',
+        'english'                => 'ภาษาอังกฤษ',
+        'korean'                 => 'ภาษาเกาหลี',
+        'vietnamese'             => 'ภาษาเวียดนาม',
+        'japanese'               => 'ภาษาญี่ปุ่น',
+        'russian'                => 'ภาษารัสเซีย',
+        'germany'                => 'ภาษาเยอรมัน',
+        'france'                 => 'ภาษาฝรั่งเศส',
+        'arabic'                 => 'ภาษาอาหรับ',
+        'spanish'                => 'ภาษาสเปน',
+        'close'                  => 'ปิด',
+        'save'                   => 'บันทึก',
+        'theme_download'         => 'ดาวน์โหลดธีม',
+        'select_all'             => 'เลือกทั้งหมด',
+        'batch_delete'           => 'ลบไฟล์ที่เลือกทั้งหมด',
+        'total'                  => 'รวมทั้งหมด:',
+        'free'                   => 'ที่เหลือ:',
+        'hover_to_preview'       => 'คลิกเพื่อเปิดการแสดงตัวอย่าง',
+        'mount_info'             => 'จุดเชื่อมต่อ: {{mount}}｜พื้นที่ที่ใช้ไป: {{used}}',
+        'spectra_config'         => 'การจัดการการตั้งค่า Spectra',
+        'current_mode'           => 'โหมดปัจจุบัน: กำลังโหลด...',
+        'toggle_mode'            => 'สลับโหมด',
+        'check_update'           => 'ตรวจสอบการอัปเดต',
+        'batch_upload'           => 'เลือกไฟล์เพื่ออัปโหลดครั้งละหลายไฟล์',
+        'add_to_playlist'        => 'เลือกเพื่อเพิ่มลงในเพลย์ลิสต์',
+        'clear_background'       => 'ล้างพื้นหลัง',
+        'clear_background_label' => 'ล้างพื้นหลัง',
+        'file_list'              => 'รายการไฟล์',
+        'component_bg_color'     => 'เลือกสีพื้นหลังของคอมโพเนนต์',
+        'page_bg_color'          => 'เลือกสีพื้นหลังของหน้า',
+        'toggle_font'            => 'สลับแบบอักษร',
+        'filename'               => 'ชื่อไฟล์:',
+        'filesize'               => 'ขนาดไฟล์:',
+        'duration'               => 'ระยะเวลา:',
+        'resolution'             => 'ความละเอียด:',
+        'bitrate'                => 'บิตเรต:',
+        'type'                   => 'ประเภท:',
+        'image'                  => 'ภาพ',
+        'video'                  => 'วิดีโอ',
+        'audio'                  => 'เสียง',
+        'document'               => 'เอกสาร',
+        'delete'                 => 'ลบ',
+        'rename'                 => 'เปลี่ยนชื่อ',
+        'download'               => 'ดาวน์โหลด',
+        'set_background'         => 'ตั้งค่าพื้นหลัง',
+        'preview'                => 'ดูตัวอย่าง',
+        'toggle_fullscreen'      => 'สลับเป็นเต็มจอ',
+        'supported_formats'      => 'รูปแบบที่รองรับ: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'ลากไฟล์มาที่นี่',
+        'or'                     => 'หรือ',
+        'select_files'           => 'เลือกไฟล์',
+        'unlock_php_upload_limit'=> 'ปลดล็อกข้อจำกัดการอัปโหลดของ PHP',
+        'upload'                 => 'อัปโหลด',
+        'cancel'                 => 'ยกเลิก',
+        'rename_file'            => 'เปลี่ยนชื่อไฟล์',
+        'new_filename'           => 'ชื่อไฟล์ใหม่',
+        'invalid_filename_chars' => 'ชื่อไฟล์ต้องไม่มีอักขระต่อไปนี้: \\/:*?"<>|',
+        'confirm'                => 'ยืนยัน',
+        'media_player'           => 'เครื่องเล่นสื่อ',
+        'playlist'               => 'เพลย์ลิสต์',
+        'clear_list'             => 'ล้างรายการ',
+        'toggle_list'            => 'ซ่อนรายการ',
+        'picture_in_picture'     => 'ภาพในภาพ',
+        'fullscreen'             => 'เต็มจอ',
+        'music_player'           => 'เครื่องเล่นเพลง',
+        'play_pause'             => 'เล่น/หยุดชั่วคราว',
+        'previous_track'         => 'เพลงก่อนหน้า',
+        'next_track'             => 'เพลงถัดไป',
+        'repeat_mode'            => 'โหมดเล่นซ้ำ',
+        'toggle_floating_lyrics' => 'เนื้อเพลงลอย',
+        'clear_config'           => 'ล้างการตั้งค่า',
+        'custom_playlist'        => 'เพลย์ลิสต์ที่กำหนดเอง',
+        'volume'                 => 'ระดับเสียง',
+        'update_playlist'        => 'อัปเดตเพลย์ลิสต์',
+        'playlist_url'           => 'URL เพลย์ลิสต์',
+        'reset_default'          => 'รีเซ็ตเป็นค่าเริ่มต้น',
+        'toggle_lyrics'          => 'ซ่อนเนื้อเพลง',
+        'fetching_version'       => 'กำลังดึงข้อมูลเวอร์ชัน...',
+        'download_local'         => 'ดาวน์โหลดไปยังเครื่อง',
+        'change_language'        => 'เปลี่ยนภาษา',
+        'pause_playing'          => 'หยุดเล่นชั่วคราว',
+        'start_playing'          => 'เริ่มเล่น',
+        'manual_switch'          => 'สลับด้วยตนเอง',
+        'auto_switch'            => 'สลับอัตโนมัติ',
+        'switch_to'              => 'สลับไปยัง:',
+        'auto_play'              => 'เล่นอัตโนมัติ',
+        'lyrics_load_failed'     => 'การโหลดเนื้อเพลงล้มเหลว',
+        'order_play'             => 'เล่นตามลำดับ',
+        'single_loop'            => 'เล่นซ้ำเพลงเดียว',
+        'shuffle_play'           => 'เล่นแบบสุ่ม',
+        'playlist_click'         => 'คลิกเพลย์ลิสต์',
+        'index'                  => 'ดัชนี',
+        'song_name'              => 'ชื่อเพลง',
+        'no_lyrics'              => 'ไม่มีเนื้อเพลง',
+        'loading_lyrics'         => 'กำลังโหลดเนื้อเพลง...',
+        'autoplay_blocked'       => 'การเล่นอัตโนมัติถูกบล็อก',
+        'cache_cleared'               => 'การตั้งค่าถูกล้าง',
+        'open_custom_playlist'        => 'เปิดเพลย์ลิสต์ที่กำหนดเอง',
+        'reset_default_playlist'      => 'รีเซ็ตลิงก์เพลย์ลิสต์เป็นค่าเริ่มต้น',
+        'reset_default_error'         => 'เกิดข้อผิดพลาดขณะรีเซ็ตลิงก์ค่าเริ่มต้น',
+        'reset_default_failed'        => 'การรีเซ็ตลิงก์ค่าเริ่มต้นล้มเหลว',
+        'playlist_load_failed'        => 'ไม่สามารถโหลดเพลย์ลิสต์',
+        'playlist_load_failed_message'=> 'ไม่สามารถโหลดเพลย์ลิสต์',
+        'hour_announcement'      => 'การประกาศเวลา, เวลาขณะนี้คือ',
+        'hour_exact'             => 'โมงตรง',
+        'weekDays' => ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'],
+        'labels' => [
+            'year' => 'ปี',
+            'month' => 'เดือน',
+            'day' => 'วัน',
+            'week' => 'สัปดาห์'
+        ],
+        'error_loading_time' => 'แสดงเวลาไม่ถูกต้อง',
+        'switch_to_light_mode' => 'เปลี่ยนเป็นโหมดสว่าง',
+        'switch_to_dark_mode' => 'เปลี่ยนเป็นโหมดมืด',
+        'current_mode_dark' => 'โหมดปัจจุบัน: โหมดมืด',
+        'current_mode_light' => 'โหมดปัจจุบัน: โหมดสว่าง',
+        'fetching_version' => 'กำลังดึงข้อมูลเวอร์ชัน...',
+        'latest_version' => 'เวอร์ชันล่าสุด',
+        'unable_to_fetch_version' => 'ไม่สามารถดึงข้อมูลเวอร์ชันล่าสุด',
+        'request_failed' => 'การร้องขอล้มเหลว กรุณาลองใหม่ภายหลัง',
+        'pip_not_supported' => 'สื่อปัจจุบันไม่รองรับภาพในภาพ',
+        'pip_operation_failed' => 'การดำเนินการภาพในภาพล้มเหลว',
+        'exit_picture_in_picture' => 'ออกจากภาพในภาพ',
+        'picture_in_picture' => 'ภาพในภาพ',
+        'hide_playlist' => 'ซ่อนรายการ',
+        'show_playlist' => 'แสดงรายการ',
+        'enter_fullscreen' => 'เปลี่ยนเป็นเต็มจอ',
+        'exit_fullscreen' => 'ออกจากเต็มจอ',
+        'confirm_update_php' => 'คุณแน่ใจหรือไม่ว่าต้องการอัปเดตการตั้งค่า PHP?',
+        'select_files_to_delete' => 'กรุณาเลือกไฟล์ที่จะลบ!',
+        'confirm_batch_delete' => 'คุณแน่ใจหรือไม่ว่าต้องการลบไฟล์ที่เลือก %d ไฟล์?',
+        'clear_confirm' => 'คุณแน่ใจหรือว่าต้องการล้างการตั้งค่า?',
+        'back_to_first' => 'กลับไปที่เพลงแรกในรายการเพลง',
+        'font_default' => 'เปลี่ยนเป็นแบบอักษรโค้งมนแล้ว',
+        'font_fredoka' => 'เปลี่ยนเป็นแบบอักษรเริ่มต้นแล้ว',
+        'font_mono'    => 'เปลี่ยนเป็นแบบอักษรลายมือสนุก ๆ แล้ว',
+        'font_noto'    => 'เปลี่ยนเป็นแบบอักษรมีเชิงภาษาจีนแล้ว',
+        'batch_delete_success' => '✅ การลบเป็นกลุ่มสำเร็จ',
+        'batch_delete_failed' => '❌ การลบเป็นกลุ่มล้มเหลว',
+        'confirm_delete' => 'คุณแน่ใจหรือไม่ว่าต้องการลบ?',
+        'unable_to_fetch_current_version' => 'กำลังดึงข้อมูลเวอร์ชันปัจจุบัน...',
+        'current_version' => 'เวอร์ชันปัจจุบัน',
+        'copy_command'     => 'คัดลอกคำสั่ง',
+        'command_copied'   => 'คัดลอกคำสั่งไปยังคลิปบอร์ดแล้ว!',
+        "updateModalLabel" => "สถานะการอัปเดต",
+        "updateDescription" => "กระบวนการอัปเดตกำลังจะเริ่มต้น...",
+        "waitingMessage" => "รอให้การดำเนินการเริ่มต้น...",
+        "update_plugin" => "อัปเดตปลั๊กอิน",
+        "installation_complete" => "การติดตั้งเสร็จสิ้น!",
+        'selected_info' => 'เลือกไฟล์แล้ว %d ไฟล์ รวมทั้งหมด %s MB'
+    ],
+
+    'ru' => [
+        'select_language'        => 'Выберите язык',
+        'simplified_chinese'     => 'Упрощенный китайский',
+        'traditional_chinese'    => 'Традиционный китайский',
+        'english'                => 'Английский',
+        'korean'                 => 'Корейский',
+        'vietnamese'             => 'Вьетнамский',
+        'thailand'              => 'Тайский',
+        'japanese'               => 'Японский',
+        'russian'                => 'Русский',
+        'germany'                => 'Немецкий',
+        'france'                 => 'Французский',
+        'arabic'                 => 'Арабский',
+        'spanish'                => 'Испанский',
+        'close'                  => 'Закрыть',
+        'save'                   => 'Сохранить',
+        'theme_download'         => 'Скачать тему',
+        'select_all'             => 'Выбрать все',
+        'batch_delete'           => 'Удалить выбранные файлы',
+        'total'                  => 'Всего:',
+        'free'                   => 'Свободно:',
+        'hover_to_preview'       => 'Нажмите, чтобы включить предварительный просмотр',
+        'mount_info'             => 'Точка монтирования: {{mount}}｜Используемое место: {{used}}',
+        'spectra_config'         => 'Управление конфигурацией Spectra',
+        'current_mode'           => 'Текущий режим: загрузка...',
+        'toggle_mode'            => 'Переключить режим',
+        'check_update'           => 'Проверить обновление',
+        'batch_upload'           => 'Выберите файлы для массовой загрузки',
+        'add_to_playlist'        => 'Добавить в плейлист',
+        'clear_background'       => 'Очистить фон',
+        'clear_background_label' => 'Очистить фон',
+        'file_list'              => 'Список файлов',
+        'component_bg_color'     => 'Выберите цвет фона компонента',
+        'page_bg_color'          => 'Выберите цвет фона страницы',
+        'toggle_font'            => 'Переключить шрифт',
+        'filename'               => 'Имя файла:',
+        'filesize'               => 'Размер:',
+        'duration'               => 'Длительность:',
+        'resolution'             => 'Разрешение:',
+        'bitrate'                => 'Битрейт:',
+        'type'                   => 'Тип:',
+        'image'                  => 'Изображение',
+        'video'                  => 'Видео',
+        'audio'                  => 'Аудио',
+        'document'               => 'Документ',
+        'delete'                 => 'Удалить',
+        'rename'                 => 'Переименовать',
+        'download'               => 'Скачать',
+        'set_background'         => 'Установить фон',
+        'preview'                => 'Предварительный просмотр',
+        'toggle_fullscreen'      => 'Переключить полноэкранный режим',
+        'supported_formats'      => 'Поддерживаемые форматы: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'Перетащите файлы сюда',
+        'or'                     => 'или',
+        'select_files'           => 'Выбрать файлы',
+        'unlock_php_upload_limit'=> 'Снять ограничение PHP загрузки',
+        'upload'                 => 'Загрузить',
+        'cancel'                 => 'Отменить',
+        'rename_file'            => 'Переименовать файл',
+        'new_filename'           => 'Новое имя файла',
+        'invalid_filename_chars' => 'Имя файла не может содержать следующие символы: \\/:*?"<>|',
+        'confirm'                => 'Подтвердить',
+        'media_player'           => 'Медиа-плеер',
+        'playlist'               => 'Плейлист',
+        'clear_list'             => 'Очистить список',
+        'toggle_list'            => 'Скрыть список',
+        'picture_in_picture'     => 'Картинка в картинке',
+        'fullscreen'             => 'Полноэкранный режим',
+        'music_player'           => 'Музыкальный плеер',
+        'play_pause'             => 'Воспроизведение/Пауза',
+        'previous_track'         => 'Предыдущий трек',
+        'next_track'             => 'Следующий трек',
+        'repeat_mode'            => 'Режим повтора',
+        'toggle_floating_lyrics' => 'Плавающие тексты',
+        'clear_config'           => 'Очистить конфигурацию',
+        'custom_playlist'        => 'Пользовательский плейлист',
+        'volume'                 => 'Громкость',
+        'update_playlist'        => 'Обновить плейлист',
+        'playlist_url'           => 'URL плейлиста',
+        'reset_default'          => 'Сбросить настройки по умолчанию',
+        'toggle_lyrics'          => 'Скрыть тексты',
+        'fetching_version'       => 'Получение информации о версии...',
+        'download_local'         => 'Скачать локально',
+        'change_language'        => 'Изменить язык',
+        'pause_playing'          => 'Пауза воспроизведения',
+        'start_playing'          => 'Начать воспроизведение',
+        'manual_switch'          => 'Ручное переключение',
+        'auto_switch'            => 'Автоматическое переключение',
+        'switch_to'              => 'Переключить на:',
+        'auto_play'              => 'Автовоспроизведение',
+        'lyrics_load_failed'     => 'Не удалось загрузить тексты',
+        'order_play'             => 'Последовательное воспроизведение',
+        'single_loop'            => 'Одиночный повтор',
+        'shuffle_play'           => 'Случайное воспроизведение',
+        'playlist_click'         => 'Клик по плейлисту',
+        'index'                  => 'Индекс',
+        'song_name'              => 'Название песни',
+        'no_lyrics'              => 'Нет текстов',
+        'loading_lyrics'         => 'Загрузка текстов...',
+        'autoplay_blocked'       => 'Автовоспроизведение заблокировано',
+        'cache_cleared'               => 'Конфигурация очищена',
+        'open_custom_playlist'        => 'Открыть пользовательский плейлист',
+        'reset_default_playlist'      => 'Сбросить ссылку плейлиста по умолчанию',
+        'reset_default_error'         => 'Ошибка при сбросе ссылки по умолчанию',
+        'reset_default_failed'        => 'Не удалось сбросить ссылку по умолчанию',
+        'playlist_load_failed'        => 'Не удалось загрузить плейлист',
+        'playlist_load_failed_message'=> 'Ошибка загрузки плейлиста',
+        'hour_announcement'      => 'Объявление времени, сейчас',
+        'hour_exact'             => 'час ровно',
+        'weekDays' => ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'],
+        'labels' => [
+            'year' => 'Год',
+            'month' => 'Месяц',
+            'day' => 'День',
+            'week' => 'Неделя'
+        ],
+        'error_loading_time' => 'Ошибка отображения времени',
+        'switch_to_light_mode' => 'Переключиться на светлый режим',
+        'switch_to_dark_mode' => 'Переключиться на темный режим',
+        'current_mode_dark' => 'Текущий режим: темный',
+        'current_mode_light' => 'Текущий режим: светлый',
+        'fetching_version' => 'Получение информации о версии...',
+        'latest_version' => 'Последняя версия',
+        'unable_to_fetch_version' => 'Не удалось получить последнюю версию',
+        'request_failed' => 'Запрос не удался, попробуйте позже',
+        'pip_not_supported' => 'Текущее медиа не поддерживает картинку в картинке',
+        'pip_operation_failed' => 'Не удалось выполнить операцию картинка в картинке',
+        'exit_picture_in_picture' => 'Выйти из картинки в картинке',
+        'picture_in_picture' => 'Картинка в картинке',
+        'hide_playlist' => 'Скрыть список',
+        'show_playlist' => 'Показать список',
+        'enter_fullscreen' => 'Включить полноэкранный режим',
+        'exit_fullscreen' => 'Выйти из полноэкранного режима',
+        'confirm_update_php' => 'Вы уверены, что хотите обновить конфигурацию PHP?',
+        'select_files_to_delete' => 'Выберите файлы для удаления!',
+        'confirm_batch_delete' => 'Вы уверены, что хотите удалить выбранные %d файлов?',
+        'clear_confirm' => 'Вы уверены, что хотите очистить конфигурацию?',
+        'back_to_first' => 'Вернулся к первой песне в плейлисте',
+        'font_default' => 'Переключено на округлый шрифт',
+        'font_fredoka' => 'Переключено на шрифт по умолчанию',
+        'font_mono'    => 'Переключено на забавный рукописный шрифт',
+        'font_noto'    => 'Переключено на китайский рубленый шрифт',
+        'batch_delete_success' => '✅ Успешное массовое удаление',
+        'batch_delete_failed' => '❌ Ошибка массового удаления',
+        'confirm_delete' => 'Вы уверены, что хотите удалить?',
+        'unable_to_fetch_current_version' => 'Получение информации о текущей версии...',
+        'current_version' => 'Текущая версия',
+        'copy_command'     => 'Скопировать команду',
+        'command_copied'   => 'Команда скопирована в буфер обмена!',
+        "updateModalLabel" => "Статус обновления",
+        "updateDescription" => "Процесс обновления вот-вот начнется.",
+        "waitingMessage" => "Ожидание начала операции...",
+        "update_plugin" => "Обновить плагин",
+        "installation_complete" => "Установка завершена!",
+        'selected_info' => 'Выбрано %d файлов, всего %s MB'
+    ],
+
+    'ar' => [
+        'select_language'        => 'اختر اللغة',
+        'simplified_chinese'     => 'الصينية المبسطة',
+        'traditional_chinese'    => 'الصينية التقليدية',
+        'english'                => 'الإنجليزية',
+        'korean'                 => 'الكورية',
+        'vietnamese'             => 'الفيتنامية',
+        'thailand'              => 'التايلاندية',
+        'japanese'               => 'اليابانية',
+        'russian'                => 'الروسية',
+        'germany'                => 'الألمانية',
+        'france'                 => 'الفرنسية',
+        'arabic'                 => 'العربية',
+        'spanish'                => 'الإسبانية',
+        'close'                  => 'إغلاق',
+        'save'                   => 'حفظ',
+        'theme_download'         => 'تنزيل الثيم',
+        'select_all'             => 'تحديد الكل',
+        'batch_delete'           => 'حذف الملفات المحددة دفعة واحدة',
+        'total'                  => 'الإجمالي:',
+        'free'                   => 'المتبقي:',
+        'hover_to_preview'       => 'انقر لتفعيل المعاينة',
+        'mount_info'             => 'نقطة التركيب: {{mount}}｜المساحة المستخدمة: {{used}}',
+        'spectra_config'         => 'إدارة إعدادات Spectra',
+        'current_mode'           => 'الوضع الحالي: جارٍ التحميل...',
+        'toggle_mode'            => 'تبديل الوضع',
+        'check_update'           => 'تحقق من التحديث',
+        'batch_upload'           => 'حدد الملفات للتحميل دفعة واحدة',
+        'add_to_playlist'        => 'إضافة الملفات المحددة إلى قائمة التشغيل',
+        'clear_background'       => 'مسح الخلفية',
+        'clear_background_label' => 'مسح الخلفية',
+        'file_list'              => 'قائمة الملفات',
+        'component_bg_color'     => 'اختر لون خلفية المكون',
+        'page_bg_color'          => 'اختر لون خلفية الصفحة',
+        'toggle_font'            => 'تبديل الخط',
+        'filename'               => 'الاسم:',
+        'filesize'               => 'الحجم:',
+        'duration'               => 'المدة:',
+        'resolution'             => 'الدقة:',
+        'bitrate'                => 'معدل البت:',
+        'type'                   => 'النوع:',
+        'image'                  => 'صورة',
+        'video'                  => 'فيديو',
+        'audio'                  => 'صوت',
+        'document'               => 'مستند',
+        'delete'                 => 'حذف',
+        'rename'                 => 'إعادة تسمية',
+        'download'               => 'تنزيل',
+        'set_background'         => 'تعيين الخلفية',
+        'preview'                => 'معاينة',
+        'toggle_fullscreen'      => 'تبديل وضع الشاشة الكاملة',
+        'supported_formats'      => 'الصيغ المدعومة: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'اسحب الملفات هنا',
+        'or'                     => 'أو',
+        'select_files'           => 'حدد الملفات',
+        'unlock_php_upload_limit'=> 'إزالة حد التحميل الخاص بـ PHP',
+        'upload'                 => 'رفع',
+        'cancel'                 => 'إلغاء',
+        'rename_file'            => 'إعادة تسمية الملف',
+        'new_filename'           => 'الاسم الجديد للملف',
+        'invalid_filename_chars' => 'اسم الملف لا يمكن أن يحتوي على الأحرف التالية: \\/:*?"<>|',
+        'confirm'                => 'تأكيد',
+        'media_player'           => 'مشغل الوسائط',
+        'playlist'               => 'قائمة التشغيل',
+        'clear_list'             => 'مسح القائمة',
+        'toggle_list'            => 'إخفاء القائمة',
+        'picture_in_picture'     => 'صورة داخل صورة',
+        'fullscreen'             => 'ملء الشاشة',
+        'music_player'           => 'مشغل الموسيقى',
+        'play_pause'             => 'تشغيل/إيقاف مؤقت',
+        'previous_track'         => 'المسار السابق',
+        'next_track'             => 'المسار التالي',
+        'repeat_mode'            => 'وضع التكرار',
+        'toggle_floating_lyrics' => 'كلمات الأغاني العائمة',
+        'clear_config'           => 'مسح الإعدادات',
+        'custom_playlist'        => 'قائمة تشغيل مخصصة',
+        'volume'                 => 'مستوى الصوت',
+        'update_playlist'        => 'تحديث قائمة التشغيل',
+        'playlist_url'           => 'رابط قائمة التشغيل',
+        'reset_default'          => 'إعادة التعيين إلى الافتراضي',
+        'toggle_lyrics'          => 'إخفاء كلمات الأغاني',
+        'fetching_version'       => 'جاري جلب معلومات الإصدار...',
+        'download_local'         => 'تنزيل محلي',
+        'change_language'        => 'تغيير اللغة',
+        'pause_playing'          => 'إيقاف التشغيل مؤقتًا',
+        'start_playing'          => 'بدء التشغيل',
+        'manual_switch'          => 'التبديل اليدوي',
+        'auto_switch'            => 'التبديل التلقائي',
+        'switch_to'              => 'التبديل إلى:',
+        'auto_play'              => 'تشغيل تلقائي',
+        'lyrics_load_failed'     => 'فشل تحميل كلمات الأغاني',
+        'order_play'             => 'تشغيل بالترتيب',
+        'single_loop'            => 'تكرار الملف الواحد',
+        'shuffle_play'           => 'تشغيل عشوائي',
+        'playlist_click'         => 'النقر على قائمة التشغيل',
+        'index'                  => 'الفهرس',
+        'song_name'              => 'اسم الأغنية',
+        'no_lyrics'              => 'لا توجد كلمات',
+        'loading_lyrics'         => 'جارٍ تحميل كلمات الأغاني...',
+        'autoplay_blocked'       => 'تم حظر التشغيل التلقائي',
+        'cache_cleared'               => 'تم مسح الإعدادات',
+        'open_custom_playlist'        => 'فتح قائمة التشغيل المخصصة',
+        'reset_default_playlist'      => 'تمت إعادة تعيين رابط قائمة التشغيل الافتراضي',
+        'reset_default_error'         => 'حدث خطأ أثناء إعادة تعيين الرابط الافتراضي',
+        'reset_default_failed'        => 'فشل في إعادة تعيين الرابط الافتراضي',
+        'playlist_load_failed'        => 'فشل تحميل قائمة التشغيل',
+        'playlist_load_failed_message'=> 'فشل تحميل قائمة التشغيل',
+        'hour_announcement'      => 'إعلان الساعة، الآن الساعة',
+        'hour_exact'             => 'بالضبط',
+        'weekDays' => ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+        'labels' => [
+            'year' => 'سنة',
+            'month' => 'شهر',
+            'day' => 'يوم',
+            'week' => 'أسبوع'
+        ],
+        'error_loading_time' => 'خطأ في عرض الوقت',
+        'switch_to_light_mode' => 'التبديل إلى الوضع الفاتح',
+        'switch_to_dark_mode' => 'التبديل إلى الوضع الداكن',
+        'current_mode_dark' => 'الوضع الحالي: الوضع الداكن',
+        'current_mode_light' => 'الوضع الحالي: الوضع الفاتح',
+        'fetching_version' => 'جاري جلب معلومات الإصدار...',
+        'latest_version' => 'أحدث إصدار',
+        'unable_to_fetch_version' => 'تعذر الحصول على أحدث إصدار',
+        'request_failed' => 'فشل الطلب، يرجى المحاولة لاحقًا',
+        'pip_not_supported' => 'الوسائط الحالية لا تدعم صورة داخل صورة',
+        'pip_operation_failed' => 'فشل تشغيل صورة داخل صورة',
+        'exit_picture_in_picture' => 'الخروج من صورة داخل صورة',
+        'picture_in_picture' => 'صورة داخل صورة',
+        'hide_playlist' => 'إخفاء القائمة',
+        'show_playlist' => 'إظهار القائمة',
+        'enter_fullscreen' => 'تبديل إلى وضع ملء الشاشة',
+        'exit_fullscreen' => 'الخروج من وضع ملء الشاشة',
+        'confirm_update_php' => 'هل أنت متأكد أنك تريد تحديث إعدادات PHP؟',
+        'select_files_to_delete' => 'يرجى اختيار الملفات المراد حذفها!',
+        'confirm_batch_delete' => 'هل تريد بالتأكيد حذف الملفات المحددة وعددها %d؟',
+        'clear_confirm' => 'هل أنت متأكد أنك تريد مسح الإعدادات؟',
+        'back_to_first' => 'تم العودة إلى أول أغنية في قائمة التشغيل',
+        'font_default' => 'تم التبديل إلى خط دائري',
+        'font_fredoka' => 'تم التبديل إلى الخط الافتراضي',
+        'font_mono'    => 'تم التبديل إلى خط يدوي ممتع',
+        'font_noto'    => 'تم التبديل إلى خط صيني منمق',
+        'batch_delete_success' => '✅ تم الحذف الجماعي بنجاح',
+        'batch_delete_failed' => '❌ فشل الحذف الجماعي',
+        'confirm_delete' => 'هل أنت متأكد أنك تريد الحذف؟',
+        'unable_to_fetch_current_version' => 'جارٍ الحصول على إصدار حالي...',
+        'current_version' => 'الإصدار الحالي',
+        'copy_command'     => 'نسخ الأمر',
+        'command_copied'   => 'تم نسخ الأمر إلى الحافظة!',
+        "updateModalLabel" => "حالة التحديث",
+        "updateDescription" => "عملية التحديث ستبدأ قريبًا.",
+        "waitingMessage" => "انتظار بدء العملية...",
+        "update_plugin" => "تحديث الإضافة",
+        "installation_complete" => "اكتملت عملية التثبيت!",
+        'selected_info' => 'تم اختيار %d ملف، الحجم الإجمالي %s ميغابايت'
+    ],
+
+    'es' => [
+        'select_language'        => 'Seleccionar idioma',
+        'simplified_chinese'     => 'Chino simplificado',
+        'traditional_chinese'    => 'Chino tradicional',
+        'english'                => 'Inglés',
+        'korean'                 => 'Coreano',
+        'vietnamese'             => 'Vietnamita',
+        'thailand'               => 'Tailandés',
+        'japanese'               => 'Japonés',
+        'russian'                => 'Ruso',
+        'germany'                => 'Alemán',
+        'france'                 => 'Francés',
+        'arabic'                 => 'Árabe',
+        'spanish'                => 'Español',
+        'close'                  => 'Cerrar',
+        'save'                   => 'Guardar',
+        'theme_download'         => 'Descargar tema',
+        'select_all'             => 'Seleccionar todo',
+        'batch_delete'           => 'Eliminar archivos seleccionados en lote',
+        'total'                  => 'Total:',
+        'free'                   => 'Libre:',
+        'hover_to_preview'       => 'Haga clic para activar la vista previa',
+        'mount_info'             => 'Punto de montaje: {{mount}}｜Espacio utilizado: {{used}}',
+        'spectra_config'         => 'Gestión de configuración de Spectra',
+        'current_mode'           => 'Modo actual: cargando...',
+        'toggle_mode'            => 'Cambiar modo',
+        'check_update'           => 'Buscar actualizaciones',
+        'batch_upload'           => 'Seleccionar archivos para carga masiva',
+        'add_to_playlist'        => 'Seleccionar para añadir a la lista de reproducción',
+        'clear_background'       => 'Borrar fondo',
+        'clear_background_label' => 'Borrar fondo',
+        'file_list'              => 'Lista de archivos',
+        'component_bg_color'     => 'Seleccionar color de fondo del componente',
+        'page_bg_color'          => 'Seleccionar color de fondo de la página',
+        'toggle_font'            => 'Cambiar fuente',
+        'filename'               => 'Nombre:',
+        'filesize'               => 'Tamaño:',
+        'duration'               => 'Duración:',
+        'resolution'             => 'Resolución:',
+        'bitrate'                => 'Tasa de bits:',
+        'type'                   => 'Tipo:',
+        'image'                  => 'Imagen',
+        'video'                  => 'Vídeo',
+        'audio'                  => 'Audio',
+        'document'               => 'Documento',
+        'delete'                 => 'Eliminar',
+        'rename'                 => 'Renombrar',
+        'download'               => 'Descargar',
+        'set_background'         => 'Establecer fondo',
+        'preview'                => 'Vista previa',
+        'toggle_fullscreen'      => 'Cambiar a pantalla completa',
+        'supported_formats'      => 'Formatos compatibles: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'Arrastra los archivos aquí',
+        'or'                     => 'o',
+        'select_files'           => 'Seleccionar archivos',
+        'unlock_php_upload_limit'=> 'Desbloquear límite de carga PHP',
+        'upload'                 => 'Subir',
+        'cancel'                 => 'Cancelar',
+        'rename_file'            => 'Renombrar archivo',
+        'new_filename'           => 'Nuevo nombre de archivo',
+        'invalid_filename_chars' => 'El nombre del archivo no puede contener los siguientes caracteres: \\/:*?"<>|',
+        'confirm'                => 'Confirmar',
+        'media_player'           => 'Reproductor multimedia',
+        'playlist'               => 'Lista de reproducción',
+        'clear_list'             => 'Borrar lista',
+        'toggle_list'            => 'Ocultar lista',
+        'picture_in_picture'     => 'Imagen en imagen',
+        'fullscreen'             => 'Pantalla completa',
+        'music_player'           => 'Reproductor de música',
+        'play_pause'             => 'Reproducir/Pausar',
+        'previous_track'         => 'Pista anterior',
+        'next_track'             => 'Siguiente pista',
+        'repeat_mode'            => 'Modo de repetición',
+        'toggle_floating_lyrics' => 'Letras flotantes',
+        'clear_config'           => 'Borrar configuración',
+        'custom_playlist'        => 'Lista de reproducción personalizada',
+        'volume'                 => 'Volumen',
+        'update_playlist'        => 'Actualizar lista de reproducción',
+        'playlist_url'           => 'URL de la lista de reproducción',
+        'reset_default'          => 'Restablecer a valores predeterminados',
+        'toggle_lyrics'          => 'Ocultar letras',
+        'fetching_version'       => 'Obteniendo información de la versión...',
+        'download_local'         => 'Descargar localmente',
+        'change_language'        => 'Cambiar idioma',
+        'pause_playing'          => 'Pausar reproducción',
+        'start_playing'          => 'Iniciar reproducción',
+        'manual_switch'          => 'Cambio manual',
+        'auto_switch'            => 'Cambio automático',
+        'switch_to'              => 'Cambiar a:',
+        'auto_play'              => 'Reproducción automática',
+        'lyrics_load_failed'     => 'Error al cargar las letras',
+        'order_play'             => 'Reproducción en orden',
+        'single_loop'            => 'Repetición de una sola pista',
+        'shuffle_play'           => 'Reproducción aleatoria',
+        'playlist_click'         => 'Clic en la lista de reproducción',
+        'index'                  => 'Índice',
+        'song_name'              => 'Nombre de la canción',
+        'no_lyrics'              => 'No hay letras disponibles',
+        'loading_lyrics'         => 'Cargando letras...',
+        'autoplay_blocked'       => 'Reproducción automática bloqueada',
+        'cache_cleared'               => 'Configuración borrada',
+        'open_custom_playlist'        => 'Abrir lista de reproducción personalizada',
+        'reset_default_playlist'      => 'Restaurada la lista de reproducción predeterminada',
+        'reset_default_error'         => 'Error al restaurar el enlace de la lista predeterminada',
+        'reset_default_failed'        => 'Fallo al restaurar el enlace predeterminado',
+        'playlist_load_failed'        => 'Error al cargar la lista de reproducción',
+        'playlist_load_failed_message'=> 'Error al cargar la lista de reproducción',
+        'hour_announcement'      => 'Anuncio de hora, ahora son las',
+        'hour_exact'             => 'en punto',
+        'weekDays' => ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+        'labels' => [
+            'year' => 'Año',
+            'month' => 'Mes',
+            'day' => 'Día',
+            'week' => 'Semana'
+        ],
+        'error_loading_time' => 'Error al mostrar la hora',
+        'switch_to_light_mode' => 'Cambiar al modo claro',
+        'switch_to_dark_mode' => 'Cambiar al modo oscuro',
+        'current_mode_dark' => 'Modo actual: Modo oscuro',
+        'current_mode_light' => 'Modo actual: Modo claro',
+        'fetching_version' => 'Obteniendo información de la versión...',
+        'latest_version' => 'Última versión',
+        'unable_to_fetch_version' => 'No se pudo obtener la última versión',
+        'request_failed' => 'Solicitud fallida, inténtelo de nuevo más tarde',
+        'pip_not_supported' => 'El medio actual no admite Imagen en Imagen',
+        'pip_operation_failed' => 'Error en la operación Imagen en Imagen',
+        'exit_picture_in_picture' => 'Salir de Imagen en Imagen',
+        'picture_in_picture' => 'Imagen en Imagen',
+        'hide_playlist' => 'Ocultar lista de reproducción',
+        'show_playlist' => 'Mostrar lista de reproducción',
+        'enter_fullscreen' => 'Cambiar a pantalla completa',
+        'exit_fullscreen' => 'Salir de pantalla completa',
+        'confirm_update_php' => '¿Está seguro de que desea actualizar la configuración de PHP?',
+        'select_files_to_delete' => '¡Seleccione primero los archivos a eliminar!',
+        'confirm_batch_delete' => '¿Está seguro de que desea eliminar los %d archivos seleccionados?',
+        'clear_confirm' => '¿Estás seguro de que deseas borrar la configuración?',
+        'back_to_first' => 'Regresado a la primera canción en la lista de reproducción',
+        'font_default' => 'Cambiado a fuente redondeada',
+        'font_fredoka' => 'Cambiado a fuente predeterminada',
+        'font_mono'    => 'Cambiado a fuente manuscrita divertida',
+        'font_noto'    => 'Cambiado a fuente serif en chino',
+        'batch_delete_success' => '✅ Eliminación masiva exitosa',
+        'batch_delete_failed' => '❌ Fallo en la eliminación masiva',
+        'confirm_delete' => '¿Estás seguro de que deseas eliminar?',
+        'unable_to_fetch_current_version' => 'Obteniendo la versión actual...',
+        'current_version' => 'Versión actual',
+        'copy_command'     => 'Copiar comando',
+        'command_copied'   => '¡Comando copiado al portapapeles!',
+        "updateModalLabel" => "Estado de actualización",
+        "updateDescription" => "El proceso de actualización está a punto de comenzar.",
+        "waitingMessage" => "Esperando que comience la operación...",
+        "update_plugin" => "Actualizar complemento",
+        "installation_complete" => "¡Instalación completa!",
+        'selected_info' => 'Seleccionados %d archivos, en total %s MB'
+    ],
+
+    'de' => [
+        'select_language'        => 'Sprache auswählen',
+        'simplified_chinese'     => 'Vereinfachtes Chinesisch',
+        'traditional_chinese'    => 'Traditionelles Chinesisch',
+        'english'                => 'Englisch',
+        'korean'                 => 'Koreanisch',
+        'vietnamese'             => 'Vietnamesisch',
+        'thailand'             => 'Thailändisch',
+        'japanese'               => 'Japanisch',
+        'russian'                => 'Russisch',
+        'germany'                => 'Deutsch',
+        'france'                 => 'Französisch',
+        'arabic'                 => 'Arabisch',
+        'spanish'                => 'Spanisch',
+        'close'                  => 'Schließen',
+        'save'                   => 'Speichern',
+        'theme_download'         => 'Theme herunterladen',
+        'select_all'             => 'Alle auswählen',
+        'batch_delete'           => 'Ausgewählte Dateien stapelweise löschen',
+        'total'                  => 'Gesamt:',
+        'free'                   => 'Frei:',
+        'hover_to_preview'       => 'Klicken Sie, um die Vorschau zu aktivieren',
+        'mount_info'             => 'Einhängepunkt: {{mount}}｜Verwendeter Speicherplatz: {{used}}',
+        'spectra_config'         => 'Spectra-Konfigurationsverwaltung',
+        'current_mode'           => 'Aktueller Modus: Laden...',
+        'toggle_mode'            => 'Modus wechseln',
+        'check_update'           => 'Nach Updates suchen',
+        'batch_upload'           => 'Wählen Sie Dateien zum Stapel-Upload aus',
+        'add_to_playlist'        => 'Zur Wiedergabeliste hinzufügen',
+        'clear_background'       => 'Hintergrund löschen',
+        'clear_background_label' => 'Hintergrund löschen',
+        'file_list'              => 'Dateiliste',
+        'component_bg_color'     => 'Hintergrundfarbe der Komponente auswählen',
+        'page_bg_color'          => 'Hintergrundfarbe der Seite auswählen',
+        'toggle_font'            => 'Schriftart wechseln',
+        'filename'               => 'Dateiname:',
+        'filesize'               => 'Dateigröße:',
+        'duration'               => 'Dauer:',
+        'resolution'             => 'Auflösung:',
+        'bitrate'                => 'Bitrate:',
+        'type'                   => 'Typ:',
+        'image'                  => 'Bild',
+        'video'                  => 'Video',
+        'audio'                  => 'Audio',
+        'document'               => 'Dokument',
+        'delete'                 => 'Löschen',
+        'rename'                 => 'Umbenennen',
+        'download'               => 'Herunterladen',
+        'set_background'         => 'Hintergrund festlegen',
+        'preview'                => 'Vorschau',
+        'toggle_fullscreen'      => 'Vollbildmodus umschalten',
+        'supported_formats'      => 'Unterstützte Formate: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'Dateien hier ablegen',
+        'or'                     => 'oder',
+        'select_files'           => 'Dateien auswählen',
+        'unlock_php_upload_limit'=> 'PHP-Upload-Limit aufheben',
+        'upload'                 => 'Hochladen',
+        'cancel'                 => 'Abbrechen',
+        'rename_file'            => 'Datei umbenennen',
+        'new_filename'           => 'Neuer Dateiname',
+        'invalid_filename_chars' => 'Dateiname darf folgende Zeichen nicht enthalten: \\/:*?"<>|',
+        'confirm'                => 'Bestätigen',
+        'media_player'           => 'Mediaplayer',
+        'playlist'               => 'Wiedergabeliste',
+        'clear_list'             => 'Liste löschen',
+        'toggle_list'            => 'Liste ausblenden',
+        'picture_in_picture'     => 'Bild-in-Bild',
+        'fullscreen'             => 'Vollbild',
+        'music_player'           => 'Musikplayer',
+        'play_pause'             => 'Wiedergabe/Pause',
+        'previous_track'         => 'Vorheriger Track',
+        'next_track'             => 'Nächster Track',
+        'repeat_mode'            => 'Wiederholungsmodus',
+        'toggle_floating_lyrics' => 'Schwebende Liedtexte',
+        'clear_config'           => 'Konfiguration löschen',
+        'custom_playlist'        => 'Benutzerdefinierte Wiedergabeliste',
+        'volume'                 => 'Lautstärke',
+        'update_playlist'        => 'Wiedergabeliste aktualisieren',
+        'playlist_url'           => 'URL der Wiedergabeliste',
+        'reset_default'          => 'Auf Standard zurücksetzen',
+        'toggle_lyrics'          => 'Liedtexte ausblenden',
+        'fetching_version'       => 'Version wird abgerufen...',
+        'download_local'         => 'Lokal herunterladen',
+        'change_language'        => 'Sprache ändern',
+        'pause_playing'          => 'Wiedergabe pausieren',
+        'start_playing'          => 'Wiedergabe starten',
+        'manual_switch'          => 'Manuelles Umschalten',
+        'auto_switch'            => 'Automatisches Umschalten',
+        'switch_to'              => 'Wechseln zu:',
+        'auto_play'              => 'Automatische Wiedergabe',
+        'lyrics_load_failed'     => 'Liedtexte konnten nicht geladen werden',
+        'order_play'             => 'Reihenfolge abspielen',
+        'single_loop'            => 'Einzelschleife',
+        'shuffle_play'           => 'Zufallswiedergabe',
+        'playlist_click'         => 'Klicken in der Wiedergabeliste',
+        'index'                  => 'Index',
+        'song_name'              => 'Liedname',
+        'no_lyrics'              => 'Keine Liedtexte verfügbar',
+        'loading_lyrics'         => 'Liedtexte werden geladen...',
+        'autoplay_blocked'       => 'Automatische Wiedergabe blockiert',
+        'cache_cleared'               => 'Konfiguration gelöscht',
+        'open_custom_playlist'        => 'Benutzerdefinierte Wiedergabeliste öffnen',
+        'reset_default_playlist'      => 'Standard-Wiedergabeliste wiederhergestellt',
+        'reset_default_error'         => 'Fehler beim Wiederherstellen der Standard-Wiedergabeliste',
+        'reset_default_failed'        => 'Standard-Wiedergabeliste konnte nicht wiederhergestellt werden',
+        'playlist_load_failed'        => 'Wiedergabeliste konnte nicht geladen werden',
+        'playlist_load_failed_message'=> 'Fehler beim Laden der Wiedergabeliste',
+        'hour_announcement'      => 'Stundenansage, es ist jetzt',
+        'hour_exact'             => 'Uhr',
+        'weekDays' => ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'],
+        'labels' => [
+            'year' => 'Jahr',
+            'month' => 'Monat',
+            'day' => 'Tag',
+            'week' => 'Woche'
+        ],
+        'error_loading_time' => 'Fehler beim Anzeigen der Zeit',
+        'switch_to_light_mode' => 'Zum hellen Modus wechseln',
+        'switch_to_dark_mode' => 'Zum dunklen Modus wechseln',
+        'current_mode_dark' => 'Aktueller Modus: Dunkelmodus',
+        'current_mode_light' => 'Aktueller Modus: Hellmodus',
+        'fetching_version' => 'Version wird abgerufen...',
+        'latest_version' => 'Neueste Version',
+        'unable_to_fetch_version' => 'Neueste Version konnte nicht abgerufen werden',
+        'request_failed' => 'Anfrage fehlgeschlagen, bitte später erneut versuchen',
+        'pip_not_supported' => 'Das aktuelle Medium unterstützt Bild-in-Bild nicht',
+        'pip_operation_failed' => 'Bild-in-Bild-Operation fehlgeschlagen',
+        'exit_picture_in_picture' => 'Bild-in-Bild beenden',
+        'picture_in_picture' => 'Bild-in-Bild',
+        'hide_playlist' => 'Wiedergabeliste ausblenden',
+        'show_playlist' => 'Wiedergabeliste anzeigen',
+        'enter_fullscreen' => 'Vollbildmodus aktivieren',
+        'exit_fullscreen' => 'Vollbildmodus beenden',
+        'confirm_update_php' => 'Möchten Sie die PHP-Konfiguration wirklich aktualisieren?',
+        'select_files_to_delete' => 'Bitte wählen Sie Dateien zum Löschen aus!',
+        'confirm_batch_delete' => 'Möchten Sie die ausgewählten %d Dateien wirklich löschen?',
+        'clear_confirm' => 'Sind Sie sicher, dass Sie die Konfiguration löschen möchten?', 
+        'back_to_first' => 'Zur ersten Wiedergabeliste zurückgekehrt',
+        'font_default' => 'Auf runde Schriftart umgestellt',
+        'font_fredoka' => 'Auf Standardschriftart umgestellt',
+        'font_mono'    => 'Auf lustige Handschrift umgestellt',
+        'font_noto'    => 'Auf chinesische Serifenschrift umgestellt',
+        'batch_delete_success' => '✅ Stapel-Löschung erfolgreich',
+        'batch_delete_failed' => '❌ Stapel-Löschung fehlgeschlagen',
+        'confirm_delete' => 'Bist du sicher, dass du löschen möchtest?',
+        'unable_to_fetch_current_version' => 'Aktuelle Version wird abgerufen...',
+        'current_version' => 'Aktuelle Version',
+        'copy_command'     => 'Befehl kopieren',
+        'command_copied'   => 'Befehl wurde in die Zwischenablage kopiert!',
+        "updateModalLabel" => "Aktualisierungsstatus",
+        "updateDescription" => "Der Aktualisierungsprozess wird gleich beginnen.",
+        "waitingMessage" => "Warten auf den Beginn der Operation...",
+        "update_plugin" => "Plugin aktualisieren",
+        "installation_complete" => "Installation abgeschlossen!",
+        'selected_info' => '%d Dateien ausgewählt, insgesamt %s MB'
+    ],
+
+    'fr' => [
+        'select_language'        => 'Choisir la langue',
+        'simplified_chinese'     => 'Chinois simplifié',
+        'traditional_chinese'    => 'Chinois traditionnel',
+        'english'                => 'Anglais',
+        'korean'                 => 'Coréen',
+        'vietnamese'             => 'Vietnamien',
+        'thailand'                    => 'Thaï',
+        'japanese'               => 'Japonais',
+        'russian'                => 'Russe',
+        'germany'                => 'Allemand',
+        'france'                 => 'Français',
+        'arabic'                 => 'Arabe',
+        'spanish'                => 'Espagnol',
+        'close'                  => 'Fermer',
+        'save'                   => 'Enregistrer',
+        'theme_download'         => 'Télécharger le thème',
+        'select_all'             => 'Tout sélectionner',
+        'batch_delete'           => 'Supprimer les fichiers sélectionnés par lot',
+        'total'                  => 'Total :',
+        'free'                   => 'Libre :',
+        'hover_to_preview'       => 'Cliquez pour activer l\'aperçu',
+        'mount_info'             => 'Point de montage : {{mount}}｜Espace utilisé : {{used}}',
+        'spectra_config'         => 'Gestion des configurations Spectra',
+        'current_mode'           => 'Mode actuel : Chargement...',
+        'toggle_mode'            => 'Changer de mode',
+        'check_update'           => 'Vérifier les mises à jour',
+        'batch_upload'           => 'Sélectionner des fichiers pour un téléversement par lot',
+        'add_to_playlist'        => 'Ajouter à la liste de lecture',
+        'clear_background'       => 'Effacer l\'arrière-plan',
+        'clear_background_label' => 'Effacer l\'arrière-plan',
+        'file_list'              => 'Liste des fichiers',
+        'component_bg_color'     => 'Choisir la couleur d\'arrière-plan du composant',
+        'page_bg_color'          => 'Choisir la couleur d\'arrière-plan de la page',
+        'toggle_font'            => 'Changer de police',
+        'filename'               => 'Nom :',
+        'filesize'               => 'Taille :',
+        'duration'               => 'Durée :',
+        'resolution'             => 'Résolution :',
+        'bitrate'                => 'Débit :',
+        'type'                   => 'Type :',
+        'image'                  => 'Image',
+        'video'                  => 'Vidéo',
+        'audio'                  => 'Audio',
+        'document'               => 'Document',
+        'delete'                 => 'Supprimer',
+        'rename'                 => 'Renommer',
+        'download'               => 'Télécharger',
+        'set_background'         => 'Définir comme arrière-plan',
+        'preview'                => 'Aperçu',
+        'toggle_fullscreen'      => 'Activer/désactiver le mode plein écran',
+        'supported_formats'      => 'Formats pris en charge : [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'Déposez les fichiers ici',
+        'or'                     => 'ou',
+        'select_files'           => 'Sélectionner les fichiers',
+        'unlock_php_upload_limit'=> 'Déverrouiller la limite de téléversement PHP',
+        'upload'                 => 'Téléverser',
+        'cancel'                 => 'Annuler',
+        'rename_file'            => 'Renommer le fichier',
+        'new_filename'           => 'Nouveau nom du fichier',
+        'invalid_filename_chars' => 'Le nom du fichier ne peut pas contenir les caractères suivants : \\/:*?"<>|',
+        'confirm'                => 'Confirmer',
+        'media_player'           => 'Lecteur multimédia',
+        'playlist'               => 'Liste de lecture',
+        'clear_list'             => 'Effacer la liste',
+        'toggle_list'            => 'Masquer la liste',
+        'picture_in_picture'     => 'Image dans l\'image',
+        'fullscreen'             => 'Plein écran',
+        'music_player'           => 'Lecteur de musique',
+        'play_pause'             => 'Lecture/Pause',
+        'previous_track'         => 'Piste précédente',
+        'next_track'             => 'Piste suivante',
+        'repeat_mode'            => 'Mode répétition',
+        'toggle_floating_lyrics' => 'Paroles flottantes',
+        'clear_config'           => 'Effacer la configuration',
+        'custom_playlist'        => 'Liste de lecture personnalisée',
+        'volume'                 => 'Volume',
+        'update_playlist'        => 'Mettre à jour la liste de lecture',
+        'playlist_url'           => 'URL de la liste de lecture',
+        'reset_default'          => 'Réinitialiser par défaut',
+        'toggle_lyrics'          => 'Masquer les paroles',
+        'fetching_version'       => 'Récupération des informations de version...',
+        'download_local'         => 'Télécharger localement',
+        'change_language'        => 'Changer de langue',
+        'pause_playing'          => 'Mettre en pause',
+        'start_playing'          => 'Commencer la lecture',
+        'manual_switch'          => 'Changement manuel',
+        'auto_switch'            => 'Changement automatique',
+        'switch_to'              => 'Changer pour :',
+        'auto_play'              => 'Lecture automatique',
+        'lyrics_load_failed'     => 'Échec du chargement des paroles',
+        'order_play'             => 'Lecture en ordre',
+        'single_loop'            => 'Lecture en boucle',
+        'shuffle_play'           => 'Lecture aléatoire',
+        'playlist_click'         => 'Cliquer sur la liste de lecture',
+        'index'                  => 'Index',
+        'song_name'              => 'Nom de la chanson',
+        'no_lyrics'              => 'Pas de paroles disponibles',
+        'loading_lyrics'         => 'Chargement des paroles...',
+        'autoplay_blocked'       => 'Lecture automatique bloquée',
+        'cache_cleared'               => 'Configuration effacée',
+        'open_custom_playlist'        => 'Ouvrir une liste de lecture personnalisée',
+        'reset_default_playlist'      => 'Réinitialisation de la liste de lecture par défaut',
+        'reset_default_error'         => 'Erreur lors de la réinitialisation de la liste de lecture par défaut',
+        'reset_default_failed'        => 'Échec de la réinitialisation de la liste de lecture par défaut',
+        'playlist_load_failed'        => 'Échec du chargement de la liste de lecture',
+        'playlist_load_failed_message'=> 'Erreur lors du chargement de la liste de lecture',
+        'hour_announcement'      => 'Annonce de l\'heure, il est actuellement',
+        'hour_exact'             => 'heure(s) pile',
+        'weekDays' => ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'],
+        'labels' => [
+            'year' => 'Année',
+            'month' => 'Mois',
+            'day' => 'Jour',
+            'week' => 'Semaine'
+        ],
+        'error_loading_time' => 'Erreur lors de l\'affichage de l\'heure',
+        'switch_to_light_mode' => 'Passer au mode clair',
+        'switch_to_dark_mode' => 'Passer au mode sombre',
+        'current_mode_dark' => 'Mode actuel : Mode sombre',
+        'current_mode_light' => 'Mode actuel : Mode clair',
+        'fetching_version' => 'Récupération des informations de version...',
+        'latest_version' => 'Dernière version',
+        'unable_to_fetch_version' => 'Impossible de récupérer la dernière version',
+        'request_failed' => 'La requête a échoué, veuillez réessayer plus tard',
+        'pip_not_supported' => 'Le média actuel ne prend pas en charge l\'image dans l\'image',
+        'pip_operation_failed' => 'Échec de l\'opération image dans l\'image',
+        'exit_picture_in_picture' => 'Quitter le mode image dans l\'image',
+        'picture_in_picture' => 'Image dans l\'image',
+        'hide_playlist' => 'Masquer la liste de lecture',
+        'show_playlist' => 'Afficher la liste de lecture',
+        'enter_fullscreen' => 'Activer le mode plein écran',
+        'exit_fullscreen' => 'Quitter le mode plein écran',
+        'confirm_update_php' => 'Êtes-vous sûr de vouloir mettre à jour la configuration PHP ?',
+        'select_files_to_delete' => 'Veuillez d\'abord sélectionner les fichiers à supprimer !',
+        'confirm_batch_delete' => 'Êtes-vous sûr de vouloir supprimer les %d fichiers sélectionnés ?',
+        'clear_confirm' => 'Êtes-vous sûr de vouloir effacer la configuration ?',
+        'back_to_first' => 'Retour à la première chanson de la liste de lecture',
+        'font_default' => 'Police arrondie activée',
+        'font_fredoka' => 'Police par défaut activée',
+        'font_mono'    => 'Police manuscrite activée',
+        'font_noto'    => 'Police avec empattement chinoise activée',
+        'batch_delete_success' => '✅ Suppression par lot réussie',
+        'batch_delete_failed' => '❌ Échec de la suppression par lot',
+        'confirm_delete' => 'Êtes-vous sûr de vouloir supprimer?',
+        'unable_to_fetch_current_version' => 'Récupération de la version actuelle...',
+        'current_version' => 'Version actuelle',
+        'copy_command'     => 'Copier la commande',
+        'command_copied'   => 'Commande copiée dans le presse-papiers !',
+        "updateModalLabel" => "Statut de la mise à jour",
+        "updateDescription" => "Le processus de mise à jour va bientôt commencer.",
+        "waitingMessage" => "En attente du début de l'opération...",
+        "update_plugin" => "Mettre à jour le plugin",
+        "installation_complete" => "Installation terminée !",
+        'selected_info' => '%d fichiers sélectionnés, total de %s Mo'
+    ],
+
+    'en' => [
+        'select_language'        => 'Select Language',
+        'simplified_chinese'     => 'Simplified Chinese',
+        'traditional_chinese'    => 'Traditional Chinese',
+        'english'                => 'English',
+        'korean'                 => 'Korean',
+        'vietnamese'             => 'Vietnamese',
+        'thailand'                  => 'Thai',
+        'japanese'               => 'Japanese',
+        'russian'                => 'Russian',
+        'germany'                => 'German',
+        'france'                 => 'French',
+        'arabic'                 => 'Arabic',
+        'spanish'                => 'Spanish',
+        'close'                  => 'Close',
+        'save'                   => 'Save',
+        'theme_download'         => 'Theme Download',
+        'select_all'             => 'Select All',
+        'batch_delete'           => 'Delete Selected Files',
+        'spectra_config'         => 'Spectra Configuration',
+        'total'                  => 'Total:',
+        'free'                   => 'Free:',
+        'hover_to_preview'       => 'Click to activate hover preview',
+        'mount_info'             => 'Mount point: {{mount}}｜Used: {{used}}',
+        'current_mode'           => 'Current Mode: Loading...',
+        'toggle_mode'            => 'Toggle Mode',
+        'check_update'           => 'Check for Updates',
+        'batch_upload'           => 'Select Files for Batch Upload',
+        'add_to_playlist'        => 'Add Selected to Playlist',
+        'clear_background'       => 'Clear Background',
+        'clear_background_label' => 'Clear Background',
+        'file_list'              => 'File List',
+        'component_bg_color'     => 'Select Component Background Color',
+        'page_bg_color'          => 'Select Page Background Color',
+        'toggle_font'            => 'Toggle Font',
+        'filename'               => 'Name:',
+        'filesize'               => 'Size:',
+        'duration'               => 'Duration:',
+        'resolution'             => 'Resolution:',
+        'bitrate'                => 'Bitrate:',
+        'type'                   => 'Type:',
+        'image'                  => 'Image',
+        'video'                  => 'Video',
+        'audio'                  => 'Audio',
+        'document'               => 'Document',
+        'delete'                 => 'Delete',
+        'rename'                 => 'Rename',
+        'download'               => 'Download',
+        'set_background'         => 'Set Background',
+        'preview'                => 'Preview',
+        'toggle_fullscreen'      => 'Toggle Fullscreen',
+        'supported_formats'      => 'Supported formats: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'Drop files here',
+        'or'                     => 'or',
+        'select_files'           => 'Select Files',
+        'unlock_php_upload_limit'=> 'Unlock PHP Upload Limit',
+        'upload'                 => 'Upload',
+        'cancel'                 => 'Cancel',
+        'rename_file'            => 'Rename',
+        'new_filename'           => 'New Filename',
+        'invalid_filename_chars' => 'Filename cannot contain the following characters: \\/:*?"<>|',
+        'confirm'                => 'Confirm',
+        'media_player'           => 'Media Player',
+        'playlist'               => 'Playlist',
+        'clear_list'             => 'Clear List',
+        'toggle_list'            => 'Toggle List',
+        'picture_in_picture'     => 'Picture-in-Picture',
+        'fullscreen'             => 'Fullscreen',
+        'music_player'           => 'Music Player',
+        'play_pause'             => 'Play/Pause',
+        'previous_track'         => 'Previous Track',
+        'next_track'             => 'Next Track',
+        'repeat_mode'            => 'Repeat Mode',
+        'toggle_floating_lyrics' => 'Floating Lyrics',
+        'clear_config'           => 'Clear Config',
+        'custom_playlist'        => 'Custom Playlist',
+        'volume'                 => 'Volume',
+        'update_playlist'        => 'Update Playlist',
+        'playlist_url'           => 'Playlist URL',
+        'reset_default'          => 'Reset to Default',
+        'toggle_lyrics'          => 'Toggle Lyrics',
+        'fetching_version'       => 'Fetching version info...',
+        'download_local'         => 'Download Locally',
+        'change_language'        => 'Change Language',
+        'pause_playing'          => 'Pause Playing',
+        'start_playing'          => 'Start Playing',
+        'manual_switch'          => 'Manual Switch',
+        'auto_switch'            => 'Auto Switch to',
+        'switch_to'              => 'Switch to',
+        'auto_play'              => 'Auto Play',
+        'lyrics_load_failed'     => 'Lyrics Load Failed',
+        'order_play'             => 'Order Play',
+        'single_loop'            => 'Single Loop',
+        'shuffle_play'           => 'Shuffle Play',
+        'playlist_click'         => 'Playlist Click',
+        'index'                  => 'Index',
+        'song_name'              => 'Song Name',
+        'no_lyrics'              => 'No Lyrics Available',
+        'loading_lyrics'         => 'Loading Lyrics...',
+        'autoplay_blocked'       => 'Autoplay Blocked',
+        'cache_cleared'               => 'Cache Cleared',
+        'open_custom_playlist'        => 'Open Custom Playlist',
+        'reset_default_playlist'      => 'Default Playlist Link Restored',
+        'reset_default_error'         => 'Error Restoring Default Link',
+        'reset_default_failed'        => 'Failed to Restore Default Link',
+        'playlist_load_failed'        => 'Failed to Load Playlist',
+        'playlist_load_failed_message'=> 'Failed to Load Playlist',
+        'hour_announcement_en'   => "It's",  
+        'hour_exact_en'          => "o'clock",
+        'weekDays' => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+        'labels' => [
+            'year' => '',
+            'month' => '',
+            'day' => '',
+            'week' => ''
+        ],
+        'zodiacs' => ['Monkey','Rooster','Dog','Pig','Rat','Ox','Tiger','Rabbit','Dragon','Snake','Horse','Goat'],
+        'heavenlyStems' => ['Jia','Yi','Bing','Ding','Wu','Ji','Geng','Xin','Ren','Gui'],
+        'earthlyBranches' => ['Zi','Chou','Yin','Mao','Chen','Si','Wu','Wei','Shen','You','Xu','Hai'],
+        'months' => ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'],
+        'days' => ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th',
+                   '11th','12th','13th','14th','15th','16th','17th','18th','19th','20th',
+                   '21st','22nd','23rd','24th','25th','26th','27th','28th','29th','30th'],
+        'leap_prefix' => 'Leap ',
+        'year_suffix' => ' Year',
+        'month_suffix' => ' Month',
+        'day_suffix' => '',
+        'periods' => ['Zi', 'Chou', 'Yin', 'Mao', 'Chen', 'Si', 'Wu', 'Wei', 'Shen', 'You', 'Xu', 'Hai'],
+        'default_period' => ' Time',
+        'error_loading_time' => 'Error loading time',
+        'switch_to_light_mode' => 'Switch to Light Mode',
+        'switch_to_dark_mode' => 'Switch to Dark Mode',
+        'current_mode_dark' => 'Current Mode: Dark Mode',
+        'current_mode_light' => 'Current Mode: Light Mode',
+        'fetching_version' => 'Fetching version info...',
+        'latest_version' => 'Latest Version',
+        'unable_to_fetch_version' => 'Unable to fetch the latest version info',
+        'request_failed' => 'Request failed, please try again later',
+        'pip_not_supported' => 'Current media does not support Picture-in-Picture',
+        'pip_operation_failed' => 'Picture-in-Picture operation failed',
+        'exit_picture_in_picture' => 'Exit Picture-in-Picture',
+        'picture_in_picture' => 'Picture-in-Picture',
+        'hide_playlist' => 'Hide Playlist',
+        'show_playlist' => 'Show Playlist',
+        'enter_fullscreen' => 'Enter Fullscreen',
+        'exit_fullscreen' => 'Exit Fullscreen',
+        'confirm_update_php' => 'Are you sure you want to update PHP configuration?',
+        'select_files_to_delete' => 'Please select files to delete first!',
+        'confirm_batch_delete' => 'Are you sure you want to delete the selected %d files?',
+        'clear_confirm' => 'Are you sure you want to clear the config?',
+        'back_to_first' => 'Returned to the first song in the playlist',
+        'font_default' => 'Switched to rounded font',
+        'font_fredoka' => 'Switched to default font',
+        'font_mono'    => 'Switched to fun handwriting font',
+        'font_noto'    => 'Switched to Chinese serif font',
+        'batch_delete_success' => '✅ Batch delete successful',
+        'batch_delete_failed' => '❌ Batch delete failed',
+        'confirm_delete' => 'Are you sure you want to delete?',
+        'unable_to_fetch_current_version' => 'Fetching current version...',
+        'current_version' => 'Current Version',
+        'copy_command'     => 'Copy Command',
+        'command_copied'   => 'Command copied to clipboard!',
+        "updateModalLabel" => "Update Status",
+        "updateDescription" => "The update process is about to begin.",
+        "waitingMessage" => "Waiting for the operation to start...",
+        "update_plugin" => "Update Plugin",
+        "installation_complete" => "Installation complete!",
+        'selected_info' => 'Selected %d files, total %s MB'
+    ]
+];
+
+if (!file_exists($langFilePath)) {
+    file_put_contents($langFilePath, $defaultLang);
+    chmod($langFilePath, 0644);
+}
+
+function getSavedLanguage() {
+    global $langFilePath, $langData, $defaultLang;
+    $savedLang = @trim(file_get_contents($langFilePath));
+    return isset($langData[$savedLang]) ? $savedLang : $defaultLang;
+}
+
+function saveLanguage($lang) {
+    global $langFilePath, $langData;
+    if (isset($langData[$lang])) {
+        file_put_contents($langFilePath, $lang);
+    }
+}
+
+function __($key) {
+    global $translations;
+    return $translations[$key] ?? $key;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lang'])) {
+    saveLanguage($_POST['lang']);
+    echo 'Language updated to ' . $_POST['lang'];
+    exit;
+}
+
+$currentLang = getSavedLanguage();
+$translations = $langData[$currentLang];
+?>
+
+<script>
+const langData = <?php echo json_encode($langData); ?>;
+const currentLang = "<?php echo $currentLang; ?>";
+let translations = langData[currentLang] || langData['en'];
+
+document.addEventListener("DOMContentLoaded", () => {
+    const userLang = localStorage.getItem('language') || currentLang;
+
+    updateLanguage(userLang); 
+    updateFlagIcon(userLang);  
+    document.getElementById("langSelect").value = userLang; 
+});
+
+function updateLanguage(lang) {
+    localStorage.setItem('language', lang); 
+    translations = langData[lang] || langData['en'];  
+
+    const translateElement = (el, attribute, property) => {
+        const translationKey = el.getAttribute(attribute);
+        if (translations[translationKey]) {
+            el[property] = translations[translationKey];
+        }
+    };
+
+    document.querySelectorAll('[data-translate]').forEach(el => {
+        const translationKey = el.getAttribute('data-translate');
+        const dynamicContent = el.getAttribute('data-dynamic-content') || '';
+
+        if (translations[translationKey]) {
+            if (el.tagName === 'OPTGROUP') {
+                el.setAttribute('label', translations[translationKey]);
+            } else {
+                el.innerText = translations[translationKey] + dynamicContent; 
+            }
+        }
+    });
+
+    document.querySelectorAll('[data-translate-title]').forEach(el => {
+        translateElement(el, 'data-translate-title', 'title');
+    });
+
+    document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+        const translationKey = el.getAttribute('data-translate-placeholder');
+        if (translations[translationKey]) {
+            el.setAttribute('placeholder', translations[translationKey]);
+            el.setAttribute('aria-label', translations[translationKey]);  
+            el.setAttribute('title', translations[translationKey]); 
+        }
+    });
+
+    document.querySelectorAll('[data-translate]').forEach(el => {
+        const translationKey = el.getAttribute('data-translate');
+        if (translationKey && translations[translationKey]) {
+            el.setAttribute('label', translations[translationKey]);  
+        }
+    });
+}
+
+function updateFlagIcon(lang) {
+    const flagImg = document.getElementById('flagIcon');
+    if (!flagImg) return;
+    
+    const flagMap = {
+        'zh': '/luci-static/ipip/flags/cn.png',
+        'hk': '/luci-static/ipip/flags/hk.png',
+        'en': '/luci-static/ipip/flags/us.png',
+        'kr': '/luci-static/ipip/flags/kr.png',
+        'jp': '/luci-static/ipip/flags/jp.png',
+        'ru': '/luci-static/ipip/flags/ru.png',
+        'ar': '/luci-static/ipip/flags/sa.png',
+        'es': '/luci-static/ipip/flags/es.png',
+        'de': '/luci-static/ipip/flags/de.png',
+        'fr': '/luci-static/ipip/flags/fr.png',
+        'th': '/luci-static/ipip/flags/th.png',
+        'vn': '/luci-static/ipip/flags/vn.png'
+    };
+    
+    flagImg.src = flagMap[lang] || flagMap['en'];
+}
+
+
+
+function changeLanguage(lang) {
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'lang=' + lang
+    }).then(response => response.text())
+      .then(data => {
+          console.log(data); 
+          updateLanguage(lang);  
+          updateFlagIcon(lang);  
+
+          const langLabelMap = {
+              'zh': '语言已切换为简体中文',
+              'hk': '語言已切換為繁體中文',
+              'en': 'Language switched to English',
+              'kr': '언어가 한국어로 변경되었습니다',
+              'jp': '言語が日本語に変更されました',
+              'ru': 'Язык переключен на русский',
+              'ar': 'تم تغيير اللغة إلى العربية',
+              'es': 'El idioma ha cambiado a español',
+              'de': 'Sprache auf Deutsch umgestellt',
+              'fr': 'Langue changée en français',
+              'th': 'เปลี่ยนภาษาเป็นภาษาไทยแล้ว',
+              'vn': 'Đã chuyển ngôn ngữ sang tiếng Việt'
+          };
+
+          const message = langLabelMap[lang] || 'Language switched';
+
+          if (typeof speakMessage === 'function') {
+              speakMessage(message);
+          }
+          if (typeof showLogMessage === 'function') {
+              showLogMessage(message);
+          }
+      });
+}
+</script>
+
+<script>
+document.addEventListener('keydown', function (event) {
+    const target = event.target;
+    const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+    if (isTyping) return;
+
+    switch (event.code) {
+        case 'Space':
+            event.preventDefault();
+            togglePlay();
+            break;
+        case 'ArrowLeft':
+            event.preventDefault();
+            changeTrack(-1, true);
+            break;
+        case 'ArrowRight':
+            event.preventDefault();
+            changeTrack(1, true);
+            break;
+        case 'ArrowUp':
+            event.preventDefault();
+            document.getElementById('toggleFloatingLyrics')?.click();
+            break;
+        case 'ArrowDown': 
+            event.preventDefault();
+            document.getElementById('toggleButton')?.click();
+            break;
+        case 'Delete':
+          if (currentTrackIndex !== 0) {
+            currentTrackIndex = 0;
+            loadTrack(songs[0]);
+          }
+            const message = translations['back_to_first'] || 'Returned to the first song in the playlist';
+            showLogMessage(message);
+            speakMessage(message);
+            break;
+        case 'Insert':
+            document.getElementById('repeatBtn')?.click();
+            break;
+        case 'Home':
+            event.preventDefault();
+            document.querySelector('.btn.btn-success.ms-2[data-bs-target="#musicModal"]').click();
+            break;
+        case 'Escape':
+            event.preventDefault();
+            const confirmText = document.getElementById('clearConfirmText')?.textContent.trim() || 'Are you sure you want to clear the config?';
+            if (confirm(confirmText)) {
+                document.getElementById('clear-cache-btn')?.click();
+            }
+            speakMessage(translations['clear_confirm'] || 'Are you sure you want to clear the configuration?');
+            break;
+    }
+});
+</script>
+
+<script>
+document.addEventListener('change', function(e) {
+    if(e.target.classList.contains('fileCheckbox')) {
+        const wrapper = e.target.closest('.file-checkbox-wrapper');
+        wrapper.classList.toggle('force-visible', e.target.checked);
+        
+        const allCheckboxes = [...document.querySelectorAll('.fileCheckbox:not(#selectAll)')];
+        const allChecked = allCheckboxes.every(c => c.checked);
+        document.getElementById('selectAll').checked = allChecked;
+    }
+});
+
+document.getElementById('selectAll').addEventListener('change', function(e) {
+    const checkboxes = document.querySelectorAll('.fileCheckbox:not(#selectAll)');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = e.target.checked;
+        const wrapper = checkbox.closest('.file-checkbox-wrapper');
+        wrapper.classList.toggle('force-visible', e.target.checked);
+    });
+});
+
+function handleDeleteConfirmation(file) {
+    const confirmMessage = translations['confirm_delete'] || 'Are you sure you want to delete?'; 
+    if (confirm(confirmMessage)) {
+        window.location = `?delete=${file}`;
+    }
+}
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const grid = document.getElementById("fileGrid");
+    new Sortable(grid, {
+        animation: 150,
+        onEnd: function () {
+            const filenames = Array.from(grid.querySelectorAll('[data-filename]'))
+                                  .map(el => el.getAttribute('data-filename'));
+            
+            fetch('order_handler.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ order: filenames })
+            })
+            .then(response => response.ok ? console.log('Order saved.') : console.error('Failed to save.'))
+            .catch(console.error);
+        }
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const copyButton = document.getElementById('copyCommandBtn');
+    const copyCommandTextarea = document.getElementById('copyCommand');
+
+    copyButton.addEventListener('click', function () {
+        copyCommandTextarea.select();
+        document.execCommand('copy'); 
+        const message = translations['command_copied'] || 'Command copied to clipboard!';
+        showLogMessage(message);
+        speakMessage(message);
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const updatePluginBtn = document.getElementById('updatePluginBtn');
+    const updateConfirmModal = new bootstrap.Modal(document.getElementById('updateConfirmModal'));
+    const updateModal = new bootstrap.Modal(document.getElementById('updateModal'));
+    const logOutput = document.getElementById('logOutput');
+
+    updatePluginBtn.addEventListener('click', function () {
+        updateConfirmModal.hide();
+        updateModal.show();
+
+        fetch('install_theme.php', {
+            method: 'POST',
+        })
+        .then(response => response.text())
+        .then(data => {
+            if (data.includes("Installation complete!")) {
+                logOutput.textContent = "Installation complete!";
+            } else {
+                logOutput.textContent = data;
+            }
+
+            setTimeout(() => {
+                updateModal.hide();
+            }, 5000);
+        })
+        .catch(error => {
+            logOutput.textContent = '';
+            logOutput.textContent = translations['installation_complete'] || 'Installation complete!';
+
+            setTimeout(() => {
+                updateModal.hide();
+            }, 5000);
+        });
+    });
 });
 </script>

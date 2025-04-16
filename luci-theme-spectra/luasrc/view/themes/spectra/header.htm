@@ -241,7 +241,8 @@ header {
     <meta name="msapplication-TileImage" content="<%=media%>/icon/ms-icon-144x144.png">
     <meta name="theme-color" content="<%=bar_color%>">
     <link rel="stylesheet" href="<%=media%>/css/cascade.css?v=2.2.10.10">
-        <script src="/luci-static/spectra/js/custom.js"></script>
+    <script src="/luci-static/spectra/js/custom.js"></script>
+    <link href="/luci-static/spectra/css/bootstrap-icons.css" rel="stylesheet">
     <style title="text/css">
         <% if mode == 'normal' then %>
             @media (prefers-color-scheme: dark) {
@@ -348,19 +349,40 @@ header {
 
         const browserLang = navigator.language || navigator.userLanguage;
 
-        if (browserLang.startsWith('en')) {
-            return text;
-        }
-
         const langMap = {
             'zh-CN': 'zh-CN', 
             'zh-HK': 'zh-HK',  
             'zh-TW': 'zh-TW', 
-            'ja': 'ja',   
+            'ja': 'ja',  
             'ko': 'ko',      
             'fr': 'fr',     
             'de': 'de',      
             'es': 'es',       
+            'it': 'it',
+            'pt': 'pt',
+            'ru': 'ru',
+            'ar': 'ar',
+            'hi': 'hi',
+            'bn': 'bn',
+            'ms': 'ms',
+            'id': 'id',
+            'vi': 'vi',
+            'th': 'th',
+            'nl': 'nl',
+            'pl': 'pl',
+            'tr': 'tr',
+            'sv': 'sv',
+            'no': 'no',
+            'fi': 'fi',
+            'da': 'da',
+            'cs': 'cs',
+            'he': 'he',
+            'el': 'el',
+            'hu': 'hu',
+            'ro': 'ro',
+            'sk': 'sk',
+            'bg': 'bg',
+            'uk': 'uk',
         };
 
         const targetLang = langMap[browserLang] || browserLang.split('-')[0];
