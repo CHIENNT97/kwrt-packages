@@ -2,9 +2,11 @@
 ini_set('memory_limit', '256M');
 $base_dir = __DIR__;
 $upload_dir = $base_dir;
-$allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm', 'mkv', 'mp3', 'wav', 'flac'];
+$allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mkv', 'mp3', 'wav', 'flac', 'ogg'];
 $background_type = '';
 $background_src = '';
+$lang = $_POST['lang'] ?? $_GET['lang'] ?? 'en';
+$lang = isset($langData[$lang]) ? $lang : 'en';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_file'])) {
     $files = $_FILES['upload_file'];
@@ -16,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_file'])) {
             
             $ext = strtolower(pathinfo($raw_filename, PATHINFO_EXTENSION));
             if (!in_array($ext, $allowed_types)) {
-                $upload_errors[] = "不支持的文件类型：{$raw_filename}";
+                $upload_errors[] = sprintf($langData[$lang]['upload_error_type_not_supported'] ?? 'Unsupported file type: %s', $raw_filename);
                 continue;
             }
             
@@ -50,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_file'])) {
             }
             
             if (!move_uploaded_file($files['tmp_name'][$key], $target_path)) {
-                $upload_errors[] = "文件上传失败：{$final_name}";
+                $upload_errors[] = sprintf($langData[$lang]['upload_error_move_failed'] ?? 'Upload failed: %s', $final_name);
             }
         }
     }
@@ -80,13 +82,13 @@ if (isset($_POST['rename'])) {
 
     $error = '';
     if (!file_exists($oldPath)) {
-        $error = '原始文件不存在';
+        $error = 'Original file does not exist';
     } elseif ($newName === '') {
-        $error = '文件名不能为空';
+        $error = 'File name cannot be empty';
     } elseif (preg_match('/[\\\\\/:*?"<>|]/', $newName)) {
-        $error = '包含非法字符：\/:*?"<>|';
+        $error = 'Contains invalid characters: \/:*?"<>|';
     } elseif (file_exists($newPath)) {
-        $error = '目标文件已存在';
+        $error = 'Target file already exists';
     }
 
     if (!$error) {
@@ -94,12 +96,12 @@ if (isset($_POST['rename'])) {
             header("Location: " . $_SERVER['REQUEST_URI']);
             exit();
         } else {
-            $error = '操作失败（权限/字符问题）';
+            $error = 'Operation failed (permissions/character issues)';
         }
     }
 
     if ($error) {
-        echo '<div class="alert alert-danger mb-3">错误：' 
+        echo '<div class="alert alert-danger mb-3">Error: ' 
              . htmlspecialchars($error, ENT_QUOTES, 'UTF-8') 
              . '</div>';
     }
@@ -120,7 +122,7 @@ if (isset($_GET['download'])) {
         readfile($filePath);
         exit;
     } else {
-        $error = "文件未找到：" . htmlspecialchars($file);
+        $error = "File not found: " . htmlspecialchars($file);
     }
 }
 
@@ -139,9 +141,9 @@ if (isset($_POST['batch_delete'])) {
 }
 
 $files = array_diff(scandir($upload_dir), ['..', '.', '.htaccess', 'index.php']);
-$files = array_filter($files, function ($file) {
+$files = array_filter($files, function ($file) use ($upload_dir) {
     $ext = pathinfo($file, PATHINFO_EXTENSION);
-    return !in_array(strtolower($ext), ['php', 'txt']); 
+    return !in_array(strtolower($ext), ['php', 'txt']) && basename($file) !== 'shares' && !is_dir($upload_dir . DIRECTORY_SEPARATOR . $file);
 });
 
 if (isset($_GET['background'])) {
@@ -149,7 +151,7 @@ if (isset($_GET['background'])) {
     $ext = strtolower(pathinfo($background_src, PATHINFO_EXTENSION));
     if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
         $background_type = 'image';
-    } elseif (in_array($ext, ['mp4', 'mov'])) {
+    } elseif (in_array($ext, ['mp4', 'webm', 'mkv'])) {
         $background_type = 'video';
     }
 }
@@ -164,7 +166,7 @@ if (!empty($_GET['error'])) {
 ?>
 
 <?php
-$default_url = 'https://raw.githubusercontent.com/Thaolga/Rules/main/Clash/songs.txt';
+$default_url = 'https://raw.githubusercontent.com/Thaolga/Rules/main/music/songs.txt';
 $file_path = __DIR__ . '/url_config.txt'; 
 $message = '';
 
@@ -179,18 +181,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $new_url = $_POST['new_url'];
         if (file_put_contents($file_path, $new_url) !== false) {
             chmod($file_path, 0644);  
-            $message = '更新成功！';
+            $message = 'Update successful!';
         } else {
-            $message = '更新失败，请检查权限。';
+            $message = 'Update failed, please check permissions.';
         }
     }
 
     if (isset($_POST['reset_default'])) {
         if (file_put_contents($file_path, $default_url) !== false) {
             chmod($file_path, 0644);
-            $message = '已恢复默认地址！';
+            $message = 'Default URL restored!';
         } else {
-            $message = '恢复失败，请检查权限。';
+            $message = 'Restore failed, please check permissions.';
         }
     }
 } else {
@@ -200,10 +202,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
     <meta charset="utf-8">
-    <title>媒体文件管理</title>
+    <title>Media File Management</title>
     <link href="/luci-static/spectra/css/bootstrap-icons.css" rel="stylesheet">
     <link href="/luci-static/spectra/css/all.min.css" rel="stylesheet">
     <link href="/luci-static/spectra/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/luci-static/spectra/css/weather-icons.min.css" rel="stylesheet">
     <script src="/luci-static/spectra/js/jquery.min.js"></script>
     <script src="/luci-static/spectra/js/bootstrap.bundle.min.js"></script>
     <script src="/luci-static/spectra/js/custom.js"></script>
@@ -213,9 +216,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const phpBackgroundType = '<?= $background_type ?>';
         const phpBackgroundSrc = '<?= $background_src ?>';
     </script>
+    <script>
+      (function() {
+        const root = document.documentElement;
+        const theme = localStorage.getItem("theme") || "dark";
+        root.setAttribute("data-theme", theme);
+
+        const hueKey = `${theme}BaseHue`;
+        const chromaKey = `${theme}BaseChroma`;
+
+        const defaultHue = theme === "dark" ? 260 : 200;
+        const defaultChroma = theme === "dark" ? 0.14 : 0.18;
+
+        const storedHue    = parseFloat(localStorage.getItem(hueKey));
+        const storedChroma = parseFloat(localStorage.getItem(chromaKey));
+
+        const baseHue    = !isNaN(storedHue)   ? storedHue   : defaultHue;
+        const baseChroma = !isNaN(storedChroma)? storedChroma: defaultChroma;
+
+        root.style.setProperty("--base-hue", baseHue);
+        root.style.setProperty("--base-chroma", baseChroma);
+      })();
+    </script>
+    
+    <style>
+      #mainContainer { display: none; }
+    </style>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const container = document.getElementById('mainContainer');
+              if (!container) return;
+
+              const isFullscreen = localStorage.getItem('fullscreenState') === 'true';
+        
+              container.classList.toggle('container-fluid', isFullscreen);
+              container.classList.toggle('container-sm', !isFullscreen);
+
+              container.style.display = 'block';
+        
+              const toggleBtn = document.getElementById('toggleScreenBtn');
+              if (toggleBtn) {
+                  const icon = toggleBtn.querySelector('i');
+                  icon.className = isFullscreen ? 'bi-fullscreen-exit' : 'bi-arrows-fullscreen';
+              }
+
+              toggleBtn.addEventListener('click', function() {
+                  const isNowFullscreen = container.classList.contains('container-fluid');
+                  const icon = this.querySelector('i');
+            
+                  container.classList.toggle('container-fluid', !isNowFullscreen);
+                  container.classList.toggle('container-sm', isNowFullscreen);
+            
+                  icon.className = isNowFullscreen ? 'bi-arrows-fullscreen' : 'bi-fullscreen-exit';
+                  localStorage.setItem('fullscreenState', !isNowFullscreen);
+              });
+
+          } catch (error) {
+              const container = document.getElementById('mainContainer');
+              if (container) container.style.display = 'block';
+          }
+      });
+    </script>
+
 <style>
 :root {
-	--base-hue: 260;
+        --base-hue: 260;
 	--base-chroma: 0.03;
 	--danger-base: 15;
         --base-hue-1: 20;
@@ -228,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         --l: 85%;
         --c: 0.18;
 	
-	--bg-body: oklch(20% var(--base-chroma) var(--base-hue) / 50%);
+	--bg-body: oklch(40% var(--base-chroma) var(--base-hue) / 90%);
 	--bg-container: oklch(30% var(--base-chroma) var(--base-hue));
 	--text-primary: oklch(95% 0 0); 
 	--accent-color: oklch(70% 0.2 calc(var(--base-hue) + 0));
@@ -254,8 +321,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	--btn-info-hover: color-mix(in oklch, var(--btn-info-bg), white 10%);
 	--btn-warning-bg: oklch(70% 0.18 80); 
 	--btn-warning-hover: color-mix(in oklch, var(--btn-warning-bg), white 10%);
-	--color-accent: oklch(55% 0.18 240);
-
+	--sunset-bg: oklch(40% var(--base-chroma) var(--base-hue) / 90%);
+	--color-accent: oklch(55% 0.3 240);
+        --ocean-bg:     oklch(45% 0.3 calc(var(--base-hue) + 220));
+        --forest-bg:    oklch(40% 0.3 calc(var(--base-hue) + 140));
+        --rose-bg:      oklch(45% 0.3 calc(var(--base-hue) + 350));
+        --lavender-bg:  oklch(43% 0.3 calc(var(--base-hue) + 270));
+        --sand-bg:      oklch(42% 0.3 calc(var(--base-hue) + 60));
 }
 
 [data-theme="light"] {
@@ -271,7 +343,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	--card-bg: oklch(96% var(--base-chroma) var(--base-hue));
 	--header-bg: oklch(88% var(--base-chroma) var(--base-hue));
 	--border-color: oklch(85% var(--base-chroma) var(--base-hue));
-	--btn-primary-bg: oklch(45% 0.15 var(--base-hue));
+	--btn-primary-bg: oklch(55% 0.3 var(--base-hue));
         --btn-success-bg: oklch(70% 0.2 240); 
 	--nav-btn-color: oklch(70% 0.2 calc(var(--base-hue) + 60));
 	--playlist-text: oklch(25% 0 0);
@@ -285,39 +357,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	--file-list-border: oklch(85% var(--base-chroma) var(--base-hue) / 0.6);
 	--danger-color: oklch(50% 0.3 var(--danger-base));
 	--danger-hover: oklch(40% 0.35 var(--danger-base));
-	--btn-info-bg: oklch(65% 0.18 220);
+	--btn-info-bg: oklch(55% 0.3 220);
 	--btn-info-hover: color-mix(in oklch, var(--btn-info-bg), black 10%);
-	--btn-warning-bg: oklch(85% 0.22 80);
+	--btn-warning-bg: oklch(55% 0.22 80);
 	--btn-warning-hover: color-mix(in oklch, var(--btn-warning-bg), black 15%);
-	--color-accent: oklch(75% 0.14 220);
+	--sunset-bg: oklch(50% var(--base-chroma) var(--base-hue) / 90%);
+	--color-accent: oklch(55% 0.3 220);
+        --forest-bg:   oklch(50% 0.3 calc(var(--base-hue) + 140));
+        --rose-bg:     oklch(50% 0.3 calc(var(--base-hue) + 350));
+        --lavender-bg: oklch(50% 0.3 calc(var(--base-hue) + 270));
+        --sand-bg:     oklch(50% 0.3 calc(var(--base-hue) + 60));
 }
 
 @font-face {
-  font-display: swap; 
-  font-family: 'Fredoka One';
-  font-style: normal;
-  font-weight: 400;
-  src: url('/luci-static/spectra/fonts/fredoka-v16-latin-regular.woff2') format('woff2');
+        font-display: swap; 
+        font-family: 'Fredoka One';
+        font-style: normal;
+        font-weight: 400;
+        src: url('/luci-static/spectra/fonts/fredoka-v16-latin-regular.woff2') format('woff2');
 }
 
 @font-face {
-  font-display: swap; 
-  font-family: 'Noto Serif SC';
-  font-style: normal;
-  font-weight: 400;
-  src: url('/luci-static/spectra/fonts/noto-serif-sc-v31-latin-regular.woff2') format('woff2'); 
+        font-display: swap; 
+        font-family: 'Noto Serif SC';
+        font-style: normal;
+        font-weight: 400;
+        src: url('/luci-static/spectra/fonts/noto-serif-sc-v31-latin-regular.woff2') format('woff2'); 
 }
 
 @font-face {
-  font-display: swap; 
-  font-family: 'Comic Neue';
-  font-style: normal;
-  font-weight: 400;
-  src: url('/luci-static/spectra/fonts/comic-neue-v8-latin-regular.woff2') format('woff2'); 
+        font-display: swap; 
+        font-family: 'Comic Neue';
+        font-style: normal;
+        font-weight: 400;
+        src: url('/luci-static/spectra/fonts/comic-neue-v8-latin-regular.woff2') format('woff2'); 
+}
+
+@font-face {
+        font-display: swap; 
+        font-family: 'DM Serif Display';
+        font-style: normal;
+        font-weight: 400;
+        src: url('/luci-static/spectra/fonts/dm-serif-display-v15-latin-regular.woff2') format('woff2');
 }
 
 body {
-        background: var(--body-bg-color, #ffecff);
+        background: var(--body-bg-color, #f0ffff);
         color: var(--text-primary);
         -webkit-backdrop-filter: blur(10px);
         transition: all 0.3s ease;
@@ -342,16 +427,21 @@ body.system-mono-font {
         font-weight: 400;
 }
 
+body.dm-serif-font {
+  font-family: 'DM Serif Display';
+  font-weight: 400;
+}
+
 .container-bg,
 .card,
 .modal-content,
 .table {
-	--bg-l: oklch(30% 0 0); 
-	color: oklch(calc(100% - var(--bg-l)) 0 0);
+        --bg-l: oklch(30% 0 0); 
+        color: oklch(calc(100% - var(--bg-l)) 0 0);
 }
 
 .container-bg {
-	padding: 20px;
+        padding: 20px;
 	border-radius: 10px;
 	background: var(--bg-container);
 	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
@@ -493,8 +583,8 @@ h2 {
 }
 
 #toggleButton {
-        background-color: var(--btn-success-bg);
-        color: var(--text-primary);
+        background-color: var(--sand-bg);
+
 }
 
 .modal-content {
@@ -567,10 +657,10 @@ label[for="selectAll"] {
 }
 
 .preview-img {
-        position: absolute;
-        min-width: 100%;
-        min-height: 100%;
-        object-fit: cover; 
+    position: absolute;
+    min-width: 100%;
+    min-height: 100%;
+    object-fit: cover; 
 }
 
 .preview-container:hover .preview-img {
@@ -628,6 +718,10 @@ label[for="selectAll"] {
 
 .card-body.pt-2.mt-2 .d-flex .btn {
         margin: 0 5px; 
+}
+
+.d-flex {
+        white-space: nowrap;
 }
 
 #playlistContainer .list-group-item {
@@ -727,7 +821,7 @@ label[for="selectAll"] {
 
 .text-muted {
 	color: var(--accent-color) !important;
-	font-size: 0.9em;
+	font-size: 1.2em;
 	letter-spacing: 0.5px;
 	opacity: 0.7;
 }
@@ -928,10 +1022,6 @@ body:hover,
 	min-height: 42px;
 }
 
-.file-list-item:hover {
-        cursor: grab; 
-}
-
 .remove-file {
 	display: inline-flex !important;
 	align-items: center;
@@ -1003,6 +1093,7 @@ body:hover,
 
 .btn-close:hover {
 	background-color: #30e8dc !important;
+	transform: scale(1.1) !important;
 }
 
 .btn-close:hover::before, 
@@ -1015,17 +1106,49 @@ body:hover,
 }
 
 .card:hover .fileCheckbox {
-    filter: drop-shadow(0 0 3px rgba(13, 110, 253, 0.5));
+        filter: drop-shadow(0 0 3px rgba(13, 110, 253, 0.5));
 }
 
 @media (max-width: 576px) {
-    .fileCheckbox {
-        transform: scale(1.1) !important;
-    }
+        .fileCheckbox {
+            transform: scale(1.1) !important;
+        }
 }
 </style>
 
 <style>
+.custom-btn {
+    padding: 4px 8px;
+    font-size: 14px;
+    gap: 4px;
+}
+
+.custom-btn i {
+    font-size: 16px;
+}
+
+.d-flex .custom-btn {
+    margin: 0 4px;
+}
+
+.share-btn.custom-btn {
+    background-color: #ffc107;
+    color: #fff;
+    padding: 6px 8px;
+    font-size: 14px;
+}
+
+.share-btn.custom-btn i {
+    font-size: 16px;
+}
+
+.set-bg-btn.custom-btn {
+    background-color: #17a2b8;
+    color: #fff;
+    padding: 6px 8px;
+    font-size: 14px;
+}
+
 #previewModal .modal-body {
     height: 65vh;
     display: flex;
@@ -1037,16 +1160,22 @@ body:hover,
 #previewImage,
 #previewVideo {
     max-height: 100%;
-    max-width: 100%;
+    width: 100%;
     object-fit: contain;
 }
 
 #previewAudio {
-    width: 100%;
-    max-height: 100%;
-    position: absolute; 
-    bottom: 20px; 
-    left: 0;
+    width: auto;
+    max-width: 80%;
+    margin: 20px auto 0;
+    display: block;
+    border-radius: 10px;
+    padding: 5px 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#previewAudio.d-none {
+    display: none;
 }
 
 .hover-tips {
@@ -1228,20 +1357,42 @@ body:hover,
   }
 }
 
-  @media (max-width: 576px) {
-    #fontToggleBtn {
-      margin-right: 8px;
-    }
-    #langBtnWrapper {
-      margin-left: 6px;
-    }
+@media (max-width: 576px) {
+  #fontToggleBtn {
+    margin-right: 8px;
+  }
+  #langBtnWrapper {
+    margin-left: 6px;
+  }
+}
+
+@media (max-width: 576px) {
+  .share-btn.custom-btn {
+    display: none !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .custom-btn {
+    margin-right: 0px !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  #fontToggleBtn {
+    min-height: 26px;
+    padding: 8px 14px;
   }
 
+  #fontToggleBtn i {
+    font-size: 1.1rem;
+  }
+}
 </style>
 
-<div class="container-sm container-bg text-center mt-4">
-    <div class="alert alert-secondary d-none" id="toolbar">
-        <div class="d-flex justify-content-between">
+<div class="container-sm container-bg text-center mt-4" id="mainContainer">
+   <div class="alert alert-secondary d-none" id="toolbar">
+        <div class="d-flex justify-content-between flex-column flex-sm-row">
             <div>
                 <button class="btn btn-outline-primary" id="selectAllBtn" data-translate="select_all"></button>
                 <span id="selectedInfo"></span>
@@ -1256,6 +1407,10 @@ body:hover,
         <span id="weekDisplay"></span>
         <span id="lunarDisplay" class="lunar-text"></span>
         <span id="timeDisplay"></span>
+    </div>
+    <div class="weather-display d-flex align-items-center d-none d-sm-inline">
+      <i id="weatherIcon" class="wi wi-na" style="font-size:28px; margin-right:4px;"></i>
+      <span id="weatherText" style="color:var(--accent-color); font-weight: 700;"></span>
     </div>
 </div>
     <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-center text-center gap-2">
@@ -1273,7 +1428,7 @@ body:hover,
             function formatSize($bytes) {
                 $units = ['B', 'KB', 'MB', 'GB', 'TB'];
                 $index = 0;
-                while ($bytes >= 1024 && $index < 3) {
+                while ($bytes >= 1024 && $index < count($units) - 1) {
                     $bytes /= 1024;
                     $index++;
                 }
@@ -1283,7 +1438,7 @@ body:hover,
             <div class="me-3 d-flex gap-2 mt-2 ps-2 custom-tooltip-wrapper gap-2" 
                  data-tooltip="挂载点：<?= $mountPoint ?>｜已用空间：<?= formatSize($usedSpace) ?>">
                 <span class="btn btn-primary btn-sm mb-2 d-none d-sm-inline"><i class="bi bi-hdd"></i> <span data-translate="total">Total：</span><?= $totalSpace ? formatSize($totalSpace) : 'N/A' ?></span>
-                <span class="btn btn-success btn-sm mb-2"><i class="bi bi-hdd"></i> <span data-translate="free">Free：</span><?= $freeSpace ? formatSize($freeSpace) : 'N/A' ?></span>
+                <span class="btn btn-success btn-sm mb-2  d-none d-sm-inline"><i class="bi bi-hdd"></i> <span data-translate="free">Free：</span><?= $freeSpace ? formatSize($freeSpace) : 'N/A' ?></span>
             </div>
             <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#updateConfirmModal" data-translate-title="check_update"><i class="fas fa-cloud-download-alt"></i> <span class="btn-label"></span></button>
             <button class="btn btn-warning ms-2" data-bs-toggle="modal" data-bs-target="#uploadModal" data-translate-title="batch_upload"><i class="bi bi-upload"></i> <span class="btn-label"></span></button>
@@ -1301,10 +1456,13 @@ body:hover,
         
         <div class="d-flex align-items-center mb-3 ps-2" id="selectAll-container">
             <input type="checkbox" id="selectAll" class="form-check-input me-2 shadow-sm" style="width: 1.05em; height: 1.05em; border-radius: 0.35em; margin-left: 1px; transform: scale(1.2)">
-            <label for="selectAll" class="form-check-label fs-5 ms-1" style="margin-right: 10px;" data-translate="select_all">Select All'</label>
-            <input type="color" id="colorPicker" style="margin-right: 10px;" value="#ff6600" data-translate-title="component_bg_color"/>
-            <input type="color" id="bodyBgColorPicker"  style="margin-right: 10px; value="#ffecff" data-translate-title="page_bg_color" />
-            <button id="fontToggleBtn" style="border: 1px solid var(--accent-color); border-radius: 4px; width: 50px; display: flex; align-items: center; background-color: var(--accent-color); justify-content: center;" data-translate-title="toggle_font">🅰️</button>
+            <label for="selectAll" class="form-check-label fs-5 ms-1" style="margin-right: 10px;" data-translate="select_all">Select All</label>
+            <input type="color" id="colorPicker" style="margin-right: 10px;" value="#333333" data-translate-title="component_bg_color"/>
+            <input type="color" id="bodyBgColorPicker" value="#f0ffff" style="margin-right: 10px;" data-translate-title="page_bg_color" />
+            <button class="btn btn-info ms-2" id="fontToggleBtn" data-translate-title="toggle_font"><i id="fontToggleIcon" class="fa-solid fa-font" style="color: white;"></i></button>
+            <button class="btn btn-success ms-2 d-none d-sm-inline" id="toggleScreenBtn" data-translate-title="toggle_fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
+            <button type="button" class="btn btn-primary ms-2 d-none d-sm-inline" onclick="showIpDetailModal()" data-translate-title="ip_info"><i class="fa-solid fa-satellite-dish"></i></button>
+            <button class="btn btn-warning ms-2 d-none d-sm-inline" id="weatherBtn" data-bs-toggle="modal" data-bs-target="#cityModal" data-translate-title="set_city"><i class="bi bi-geo-alt"></i></button>
         <div class="ms-auto" style="margin-right: 20px;">
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#langModal">
                 <img id="flagIcon" src="/luci-static/ipip/flags/<?php echo $currentLang; ?>.png" style="width:24px; height:16px">
@@ -1322,7 +1480,6 @@ body:hover,
                 return ($posA === false ? PHP_INT_MAX : $posA) - ($posB === false ? PHP_INT_MAX : $posB);
             });
         ?>
-
         <div  id="fileGrid" class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-4">
             <?php foreach ($files as $file): 
                 $path = $upload_dir . '/' . $file;
@@ -1361,9 +1518,9 @@ body:hover,
                             $bitrate = $matches[1] . ' kbps';
                         }
                     } else {
-                        $resolution = '无法获取分辨率';
-                        $duration = '无法获取时长';
-                        $bitrate = '无法获取比特率';
+                        $resolution = 'Resolution cannot be obtained';
+                        $duration = 'Duration cannot be obtained';
+                        $bitrate = 'Bitrate cannot be obtained';
                     }
                 } elseif ($isAudio) { 
                     $ffmpegPath = '/usr/bin/ffmpeg';
@@ -1380,8 +1537,8 @@ body:hover,
                             $bitrate = $matches[1] . ' kbps';
                         }
                     } else {
-                        $duration = '无法获取时长';
-                        $bitrate = '无法获取比特率';
+                        $duration = 'Duration cannot be obtained';
+                        $bitrate = 'Bitrate cannot be obtained';
                     }
                 }
             ?>
@@ -1465,11 +1622,12 @@ body:hover,
                     <div class="card-body pt-2 mt-2">
                         <div class="d-flex flex-nowrap align-items-center justify-content-between gap-2">                         
                             <div class="d-flex flex-nowrap gap-1 flex-grow-1" style="min-width: 0;">
-                                <button class="btn btn-danger" onclick="handleDeleteConfirmation('<?= urlencode($file) ?>')" data-translate-title="delete"><i class="bi bi-trash"></i></button>
-                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#renameModal-<?= md5($file) ?>" data-translate-title="rename"><i class="bi bi-pencil"></i></button>
-                                <a href="?download=<?= urlencode($file) ?>" class="btn btn-success"><i class="bi bi-download" data-translate-title="download"></i></a>                     
+                                <button class="btn btn-danger custom-btn" onclick="handleDeleteConfirmation('<?= urlencode($file) ?>')" data-translate-title="delete"><i class="bi bi-trash"></i></button>
+                                <button class="btn btn-primary custom-btn" data-bs-toggle="modal" data-bs-target="#renameModal-<?= md5($file) ?>" data-translate-title="rename"><i class="bi bi-pencil"></i></button>
+                                <a href="?download=<?= urlencode($file) ?>" class="btn btn-success custom-btn"><i class="bi bi-download" data-translate-title="download"></i></a>   
+                                <button class="btn btn-warning share-btn custom-btn"data-filename="<?= htmlspecialchars($file) ?>"data-bs-toggle="modal"data-bs-target="#shareModal" data-translate-title="shareLinkLabel"><i class="bi bi-share"></i></button>
                                 <?php if ($isMedia): ?>
-                                <button class="btn btn-info set-bg-btn" 
+                                <button class="btn btn-info set-bg-btn custom-btn" 
                                         data-src="<?= htmlspecialchars($file) ?>"
                                         data-type="<?= $isVideo ? 'video' : ($isAudio ? 'audio' : 'image') ?>"
                                         onclick="setBackground('<?= htmlspecialchars($file) ?>')"
@@ -1487,87 +1645,114 @@ body:hover,
     </div>
 </div>
 
-    <div class="modal fade" id="previewModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" data-translate="preview">Preview</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body text-center position-relative">
-                    <div class="loading-spinner"></div>
-                    <div id="prevBtn" class="preview-nav-btn"><i class="bi bi-chevron-left"></i></div>
-                    <div id="nextBtn" class="preview-nav-btn"><i class="bi bi-chevron-right"></i></div>
-                    <img id="previewImage" src="" class="img-fluid d-none">
-                    <audio id="previewAudio" controls class="d-none w-100"></audio>
-                    <video id="previewVideo" controls class="d-none">
-                        <source id="previewVideoSource" src="" type="video/mp4">
-                    </video>
-              </div>
-                <div class="modal-footer">
-                    <button class="btn btn-primary" id="fullscreenToggle" data-translate="toggle_fullscreen">Toggle Fullscreen</button>
-                </div>
+<div class="modal fade" id="cityModal" tabindex="-1" aria-labelledby="cityModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cityModalLabel" data-translate="set_city">Set City</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="cityInput" class="form-label" data-translate="input_label">City Name</label>
+          <input type="text" class="form-control" id="cityInput" data-translate-placeholder="input_placeholder">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveCityBtn" data-translate="save">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="previewModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" data-translate="preview">Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center position-relative">
+                <div class="loading-spinner"></div>
+                <div id="prevBtn" class="preview-nav-btn"><i class="bi bi-chevron-left"></i></div>
+                <div id="nextBtn" class="preview-nav-btn"><i class="bi bi-chevron-right"></i></div>
+                <img id="previewImage" src="" class="img-fluid d-none">
+                <audio id="previewAudio" controls class="d-none w-100"></audio>
+                <video id="previewVideo" controls class="d-none">
+                    <source id="previewVideoSource" src="" type="video/mp4">
+                </video>
+          </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal" data-translate="cancel">Cancel</button>
+                <button class="btn btn-info me-2" id="fitTogglePreview" data-translate="fit_cover">Cover</button>
+                <button class="btn btn-primary" id="fullscreenToggle" data-translate="toggle_fullscreen">Toggle Fullscreen</button>
             </div>
         </div>
     </div>
+</div>
 
-        <form id="batchDeleteForm" method="post" style="display: none;">
-            <input type="hidden" name="batch_delete" value="1">
-        </form>
+<form id="batchDeleteForm" method="post" style="display: none;">
+    <input type="hidden" name="batch_delete" value="1">
+</form>
     </div>
 
-    <div class="modal fade" id="uploadModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" data-translate="batch_upload"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                  <div class="alert alert-warning" data-translate="supported_formats"></div>
-                    <form id="uploadForm" method="post" enctype="multipart/form-data">
-                        <div class="drop-zone border rounded p-5 text-center mb-3">
-                            <input type="file" name="upload_file[]" id="upload_file" multiple 
-                                   style="opacity: 0; position: absolute; z-index: -1">
-                            <div class="upload-area">
-                                <i class="fas fa-cloud-upload-alt text-primary mb-3" style="font-size: 4rem;"></i>
-                                <div class="fs-5 mb-2" data-translate="drop_files_here"></div>
-                                <div class="text-muted upload-or mb-3" data-translate="or"></div>
-                                <button type="button" class="btn btn-primary btn-lg" id="customUploadButton">
-                                    <i class="bi bi-folder2-open me-2"></i><span data-translate="select_files"></span>
-                                </button>
-                                <div class="file-list mt-3"></div>
-                            </div>
+<div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" data-translate="batch_upload"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" data-translate="supported_formats"></div>
+                <form id="uploadForm" method="post" enctype="multipart/form-data">
+                    <div class="drop-zone border rounded p-5 text-center mb-3">
+                        <input type="file" name="upload_file[]" id="upload_file" multiple 
+                               style="opacity: 0; position: absolute; z-index: -1">
+                        <div class="upload-area">
+                            <i class="fas fa-cloud-upload-alt text-primary mb-3" style="font-size: 4rem;"></i>
+                            <div class="fs-5 mb-2" data-translate="drop_files_here"></div>
+                            <div class="text-muted upload-or mb-3" data-translate="or"></div>
+                            <button type="button" class="btn btn-primary btn-lg" id="customUploadButton">
+                                <i class="bi bi-folder2-open me-2"></i><span data-translate="select_files"></span>
+                            </button>
+                            <div class="file-list mt-3"></div>
                         </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-warning" id="updatePhpConfig" data-translate="unlock_php_upload_limit"></button>
-                    <button class="btn btn-primary" onclick="$('#uploadForm').submit()" data-translate="upload"></button>
-                    <button class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
-                </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" id="updatePhpConfig" data-translate="unlock_php_upload_limit"></button>
+                <button class="btn btn-primary" onclick="$('#uploadForm').submit()" data-translate="upload"></button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
             </div>
         </div>
     </div>
+</div>
 
-    <?php foreach ($files as $file): ?>
-    <div class="modal fade" id="renameModal-<?= md5($file) ?>" tabindex="-1">
+<?php foreach ($files as $file): ?>
+    <div class="modal fade" id="renameModal-<?= md5($file) ?>" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <form method="post" action="">
                     <input type="hidden" name="old_name" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
                     <div class="modal-header">
-                        <h5 class="modal-title" data-translate="rename_file"><?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?></h5>
+                        <h5 class="modal-title" data-translate="rename_file">
+                            <?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>
+                        </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
                             <label data-translate="new_filename"></label>
-                            <input type="text" 
-                                   class="form-control" 
-                                   name="new_name"
-                                   value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>"
-                                   data-translate-title="invalid_filename_chars">
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                name="new_name"
+                                value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>"
+                                data-translate-title="invalid_filename_chars"
+                            >
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1576,191 +1761,398 @@ body:hover,
                     </div>
                 </form>
             </div>
-       </div>
+        </div>
     </div>
-    <?php endforeach; ?>
+<?php endforeach; ?>
 
-    <div class="modal fade" id="playerModal" tabindex="-1" aria-labelledby="playerModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="playerModalLabel" data-translate="media_player"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body d-flex flex-column" style="height: 65vh;"> 
-                    <div class="row g-4 flex-grow-1 h-100">
-                        <div class="col-md-8 d-flex flex-column h-100">
-                            <div class="ratio ratio-16x9 bg-dark rounded flex-grow-1 position-relative">
-                                <video id="mainPlayer" controls class="w-100 h-100 d-none"></video>
-                                <img id="imagePlayer" class="w-100 h-100 d-none object-fit-contain">
-                            </div>
-                        </div>
-                    
-                        <div class="col-md-4 d-flex flex-column h-100">
-                            <h6 class="mb-3" data-translate="playlist"></h6>
-                            <div class="list-group flex-grow-1 overflow-auto" id="playlistContainer">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-sm btn-danger" id="clearPlaylist"><i class="bi bi-trash"></i> <span data-translate="clear_list"></span></button>
-                    <button class="btn btn-sm btn-primary" id="togglePlaylist"><i class="bi bi-list-ul"></i> <span data-translate="toggle_list"></span></button>
-                    <button class="btn btn-sm btn-info" id="togglePip" style="display: none;"><i class="bi bi-pip"></i> <span data-translate="picture_in_picture"></span></button>
-                    <button class="btn btn-sm btn-success" id="toggleFullscreen"><i class="bi bi-arrows-fullscreen"></i> <span data-translate="fullscreen"></span></button>
-                    <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> <span data-translate="close"></span></button>
-                </div>
+<html lang="<?php echo $currentLang; ?>">
+<div class="modal fade" id="langModal" tabindex="-1" aria-labelledby="langModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="langModalLabel" data-translate="select_language">Select Language</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <select id="langSelect" class="form-select" onchange="changeLanguage(this.value)">
+                    <option value="zh" data-translate="simplified_chinese">Simplified Chinese</option>
+                    <option value="hk" data-translate="traditional_chinese">Traditional Chinese</option>
+                    <option value="en" data-translate="english">English</option>
+                    <option value="ko" data-translate="korean">Korean</option>
+                    <option value="vi" data-translate="vietnamese">Vietnamese</option>
+                    <option value="th" data-translate="thailand">Thailand</option>
+                    <option value="ja" data-translate="japanese"></option>
+                    <option value="ru" data-translate="russian"></option>
+                    <option value="de" data-translate="germany">Germany</option>
+                    <option value="fr" data-translate="france">France</option>
+                    <option value="ar" data-translate="arabic"></option>
+                    <option value="es" data-translate="spanish">spanish</option>
+                    <option value="bn" data-translate="bangladesh">Bangladesh</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="close">Close</button>
             </div>
         </div>
     </div>
+</div>
+
+<div class="modal fade" id="playerModal" tabindex="-1" aria-labelledby="playerModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="playerModalLabel" data-translate="media_player"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body d-flex flex-column" style="height: 65vh;">
+                <div class="row g-4 flex-grow-1 h-100">
+                    <div class="col-md-8 d-flex flex-column h-100">
+                        <div class="ratio ratio-16x9 bg-dark rounded flex-grow-1 position-relative">
+                            <video id="mainPlayer" controls class="w-100 h-100 d-none"></video>
+                            <img id="imagePlayer" class="w-100 h-100 d-none object-fit-contain">
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex flex-column h-100">
+                        <h6 class="mb-3" data-translate="playlist"></h6>
+                        <div class="list-group flex-grow-1 overflow-auto" id="playlistContainer"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm btn-danger" id="clearPlaylist">
+                    <i class="bi bi-trash"></i>
+                    <span data-translate="clear_list"></span>
+                </button>
+                <button class="btn btn-sm btn-info" id="fitTogglePlayer">
+                    <i class="bi bi-aspect-ratio"></i>
+                    <span data-translate="fit_cover">Cover</span>
+                </button>
+                <button class="btn btn-sm btn-primary" id="togglePlaylist">
+                    <i class="bi bi-list-ul"></i>
+                    <span data-translate="toggle_list"></span>
+                </button>
+                <button class="btn btn-sm btn-info" id="togglePip" style="display: none;">
+                    <i class="bi bi-pip"></i>
+                    <span data-translate="picture_in_picture"></span>
+                </button>
+                <button class="btn btn-sm btn-success" id="toggleFullscreen">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                    <span data-translate="fullscreen"></span>
+                </button>
+                <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i>
+                    <span data-translate="close"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="floatingLyrics">
     <div class="floating-controls">
         <button class="ctrl-btn" onclick="changeTrack(-1, true)" data-translate-title="previous_track">
-            <i class="bi bi-skip-backward-fill"></i>
+            <i class="fas fa-backward"></i>
         </button>
-        <button class="ctrl-btn" id="floatingPlayBtn" onclick="togglePlay()"  data-translate-title="play_pause">
+        <button class="ctrl-btn" id="floatingPlayBtn" onclick="togglePlay()" data-translate-title="play_pause">
             <i class="bi bi-play-fill"></i>
         </button>
         <button class="ctrl-btn" onclick="changeTrack(1, true)" data-translate-title="next_track">
-            <i class="bi bi-skip-forward-fill"></i>
+            <i class="fas fa-forward"></i>
         </button>
         <button class="ctrl-btn" id="floatingRepeatBtn" onclick="toggleRepeat()">
             <i class="bi bi-arrow-repeat"></i>
         </button>
-        <button class="ctrl-btn" id="toggleFloatingLyrics" onclick="toggleFloating()" data-translate-title="toggle_floating_lyrics"><i id="floatingIcon" class="bi bi-display"></i></button>
+        <button class="ctrl-btn" id="speedToggle" data-translate-title="playback_speed">
+            <span id="speedLabel">1×</span>
+        </button>
+        <button class="ctrl-btn" id="muteToggle" data-translate-title="volume">
+            <i class="bi bi-volume-up-fill"></i>
+        </button>
+        <button class="ctrl-btn toggleFloatingLyricsBtn" data-translate-title="toggle_floating_lyrics">
+            <i class="bi bi-display floatingIcon"></i>
+        </button>
     </div>
-    <div id="currentSong" class="vertical-title"></div>
+    <div id="floatingCurrentSong" class="vertical-title"></div>
     <div class="vertical-lyrics"></div>
 </div>
+
 <span id="clearConfirmText" data-translate="clear_confirm" class="d-none"></span>
-    <div class="modal fade" id="musicModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content bg-dark text-white">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="langModalLabel" data-translate="music_player"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+<div class="modal fade" id="musicModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header">
+                <h5 class="modal-title" id="langModalLabel" data-translate="music_player"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="floatingLyrics"></div>
+                <div id="currentSong" class="mb-3 text-center font-weight-bold fs-4"></div>
+                <div class="lyrics-container" id="lyricsContainer" style="height: 300px; overflow-y: auto;"></div>
+            <div class="non-lyrics-content">
+                <div class="progress-container mt-3">
+                    <div class="progress">
+                        <div class="progress-bar bg-success" role="progressbar" id="progressBar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
                 </div>
-                <div class="modal-body">
-                    <div id="floatingLyrics"></div>                   
-                    <div id="currentSong" class="mb-3 text-center font-weight-bold fs-4"></div>                   
-                    <div class="lyrics-container" id="lyricsContainer" style="height: 300px; overflow-y: auto;">
-                    </div>                    
-                    <div class="progress-container mt-3">
-                        <div class="progress">
-                            <div class="progress-bar bg-success" role="progressbar" id="progressBar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                <div class="d-flex justify-content-between mt-2 small">
+                    <span id="currentTime">0:00</span>
+                    <span id="duration">0:00</span>
+                </div>          
+                <div class="controls d-flex justify-content-center gap-3 mt-4">
+                    <button class="btn btn-outline-light control-btn toggleFloatingLyricsBtn" data-translate-title="toggle_floating_lyrics">
+                        <i class="bi bi-display floatingIcon"></i>
+                    </button>
+                    <button class="btn btn-outline-light control-btn" id="repeatBtn" onclick="toggleRepeat()">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </button>
+                    <button class="btn btn-outline-light control-btn" onclick="changeTrack(-1, true)" data-translate-title="previous_track">
+                        <i class="bi bi-caret-left-fill"></i>
+                    </button>
+                    <button class="btn btn-success control-btn" id="playPauseBtn" onclick="togglePlay()" data-translate-title="play_pause">
+                        <i class="bi bi-play-fill"></i>
+                    </button>
+                    <button class="btn btn-outline-light control-btn" onclick="changeTrack(1, true)" data-translate-title="next_track">
+                        <i class="bi bi-caret-right-fill"></i>
+                    </button>
+                    <button class="btn btn-outline-light control-btn" type="button" data-bs-toggle="modal" data-bs-target="#urlModal" data-translate-title="custom_playlist">
+                        <i class="bi bi-music-note-list"></i>
+                    </button>
+                    <button class="btn btn-volume position-relative" id="volumeToggle" data-translate-title="volume">
+                        <i class="bi bi-volume-up-fill"></i>
+                        <div class="volume-slider-container position-absolute bottom-100 start-50 translate-middle-x mb-1 p-2" id="volumePanel" style="display: none; width: 120px;">
+                            <input type="range" class="form-range volume-slider" id="volumeSlider" min="0" max="1" step="0.01" value="1">
                         </div>
-                    </div>         
-                    <div class="d-flex justify-content-between mt-2 small">
-                        <span id="currentTime">0:00</span>
-                        <span id="duration">0:00</span>
-                    </div> 
-                 
-                    <div class="controls d-flex justify-content-center gap-3 mt-4">
-                        <button class="btn btn-outline-light control-btn" id="toggleFloatingLyrics" onclick="toggleFloating()" data-translate-title="toggle_floating_lyrics"><i id="floatingIcon" class="bi bi-display"></i></button>
-                        <button class="btn btn-outline-light control-btn" id="repeatBtn" onclick="toggleRepeat()">
-                            <i class="bi bi-arrow-repeat"></i>
-                        </button>
-                        <button class="btn btn-outline-light control-btn" onclick="changeTrack(-1, true)" data-translate-title="previous_track">
-                            <i class="bi bi-caret-left-fill"></i>
-                        </button>
-                        <button class="btn btn-success control-btn" id="playPauseBtn" onclick="togglePlay()" data-translate-title="play_pause">
-                            <i class="bi bi-play-fill"></i>
-                        </button>
-                        <button class="btn btn-outline-light control-btn" onclick="changeTrack(1, true)" data-translate-title="next_track">
-                            <i class="bi bi-caret-right-fill"></i>
-                        </button>
-                       <button class="btn btn-outline-light control-btn" type="button" data-bs-toggle="modal" data-bs-target="#urlModal" data-translate-title="custom_playlist"><i class="bi bi-music-note-list"></i></button>
-                        <button class="btn btn-volume position-relative" id="volumeToggle" data-translate-title="volume">
-                            <i class="bi bi-volume-up-fill"></i>
-                            <div class="volume-slider-container position-absolute bottom-100 start-50 translate-middle-x mb-1 p-2"
-                                 id="volumePanel"
-                                 style="display: none; width: 120px;">
-                                <input type="range" 
-                                       class="form-range volume-slider" 
-                                       id="volumeSlider"
-                                       min="0" 
-                                       max="1" 
-                                       step="0.01"
-                                       value="1">
-                                </div>
-                            </button> 
-                        </div>
-                    <div class="playlist mt-3" id="playlist"></div>
+                    </button>
                 </div>
+                <div class="playlist mt-3" id="playlist"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-info" id="lyricsToggle"><i class="bi bi-chevron-down" id="lyricsIcon"></i></button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal" data-translate="cancel">Cancel</button>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="modal fade" id="urlModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" data-translate="update_playlist"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <?php if($message): ?>
+<div class="modal fade" id="urlModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" data-translate="update_playlist"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <?php if ($message): ?>
                     <div class="alert alert-<?= strpos($message, '成功') !== false ? 'success' : 'danger' ?>">
                         <?= $message ?>
                     </div>
-                    <?php endif; ?>               
-                    <form method="POST">
-                        <div class="mb-3">
-                            <label data-translate="playlist_url"></label>
-                            <input type="text" name="new_url" id="new_url" class="form-control" 
-                                   value="<?= htmlspecialchars($new_url) ?>" required>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary" data-translate="save"></button>
-                            <button type="submit" name="reset_default" class="btn btn-secondary" data-translate="reset_default"></button>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
-                        </div>
-                    </form>
-                </div>
+                <?php endif; ?>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label data-translate="playlist_url"></label>
+                        <input 
+                            type="text" 
+                            name="new_url" 
+                            id="new_url" 
+                            class="form-control" 
+                            value="<?= htmlspecialchars($new_url) ?>" 
+                            required
+                        >
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" data-translate="save"></button>
+                        <button type="submit" name="reset_default" class="btn btn-secondary" data-translate="reset_default"></button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="modal fade" id="updateConfirmModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" data-translate="theme_download"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="currentVersionInfo" class="alert alert-info" data-translate="current_version"></div>
-                    <div id="themeVersionInfo" class="alert alert-warning" data-translate="fetching_version"></div>
-                    <textarea id="copyCommand" class="form-control" rows="3" readonly>opkg update && opkg install wget grep sed && LATEST_FILE=$(wget -qO- https://github.com/Thaolga/openwrt-nekobox/releases/expanded_assets/1.8.8 | grep -o 'luci-theme-spectra_[0-9A-Za-z.\-_]*_all.ipk' | head -n1) && wget -O /tmp/"$LATEST_FILE" "https://github.com/Thaolga/openwrt-nekobox/releases/download/1.8.8/$LATEST_FILE" && opkg install --force-reinstall /tmp/"$LATEST_FILE" && rm -f /tmp/"$LATEST_FILE"</textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
-                    <a id="confirmUpdateLink" href="#" class="btn btn-danger" target="_blank" data-translate="download_local"></a>
-                    <button id="copyCommandBtn" class="btn btn-info" data-translate="copy_command"></button>
-                    <button id="updatePluginBtn" class="btn btn-primary" data-translate="update_plugin">update_plugin</button>
-                </div>
+<div class="modal fade" id="updateConfirmModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" data-translate="theme_download"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="currentVersionInfo" class="alert alert-info" data-translate="current_version"></div>
+                <div id="themeVersionInfo" class="alert alert-warning" data-translate="fetching_version"></div>
+                <textarea id="copyCommand" class="form-control" rows="3" readonly>
+opkg update && opkg install wget grep sed && LATEST_FILE=$(wget -qO- https://github.com/Thaolga/openwrt-nekobox/releases/expanded_assets/1.8.8 | grep -o 'luci-theme-spectra_[0-9A-Za-z.\-_]*_all.ipk' | head -n1) && wget -O /tmp/"$LATEST_FILE" "https://github.com/Thaolga/openwrt-nekobox/releases/download/1.8.8/$LATEST_FILE" && opkg install --force-reinstall /tmp/"$LATEST_FILE" && rm -f /tmp/"$LATEST_FILE"
+</textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
+                <a id="confirmUpdateLink" href="#" class="btn btn-danger" target="_blank" data-translate="download_local"></a>
+                <button id="copyCommandBtn" class="btn btn-info" data-translate="copy_command"></button>
+                <button id="updatePluginBtn" class="btn btn-primary" data-translate="update_plugin">update_plugin</button>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="updateModalLabel" data-translate="updateModalLabel">Update status</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+<div class="modal fade" id="weatherModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalCityName">—</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="list-unstyled mb-0">
+          <li><strong data-translate="weather_label">Weather</strong>：<span id="modalDesc">—</span></li>
+          <li><strong data-translate="temperature_label">Temperature</strong>：<span id="modalTemp">—</span>℃</li>
+          <li><strong data-translate="feels_like_label">Feels like</strong>：<span id="modalFeels">—</span>℃</li>
+          <li><strong data-translate="humidity_label">Humidity</strong>：<span id="modalHumidity">—</span>%</li>
+          <li><strong data-translate="pressure_label">Pressure</strong>：<span id="modalPressure">—</span> hPa</li>
+          <li><strong data-translate="wind_label">Wind speed</strong>：<span id="modalWind">—</span> m/s</li>
+          <li><strong data-translate="sunrise_label">Sunrise</strong>：<span id="modalSunrise">—</span></li>
+          <li><strong data-translate="sunset_label">Sunset</strong>：<span id="modalSunset">—</span></li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade custom-modal" id="ipDetailModal" tabindex="-1" role="dialog" aria-labelledby="ipDetailModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl draggable" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ipDetailModalLabel" data-translate="ip_info">IP Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-row">
+                    <span class="detail-label" data-translate="ip_address">IP Address</span>
+                    <span class="detail-value"></span>
                 </div>
-                <div class="modal-body text-center">
-                    <div id="updateDescription" class="alert alert-info mb-3" data-translate="updateDescription"></div>
-                    <pre id="logOutput" style="white-space: pre-wrap; word-wrap: break-word; text-align: left; display: inline-block;" data-translate="waitingMessage">Waiting for the operation to begin...</pre>
+                <div class="detail-row">
+                    <span class="detail-label" data-translate="location">Location</span>
+                    <span class="detail-value"></span>
                 </div>
+                <div class="detail-row">
+                    <span class="detail-label" data-translate="isp">ISP</span>
+                    <span class="detail-value"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">ASN</span>
+                    <span class="detail-value"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label" data-translate="timezone">Timezone</span>
+                    <span class="detail-value"></span>
+                </div>
+                <div class="detail-row map-coord-row" style="display: none;">
+                    <span class="detail-label" data-translate="latitude_longitude">Coordinates</span>
+                    <span class="detail-value"></span>
+                </div>
+                <div class="detail-row map-container" style="height: 400px; margin-top: 20px; display: none;">
+                    <div id="leafletMap" style="width: 100%; height: 100%;"></div>
+                </div>
+                <h5 style="margin-top: 15px;" data-translate="latency_info">Latency Info</h5>
+                <div class="detail-row" id="delayInfo" style="display: flex; flex-wrap: wrap;"></div>
+                </div>
+              <div class="modal-footer">
+                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel"></button>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="shareModalLabel" data-translate="createShareLink">Create Share Link</h5>
+        <button type="button" class="btn-close" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="shareForm">
+          <div class="mb-3">
+            <label for="expireTime" class="form-label" data-translate="expireTimeLabel">Expiration Time</label>
+            <select class="form-select" id="expireTime" name="expire">
+              <option value="3600" data-translate="expire1Hour">1 Hour</option>
+              <option value="86400" selected data-translate="expire1Day">1 Day</option>
+              <option value="604800" data-translate="expire7Days">7 Days</option>
+              <option value="2592000" data-translate="expire30Days">30 Days</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="maxDownloads" class="form-label" data-translate="maxDownloadsLabel">Max Downloads</label>
+            <select class="form-select" id="maxDownloads" name="max_downloads">
+              <option value="1" data-translate="max1Download">1 Time</option>
+              <option value="5" data-translate="max5Downloads">5 Time</option>
+              <option value="10" data-translate="max10Downloads">10 Time</option>
+              <option value="0" selected data-translate="maxUnlimited">Unlimited</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="shareLink" class="form-label" data-translate="shareLinkLabel">Share Link</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="shareLink" readonly>
+              <button class="btn btn-outline-secondary" type="button" id="copyLinkBtn" data-translate-title="copyLinkButton">
+                <i class="bi bi-clipboard"></i>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fa fa-times" aria-hidden="true"></i> <span data-translate="closeButtonFooter">Close</span></button>
+        <button type="button" class="btn btn-warning" id="cleanExpiredBtn"><i class="fa fa-broom" aria-hidden="true"></i> <span data-translate="cleanExpiredButton">Clean Expired</span></button>
+        <button type="button" class="btn btn-danger" id="deleteAllBtn"><i class="fa fa-trash" aria-hidden="true"></i> <span data-translate="deleteAllButton">Delete All</span></button>
+        <button type="button" class="btn btn-primary" id="generateShareBtn"><i class="fa fa-link" aria-hidden="true"></i> <span data-translate="generateLinkButton">Generate Link</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="updateModalLabel" data-translate="updateModalLabel">Update status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="updateDescription" class="alert alert-info mb-3" data-translate="updateDescription"></div>
+                <pre id="logOutput" style="white-space: pre-wrap; word-wrap: break-word; text-align: left; display: inline-block;" data-translate="waitingMessage">Waiting for the operation to begin...</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" data-translate="confirm_title">Confirm Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="confirmModalMessage"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="cancel">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmModalYes" data-translate="confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
     document.addEventListener('DOMContentLoaded', function() {
         const dropZone = document.querySelector('.drop-zone');
         const fileInput = document.getElementById('upload_file');
@@ -1849,243 +2241,281 @@ body:hover,
             }
         });
     });
-    </script>
+</script>
 
-    <script>
-        $(document).ready(function() {
-            $('#selectAll').change(function() {
-                $('.fileCheckbox').prop('checked', this.checked);
-                updateSelectionInfo();
-            });
-
-            $('.fileCheckbox').change(function() {
-                $('#selectAll').prop('checked', $('.fileCheckbox:checked').length === $('.fileCheckbox').length);
-                updateSelectionInfo();
-            });
-
-            $('#selectAllBtn').click(function() {
-                const allChecked = $('.fileCheckbox:checked').length === $('.fileCheckbox').length;
-                $('.fileCheckbox').prop('checked', !allChecked).trigger('change');
-            });
-
-            $('#batchDeleteBtn').click(function() {
-                const files = $('.fileCheckbox:checked').map(function() { return $(this).val(); }).get();
-                if (files.length === 0) { alert(translations['select_files_to_delete'] || 'Please select files to delete first');  return; }
-                if (confirm((translations['confirm_batch_delete'] || 'Are you sure you want to delete the selected %d files?').replace('%d', files.length))) {
-                    const batchDeleteForm = $('#batchDeleteForm');
-                    batchDeleteForm.empty();
-                    batchDeleteForm.append('<input type="hidden" name="batch_delete" value="1">');
-                    files.forEach(file => {
-                        batchDeleteForm.append(`<input type="hidden" name="filenames[]" value="${file}">`);
-                    });
-                    batchDeleteForm.submit();
-                }
-            });
-
-            function updateSelectionInfo() {
-                const checked = $('.fileCheckbox:checked');
-                const count = checked.length;
-                const totalSize = checked.toArray().reduce((sum, el) => sum + parseInt($(el).data('size')), 0);
-                if (count > 0) {
-                    $('#toolbar').removeClass('d-none');
-                    $('#selectedInfo').html((translations['selected_info'] || 'Selected %d files，total %s MB').replace('%d', count).replace('%s', (totalSize / (1024 * 1024)).toFixed(2)));
-                } else {
-                    $('#toolbar').addClass('d-none');
-                }
-            }
-
-            $('.preview-img').click(function() {
-                const src = $(this).data('src');
-                $('#previewImage').attr('src', src).removeClass('d-none');
-                $('#previewVideo').addClass('d-none');
-            });
-
-            $('.preview-video').click(function() {
-                const src = $(this).data('src');
-                $('#previewVideoSource').attr('src', src);
-                $('#previewVideo')[0].load();
-                $('#previewVideo').removeClass('d-none');
-                $('#previewImage').addClass('d-none');
-            });
-
-            $('#previewModal').on('hidden.bs.modal', function() {
-                $('#previewVideo')[0].pause();
-            });
-
-            $('.set-bg-btn').click(function() {
-                const src = $(this).data('src');
-                const type = $(this).data('type');
-                setBackground(src, type);
-            });
-
-            $('#clearBackgroundBtn').click(function() {
-                clearExistingBackground();
-                localStorage.removeItem('phpBackgroundSrc');
-                localStorage.removeItem('phpBackgroundType');
-                localStorage.removeItem('backgroundSet');
-                location.reload();
-            });
-
-            function setBackground(src, type) {
-                if (type === 'image') {
-                    setImageBackground(src);
-                } else if (type === 'video') {
-                    setVideoBackground(src);
-                }
-            }
+<script>
+    $(document).ready(function() {
+        $('#selectAll').change(function() {
+            $('.fileCheckbox').prop('checked', this.checked);
+            updateSelectionInfo();
         });
 
-        $('#batchDeleteForm').submit(function(e) {
-            e.preventDefault();
-            const formData = $(this).serialize();
-            $.post('', formData, function(response) {
-                let message = '';
-                if (response.success) {
-                    message = translations['batch_delete_success'] || '✅ Batch delete successful';
-                    showLogMessage(message);
-                    speakMessage(message);
-                    setTimeout(() => {
-                          location.reload();
-                    }, 2500);
-                } else {
-                    message = translations['batch_delete_failed'] || '❌ Batch delete failed';
-                    showLogMessage(message);
-                    speakMessage(message);
-                }
-            }, 'json');
+        $('.fileCheckbox').change(function() {
+            $('#selectAll').prop('checked', $('.fileCheckbox:checked').length === $('.fileCheckbox').length);
+            updateSelectionInfo();
         });
 
-        function setImageBackground(src) {
-            clearExistingBackground();
-            document.body.style.background = `url('/luci-static/spectra/bgm/${src}') no-repeat center center fixed`;
-            document.body.style.backgroundSize = 'cover';
-            localStorage.setItem('phpBackgroundSrc', src);
-            localStorage.setItem('phpBackgroundType', 'image');
-            checkAndReload();
-        }
+        $('#selectAllBtn').click(function() {
+            const allChecked = $('.fileCheckbox:checked').length === $('.fileCheckbox').length;
+            $('.fileCheckbox').prop('checked', !allChecked).trigger('change');
+        });
 
-        function setVideoBackground(src, isPHP = false) {
-            clearExistingBackground();
-            let existingVideoTag = document.getElementById("background-video");
-            if (existingVideoTag) {
-                existingVideoTag.src = `/luci-static/spectra/bgm/${src}`;
+        $('#batchDeleteBtn').click(function() {
+            const files = $('.fileCheckbox:checked').map(function() { return $(this).val(); }).get();
+            if (files.length === 0) { 
+                alert(translations['select_files_to_delete'] || 'Please select files to delete first');  
+                return; 
+            }
+            const confirmText = (translations['confirm_batch_delete'] || 'Are you sure you want to delete the selected %d files?').replace('%d', files.length);
+            showConfirmation(confirmText, () => {
+                const batchDeleteForm = $('#batchDeleteForm');
+                batchDeleteForm.empty();
+                batchDeleteForm.append('<input type="hidden" name="batch_delete" value="1">');
+                files.forEach(file => {
+                    batchDeleteForm.append(`<input type="hidden" name="filenames[]" value="${file}">`);
+                });
+                batchDeleteForm.submit();
+            });
+        });
+
+        function updateSelectionInfo() {
+            const checked = $('.fileCheckbox:checked');
+            const count = checked.length;
+            const totalSize = checked.toArray().reduce((sum, el) => sum + parseInt($(el).data('size')), 0);
+            if (count > 0) {
+                $('#toolbar').removeClass('d-none');
+                $('#selectedInfo').html((translations['selected_info'] || 'Selected %d files，total %s MB').replace('%d', count).replace('%s', (totalSize / (1024 * 1024)).toFixed(2)));
             } else {
-                videoTag = document.createElement("video");
-                videoTag.className = "video-background";
-                videoTag.id = "background-video";
-                videoTag.autoplay = true;
-                videoTag.loop = true;
-                videoTag.muted = localStorage.getItem('videoMuted') === 'true';
-                videoTag.playsInline = true;
-                videoTag.innerHTML = `
-                    <source src="/luci-static/spectra/bgm/${src}" type="video/mp4">
-                    Your browser does not support the video tag.
-                `;
-                document.body.prepend(videoTag);
-
-                let styleTag = document.querySelector("#video-style");
-                if (!styleTag) {
-                    styleTag = document.createElement("style");
-                    styleTag.id = "video-style";
-                    document.head.appendChild(styleTag);
-                }
-                styleTag.innerHTML = `
-                    body {
-                        background: transparent !important;
-                        margin: 0;
-                        padding: 0;
-                        height: 100vh;
-                        overflow: hidden;
-                    }
-                    .video-background {
-                        position: fixed;
-                        top: 50%;
-                        left: 50%;
-                        width: auto;
-                        height: auto;
-                        min-width: 100%;
-                        min-height: 100%;
-                        transform: translate(-50%, -50%);
-                        object-fit: cover;
-                        z-index: -1;
-                    }
-                    .video-background + .wrapper span {
-                        display: none !important;
-                    }
-                `;
-            }
-            localStorage.setItem('phpBackgroundSrc', src);
-            localStorage.setItem('phpBackgroundType', 'video');
-            if (isPHP) {
-                document.querySelector('.sound-toggle div').textContent = '🔊';
-                videoTag.muted = false;
-            }
-            checkAndReload();
-        }
-
-        function clearExistingBackground() {
-            document.body.style.background = ''; 
-            let existingVideoTag = document.getElementById("background-video");
-            if (existingVideoTag) {
-                existingVideoTag.remove(); 
-            }
-            let styleTag = document.querySelector("#video-style");
-            if (styleTag) {
-                styleTag.remove(); 
+                $('#toolbar').addClass('d-none');
             }
         }
 
-        function checkAndReload() {
-            if (!localStorage.getItem('backgroundSet')) {
-                localStorage.setItem('backgroundSet', 'true');
-                location.reload();
-            }
-        }
-
-        if (phpBackgroundSrc && phpBackgroundType) {
-            if (phpBackgroundType === 'image') {
-                setImageBackground(phpBackgroundSrc);
-            } else if (phpBackgroundType === 'video') {
-                setVideoBackground(phpBackgroundSrc, true);
-            }
-        }
-
-        document.querySelectorAll('.preview-video').forEach(video => {
-            video.addEventListener('mouseenter', () => {
-                video.play().catch(() => {})
-            })
-            video.addEventListener('mouseleave', () => {
-                video.pause()
-                video.currentTime = 0
-            })
+        $('.preview-img').click(function() {
+            const src = $(this).data('src');
+            $('#previewImage').attr('src', src).removeClass('d-none');
+            $('#previewVideo').addClass('d-none');
         });
 
-        $(document).ready(function () {
-            $(".set-bg-btn").click(function () {
-                const bgSrc = $(this).data("src");
-                const bgType = $(this).data("type");
-                setTimeout(function () {
-                    location.reload();
-                }, 1000);
+        $('.preview-video').click(function() {
+            const src = $(this).data('src');
+            $('#previewVideoSource').attr('src', src);
+            $('#previewVideo')[0].load();
+            $('#previewVideo').removeClass('d-none');
+            $('#previewImage').addClass('d-none');
+        });
+
+        $('#previewModal').on('hidden.bs.modal', function() {
+            $('#previewVideo')[0].pause();
+        });
+
+        $('.set-bg-btn').click(function() {
+            const src = $(this).data('src');
+            const type = $(this).data('type');
+            setBackground(src, type);
+        });
+
+        $('#clearBackgroundBtn').click(function() {
+            const confirmMessage = translations['confirm_clear_background'] || 'Are you sure you want to clear the background?';
+            speakMessage(translations['confirm_clear_background'] || 'Are you sure you want to clear the background?');
+            showConfirmation(confirmMessage, () => {
+                setTimeout(() => {
+                    clearExistingBackground();
+                    localStorage.removeItem('phpBackgroundSrc');
+                    localStorage.removeItem('phpBackgroundType');
+                    localStorage.removeItem('backgroundSet');
+
+                    const clearedMsg = translations['background_cleared'] || 'Background cleared!';
+                    showLogMessage(clearedMsg);
+                    speakMessage(clearedMsg);
+
+                    setTimeout(() => {
+                          window.top.location.href = "/cgi-bin/luci/admin/services/spectra";
+                    }, 3000);
+
+                }, 0);
             });
         });
-    </script>
 
-    <script>
-        document.getElementById("updatePhpConfig").addEventListener("click", function() {
-            if (confirm(translations['confirm_update_php'] || "Are you sure you want to update PHP configuration?")) {
-                fetch("update_php_config.php", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" }
-                })
-                .then(response => response.json())
-                .then(data => alert(data.message))
-                .catch(error => alert(translations['request_failed'] || "Request failed: " + error.message));
+        function setBackground(src, type) {
+            if (type === 'image') {
+                setImageBackground(src);
+            } else if (type === 'video') {
+                setVideoBackground(src);
             }
-        });
-    </script>
+        }
+    });
 
-    <script>
+    $('#batchDeleteForm').submit(function(e) {
+        e.preventDefault();
+        const formData = $(this).serialize();
+        $.post('', formData, function(response) {
+            let message = '';
+            if (response.success) {
+                message = translations['batch_delete_success'] || '✅ Batch delete successful';
+                showLogMessage(message);
+                speakMessage(message);
+                setTimeout(() => {
+                      location.reload();
+                }, 2500);
+            } else {
+                message = translations['batch_delete_failed'] || '❌ Batch delete failed';
+                showLogMessage(message);
+                speakMessage(message);
+            }
+        }, 'json');
+    });
+
+    function setImageBackground(src) {
+        clearExistingBackground();
+        document.body.style.background = `url('/luci-static/spectra/bgm/${src}') no-repeat center center fixed`;
+        document.body.style.backgroundSize = 'cover';
+        localStorage.setItem('phpBackgroundSrc', src);
+        localStorage.setItem('phpBackgroundType', 'image');
+        localStorage.setItem('redirectAfterImage', 'true');
+        checkAndReload();
+    }
+
+    function setVideoBackground(src, isPHP = false) {
+        clearExistingBackground();
+        let existingVideoTag = document.getElementById("background-video");
+        if (existingVideoTag) {
+            existingVideoTag.src = `/luci-static/spectra/bgm/${src}`;
+        } else {
+            videoTag = document.createElement("video");
+            videoTag.className = "video-background";
+            videoTag.id = "background-video";
+            videoTag.autoplay = true;
+            videoTag.loop = true;
+            videoTag.muted = localStorage.getItem('videoMuted') === 'true';
+            videoTag.playsInline = true;
+            videoTag.innerHTML = `
+                <source src="/luci-static/spectra/bgm/${src}" type="video/mp4">
+                Your browser does not support the video tag.
+            `;
+            document.body.prepend(videoTag);
+
+            let styleTag = document.querySelector("#video-style");
+            if (!styleTag) {
+                styleTag = document.createElement("style");
+                styleTag.id = "video-style";
+                document.head.appendChild(styleTag);
+            }
+            styleTag.innerHTML = `
+                body {
+                    background: transparent !important;
+                    margin: 0;
+                    padding: 0;
+                    height: 100vh;
+                    overflow: hidden;
+                }
+                .video-background {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    width: auto;
+                    height: auto;
+                    min-width: 100%;
+                    min-height: 100%;
+                    transform: translate(-50%, -50%);
+                    object-fit: cover;
+                    z-index: -1;
+                }
+                .video-background + .wrapper span {
+                    display: none !important;
+                }
+            `;
+        }
+        localStorage.setItem('phpBackgroundSrc', src);
+        localStorage.setItem('phpBackgroundType', 'video');
+        if (isPHP) {
+            document.querySelector('.sound-toggle div').textContent = '🔊';
+            videoTag.muted = false;
+        }
+        checkAndReload();
+    }
+
+    function clearExistingBackground() {
+        document.body.style.background = ''; 
+        let existingVideoTag = document.getElementById("background-video");
+        if (existingVideoTag) {
+            existingVideoTag.remove(); 
+        }
+        let styleTag = document.querySelector("#video-style");
+        if (styleTag) {
+            styleTag.remove(); 
+        }
+    }
+
+    function checkAndReload() {
+        if (!localStorage.getItem('backgroundSet')) {
+            localStorage.setItem('backgroundSet', 'true');
+            location.reload();
+        }
+    }
+
+    if (phpBackgroundSrc && phpBackgroundType) {
+        if (phpBackgroundType === 'image') {
+            setImageBackground(phpBackgroundSrc);
+        } else if (phpBackgroundType === 'video') {
+            setVideoBackground(phpBackgroundSrc, true);
+        }
+    }
+
+    document.querySelectorAll('.preview-video').forEach(video => {
+        video.addEventListener('mouseenter', () => {
+            video.play().catch(() => {})
+        })
+        video.addEventListener('mouseleave', () => {
+            video.pause()
+            video.currentTime = 0
+        })
+    });
+
+    $(document).ready(function () {
+        $(".set-bg-btn").click(function () {
+            const bgSrc = $(this).data("src");
+            const bgType = $(this).data("type");
+            setTimeout(function () {
+                location.reload();
+            }, 1000);
+        });
+    });
+
+    window.addEventListener('load', function () {
+        if (localStorage.getItem('redirectAfterImage') === 'true') {
+            localStorage.removeItem('redirectAfterImage');
+            setTimeout(() => {
+                window.top.location.href = "/cgi-bin/luci/admin/services/spectra?bg=image";
+            }, 3000);
+        }
+    });
+</script>
+
+<script>
+    document.getElementById("updatePhpConfig").addEventListener("click", function() {
+        const confirmText = translations['confirm_update_php'] || "Are you sure you want to update PHP configuration?";
+        speakMessage(confirmText);
+        showConfirmation(confirmText, () => {
+            fetch("update_php_config.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const msg = data.message || "Configuration updated successfully.";
+                showLogMessage(msg);
+                speakMessage(msg);
+            })
+            .catch(error => {
+                const errMsg = translations['request_failed'] || ("Request failed: " + error.message);
+                showLogMessage(errMsg);
+                speakMessage(errMsg);
+            });
+        });
+    });
+</script>
+
+<script>
     let mediaInteraction = false;
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -2154,7 +2584,8 @@ body:hover,
             }
         });
     });
-    </script>
+</script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const player = document.getElementById('mainPlayer');
@@ -2463,6 +2894,14 @@ window.addEventListener('resize', handleVerticalResize);
     flex-shrink: 0; 
     border: none !important; 
     box-shadow: none !important;
+    background-color: var(--header-bg) !important;
+    border-top: 1px solid var(--border-color) !important;
+}
+
+#previewVideo {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: fill;
 }
 
 @media (max-width: 576px) {
@@ -2470,6 +2909,22 @@ window.addEventListener('resize', handleVerticalResize);
         max-height: calc(100vh - var(--header-height) - var(--footer-height));
         overflow-y: auto;
     }
+}
+
+#previewModal .modal-body {
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+#previewModal .modal-content {
+    border-radius: 0.3rem;
+    box-shadow: var(--bs-box-shadow);
+}
+
+#previewModal .modal-footer {
+    background-color: var(--header-bg) !important;
+    border-top: 1px solid var(--border-color) !important;
 }
 </style>
 
@@ -2666,87 +3121,169 @@ document.addEventListener('DOMContentLoaded', function () {
 <script>
 let mediaFiles = [];
 let currentPreviewIndex = -1;
+let mediaTimer = null;
+
+const fitModes = [
+  { mode: 'cover',      labelKey: 'fit_cover' },
+  { mode: 'contain',    labelKey: 'fit_contain' },
+  { mode: 'fill',       labelKey: 'fit_fill' },
+  { mode: 'none',       labelKey: 'fit_none' },
+  { mode: 'scale-down', labelKey: 'fit_scale-down' },
+];
+let currentFitIndex = 0;
+
+const fitButtons = ['fitTogglePreview', 'fitTogglePlayer'];
+
+function applyFitMode(announce = true) {
+  const currentMode = fitModes[currentFitIndex];
+  const label = translations?.[currentMode.labelKey] || currentMode.mode;
+
+  ['previewImage', 'previewVideo', 'mainPlayer'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.objectFit = currentMode.mode;
+  });
+
+  fitButtons.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      const span = btn.querySelector('span[data-translate]');
+      if (span) {
+        span.textContent = label;
+      } else {
+        btn.textContent = label;
+      }
+    }
+  });
+
+  if (!announce) return;
+
+  const prefix = translations?.['current_fit_mode'] || 'Current mode';
+  const messageText = `${prefix}: ${label}`;
+  if (typeof showLogMessage === 'function') showLogMessage(messageText);
+  if (typeof speakMessage === 'function') speakMessage(messageText);
+}
+
+fitButtons.forEach(btnId => {
+  const btn = document.getElementById(btnId);
+  if (btn) {
+    btn.addEventListener('click', () => {
+      currentFitIndex = (currentFitIndex + 1) % fitModes.length;
+      applyFitMode(true);
+    });
+  }
+});
 
 function initMediaFiles() {
-    mediaFiles = [];
-    document.querySelectorAll('[data-bs-target="#previewModal"]').forEach((el, index) => {
-        if (el.dataset.src) {
-            mediaFiles.push({
-                src: el.dataset.src,
-                type: el.dataset.type || 'image',
-                element: el
-            });
-            el.dataset.fileIndex = index;
-        }
-    });
+  mediaFiles = [];
+  document.querySelectorAll('[data-bs-target="#previewModal"]').forEach((el, index) => {
+    if (el.dataset.src) {
+      mediaFiles.push({
+        src: el.dataset.src,
+        type: el.dataset.type || 'image',
+        element: el
+      });
+      el.dataset.fileIndex = index;
+    }
+  });
 }
 
 function cleanMediaElements() {
-    const elements = {
-        image: document.getElementById('previewImage'),
-        video: document.getElementById('previewVideo'),
-        audio: document.getElementById('previewAudio')
-    };
-    
-    elements.image.classList.add('d-none');
-    elements.image.src = '';
-    
-    elements.audio.classList.add('d-none');
-    elements.audio.src = '';
-    if(elements.audio.pause) elements.audio.pause();
-    
-    elements.video.classList.add('d-none');
-    const source = elements.video.querySelector('source');
-    if(source) source.src = '';
-    if(elements.video.pause) elements.video.pause();
+  if (mediaTimer) {
+    clearTimeout(mediaTimer);
+    mediaTimer = null;
+  }
+  ['Image','Audio','Video'].forEach(kind => {
+    const el = document.getElementById('preview' + kind);
+    if (el) {
+      el.classList.add('d-none');
+      if (kind !== 'Video' && kind !== 'Image') {
+        el.src = '';
+      }
+      if (kind === 'Video' || kind === 'Audio') {
+        el.pause();
+        el.onended = null;
+        if (kind === 'Video') {
+          el.querySelector('source').src = '';
+        }
+      }
+    }
+  });
+}
+
+function loadAndPlayMedia() {
+  cleanMediaElements();
+  applyFitMode(false); 
+
+  const currentFile = mediaFiles[currentPreviewIndex];
+  if (!currentFile) return;
+
+  switch (currentFile.type) {
+    case 'image': {
+      const img = document.getElementById('previewImage');
+      img.src = currentFile.src;
+      img.classList.remove('d-none');
+      mediaTimer = setTimeout(() => {
+        document.getElementById('nextBtn').click();
+      }, 5000);
+      break;
+    }
+    case 'video': {
+      const video = document.getElementById('previewVideo');
+      const source = video.querySelector('source');
+      source.src = currentFile.src;
+      video.load();
+      video.classList.remove('d-none');
+      video.onended = () => {
+        document.getElementById('nextBtn').click();
+      };
+      video.play().catch(e => console.log('Video play failed:', e));
+      break;
+    }
+    case 'audio': {
+      const audio = document.getElementById('previewAudio');
+      audio.src = currentFile.src;
+      audio.classList.remove('d-none');
+      audio.onended = () => {
+        document.getElementById('nextBtn').click();
+      };
+      audio.play().catch(e => console.log('Audio play failed:', e));
+      break;
+    }
+  }
 }
 
 document.getElementById('previewModal').addEventListener('show.bs.modal', function(e) {
-    initMediaFiles();
-    const trigger = e.relatedTarget;
-    currentPreviewIndex = parseInt(trigger.dataset.fileIndex);
-    loadAndPlayMedia();
+  initMediaFiles();
+  currentPreviewIndex = parseInt(e.relatedTarget.dataset.fileIndex);
+  currentFitIndex = 0;
+  loadAndPlayMedia();
 });
 
-function loadAndPlayMedia() {
-    cleanMediaElements(); 
-    
-    const currentFile = mediaFiles[currentPreviewIndex];
-    if (!currentFile) return;
-
-    switch(currentFile.type) {
-        case 'image':
-            const img = document.getElementById('previewImage');
-            img.src = currentFile.src;
-            img.classList.remove('d-none');
-            break;
-            
-        case 'video':
-            const video = document.getElementById('previewVideo');
-            const source = video.querySelector('source');
-            source.src = currentFile.src;
-            video.load();
-            video.classList.remove('d-none');
-            video.play().catch(e => console.log('Video play failed:', e));
-            break;
-            
-        case 'audio':
-            const audio = document.getElementById('previewAudio');
-            audio.src = currentFile.src;
-            audio.classList.remove('d-none');
-            audio.play().catch(e => console.log('Audio play failed:', e));
-            break;
-    }
-}
+document.getElementById('playerModal').addEventListener('show.bs.modal', function () {
+  currentFitIndex = 0;
+  applyFitMode(false);
+});
 
 document.getElementById('prevBtn').addEventListener('click', () => {
-    currentPreviewIndex = (currentPreviewIndex - 1 + mediaFiles.length) % mediaFiles.length;
-    loadAndPlayMedia();
+  currentPreviewIndex = (currentPreviewIndex - 1 + mediaFiles.length) % mediaFiles.length;
+  loadAndPlayMedia();
 });
 
 document.getElementById('nextBtn').addEventListener('click', () => {
-    currentPreviewIndex = (currentPreviewIndex + 1) % mediaFiles.length;
-    loadAndPlayMedia();
+  currentPreviewIndex = (currentPreviewIndex + 1) % mediaFiles.length;
+  loadAndPlayMedia();
+});
+
+document.addEventListener('keydown', (e) => {
+  const modal = document.getElementById('previewModal');
+  if (!modal.classList.contains('show')) return;
+
+  const key = e.key.toLowerCase();
+  if (key === 'a') {
+    document.getElementById('prevBtn').click();
+  } else if (key === 'd') {
+    document.getElementById('nextBtn').click();
+  }
 });
 </script>
 
@@ -2754,78 +3291,84 @@ document.getElementById('nextBtn').addEventListener('click', () => {
   let userInteracted = false;
 
   function hexToRgb(hex) {
-    return {
-      r: parseInt(hex.slice(1, 3), 16),
-      g: parseInt(hex.slice(3, 5), 16),
-      b: parseInt(hex.slice(5, 7), 16)
-    };
+    const fullHex = hex.replace(/^#?([a-f\d])([a-f\d])([a-f\d])$/i, 
+      (_, r, g, b) => `#${r}${r}${g}${g}${b}${b}`);
+    
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
+  }
+
+  function rgbToLinear(c) {
+    const normalized = c / 255;
+    return normalized <= 0.04045 
+      ? normalized / 12.92 
+      : Math.pow((normalized + 0.055) / 1.055, 2.4);
   }
 
   function rgbToOklch(r, g, b) {
-    const [lr, lg, lb] = [r, g, b].map(c => {
-      c /= 255;
-      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-    });
+    const [lr, lg, lb] = [r, g, b].map(rgbToLinear);
+    
+    const l = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb;
+    const m = 0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb;
+    const s = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb;
 
-    const x = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb;
-    const y = 0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb;
-    const z = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb;
+    const l_ = Math.cbrt(l);
+    const m_ = Math.cbrt(m);
+    const s_ = Math.cbrt(s);
 
-    const l = Math.cbrt(0.8189330101 * x + 0.3618667424 * y - 0.1288997136 * z);
-    const m = Math.cbrt(-0.0321965433 * x + 0.9295746987 * y + 0.0361446476 * z);
-    const s = Math.cbrt(0.0481421477 * x - 0.0192659616 * y + 0.9902282127 * z);
+    const L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
+    const a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
+    const b_ = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
 
-    const l_ = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
-    const a  = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
-    const b_ = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
-
-    const c = Math.sqrt(a * a + b_ * b_);
+    const c = Math.sqrt(a ** 2 + b_ ** 2);
     let h = Math.atan2(b_, a) * 180 / Math.PI;
-    if (h < 0) { 
-      h += 360; 
-    }
+    h = h >= 0 ? h : h + 360;
 
-    return { l: l_ * 100, c: c, h: h };
+    return { 
+      l: L * 100,
+      c: c,
+      h: h
+    };
   }
 
   function hexToOklch(hex) {
-    const rgb = hexToRgb(hex);
-    return rgbToOklch(rgb.r, rgb.g, rgb.b);
+    const { r, g, b } = hexToRgb(hex);
+    return rgbToOklch(r, g, b);
   }
 
   function oklchToHex(h, c, l = 50) {
-    const hslSat = c * 100;
-    return hslToHex(h, hslSat, l);
-  }
+    const L = l / 100;
+    const a = c * Math.cos(h * Math.PI / 180);
+    const b = c * Math.sin(h * Math.PI / 180);
 
-  function hslToHex(h, s, l) {
-    h = h % 360;
-    s = Math.max(0, Math.min(100, s)) / 100;
-    l = Math.max(0, Math.min(100, l)) / 100;
+    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
 
-    const c = (1 - Math.abs(2 * l - 1)) * s;
-    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-    const m = l - c / 2;
-    let r, g, b;
+    const [lr, lg, lb] = [l_, m_, s_].map(v => v ** 3);
+    
+    const r = 4.0767416621 * lr - 3.3077115913 * lg + 0.2309699292 * lb;
+    const g = -1.2684380046 * lr + 2.6097574011 * lg - 0.3413193965 * lb;
+    const bLinear = -0.0041960863 * lr - 0.7034186147 * lg + 1.7076147010 * lb;
 
-    if (h < 60) {
-      [r, g, b] = [c, x, 0];
-    } else if (h < 120) {
-      [r, g, b] = [x, c, 0];
-    } else if (h < 180) {
-      [r, g, b] = [0, c, x];
-    } else if (h < 240) {
-      [r, g, b] = [0, x, c];
-    } else if (h < 300) {
-      [r, g, b] = [x, 0, c];
-    } else {
-      [r, g, b] = [c, 0, x];
-    }
+    const toSRGB = (v) => {
+      v = Math.min(Math.max(v, 0), 1);
+      return v > 0.0031308 
+        ? 1.055 * (v ** (1/2.4)) - 0.055 
+        : 12.92 * v;
+    };
 
-    const toHex = channel => Math.round((channel + m) * 255)
-                                  .toString(16)
-                                  .padStart(2, "0");
-    return "#" + [r, g, b].map(toHex).join("").toUpperCase();
+    const [R, G, B] = [r, g, bLinear].map(v => 
+      Math.round(toSRGB(v) * 255)
+    );
+
+    return `#${[R, G, B]
+      .map(x => x.toString(16).padStart(2, '0'))
+      .join('')}`.toUpperCase();
   }
 
   function updateTextPrimary(currentL) {
@@ -2835,17 +3378,14 @@ document.getElementById('nextBtn').addEventListener('click', () => {
 
   function updateBaseHueFromColorPicker(event) {
     const color = event.target.value;
-    const oklch = hexToOklch(color);
-    const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
-    const hueKey = `${currentTheme}BaseHue`;
-    const chromaKey = `${currentTheme}BaseChroma`;
-    const currentL = document.documentElement.getAttribute('data-theme') === 'dark' ? 30 : 80;
+    const { h, c } = hexToOklch(color);
+    const theme = document.documentElement.getAttribute("data-theme") || "dark";
+    const currentL = theme === "dark" ? 30 : 80;
 
-    document.documentElement.style.setProperty('--base-hue', oklch.h);
-    document.documentElement.style.setProperty('--base-chroma', oklch.c);
-
-    localStorage.setItem(hueKey, oklch.h);
-    localStorage.setItem(chromaKey, oklch.c);
+    document.documentElement.style.setProperty('--base-hue', h);
+    document.documentElement.style.setProperty('--base-chroma', c);
+    localStorage.setItem(`${theme}BaseHue`, h);
+    localStorage.setItem(`${theme}BaseChroma`, c);
 
     updateTextPrimary(currentL);
   }
@@ -2857,11 +3397,11 @@ document.getElementById('nextBtn').addEventListener('click', () => {
         if (data.success) {
           updateButton(data.mode);
         } else {
-          document.getElementById("status").innerText = "更新失败: " + data.error;
+          document.getElementById("status").innerText = "Update failed: " + data.error;
         }
       })
       .catch(error => {
-        document.getElementById("status").innerText = "请求出错: " + error;
+        document.getElementById("status").innerText = "Request error: " + error;
       });
   }
 
@@ -2876,15 +3416,15 @@ document.getElementById('nextBtn').addEventListener('click', () => {
 
     const hueKey = `${theme}BaseHue`;
     const chromaKey = `${theme}BaseChroma`;
-    const baseHue = parseFloat(localStorage.getItem(hueKey)) || (theme === "dark" ? 260 : 200);
-    const baseChroma = parseFloat(localStorage.getItem(chromaKey)) || (theme === "dark" ? 0.03 : 0.01);
+    const baseHue   = parseFloat(localStorage.getItem(hueKey))   ?? (theme==="dark"?260:200);
+    const baseChroma= parseFloat(localStorage.getItem(chromaKey))?? (theme==="dark"?0.10:0.05);
 
     body.style.setProperty('--base-hue', baseHue);
     body.style.setProperty('--base-chroma', baseChroma);
     body.setAttribute("data-theme", theme);
 
-    const colorPicker = document.getElementById("colorPicker");
-    colorPicker.value = oklchToHex(baseHue, baseChroma, 50);
+    const l = theme === "dark" ? 30 : 80;
+    document.getElementById("colorPicker").value = oklchToHex(baseHue, baseChroma, l);
 
     if (theme === "dark") {
         const message = translations['current_mode_dark'] || "Current Mode: Dark Mode";
@@ -2911,12 +3451,12 @@ document.getElementById('nextBtn').addEventListener('click', () => {
         }
     }
 
-    const currentL = theme === "dark" ? 35 : 95;
+    const currentL = theme === "dark" ? 30 : 80;
     updateTextPrimary(currentL);
 
     localStorage.setItem("theme", theme);
     const bodyBgKey = `${theme}BodyBgColor`;
-    const defaultBg = theme === "dark" ? "#1C4792" : "#ffecff";
+    const defaultBg = theme === "dark" ? "#333333" : "#f0ffff";
     document.body.style.background = localStorage.getItem(bodyBgKey) || defaultBg;
     
     document.getElementById("bodyBgColorPicker").value = document.body.style.background;
@@ -2929,31 +3469,32 @@ document.getElementById('nextBtn').addEventListener('click', () => {
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    const savedTheme = localStorage.getItem("theme") || "dark";
-    document.documentElement.setAttribute("data-theme", savedTheme);
-    const hueKey = `${savedTheme}BaseHue`;
-    const chromaKey = `${savedTheme}BaseChroma`;
-    const defaultHue = savedTheme === "dark" ? 260 : 332.5;
-    const defaultChroma = savedTheme === "dark" ? 0.03 : 0.045;
+    const saved = localStorage.getItem("theme") || "dark";
+    document.documentElement.setAttribute("data-theme", saved);
 
-    const savedHueValue = localStorage.getItem(hueKey) || defaultHue;
-    const savedChromaValue = localStorage.getItem(chromaKey) || defaultChroma;
+    const hueKey    = `${saved}BaseHue`;
+    const chromaKey = `${saved}BaseChroma`;
+    const defaultHue    = saved==="dark"?260:0;
+    const defaultChroma = saved==="dark"?0.10:0.05;
 
-    document.documentElement.style.setProperty('--base-hue', savedHueValue);
-    document.documentElement.style.setProperty('--base-chroma', savedChromaValue);
+    const hVal = parseFloat(localStorage.getItem(hueKey))    || defaultHue;
+    const cVal = parseFloat(localStorage.getItem(chromaKey)) || defaultChroma;
+    document.documentElement.style.setProperty('--base-hue', hVal);
+    document.documentElement.style.setProperty('--base-chroma', cVal);
 
-    const colorPicker = document.getElementById("colorPicker");
-    colorPicker.value = oklchToHex(savedHueValue, savedChromaValue, 50);
-    colorPicker.addEventListener('input', updateBaseHueFromColorPicker);
-
-    const penIcon = document.getElementById("penIcon");
-    if (penIcon) {
-      penIcon.addEventListener("click", () => colorPicker.click());
-    }
+    const picker = document.getElementById("colorPicker");
+    const l = saved==="dark"?30:80;
+    picker.value = oklchToHex(hVal, cVal, l);
+    picker.addEventListener('input', updateBaseHueFromColorPicker);
+    document.getElementById("penIcon")?.addEventListener("click", () => picker.click());
 
     const toggleBtn = document.getElementById("toggleButton");
     toggleBtn.addEventListener("click", () => {
       userInteracted = true;
+
+      setTimeout(() => {
+        window.top.location.href = "/cgi-bin/luci/admin/services/spectra";
+      }, 3000);
     });
 
     document.addEventListener("keydown", (e) => {
@@ -2970,7 +3511,7 @@ document.getElementById('nextBtn').addEventListener('click', () => {
         }
       })
       .catch(error => {
-        document.getElementById("status").innerText = "读取失败: " + error;
+        document.getElementById("status").innerText = "Failed to read: " + error;
       });
   });
 </script>
@@ -2982,25 +3523,44 @@ function setBackground(filename) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'file=' + encodeURIComponent(filename)
     }).then(() => location.reload()) 
-      .catch(error => console.error('请求失败:', error)); 
+      .catch(error => console.error('Request failed:', error));
 }
 </script>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    const theme = localStorage.getItem("theme") || "dark";
-    const bodyBgKey = `${theme}BodyBgColor`;
-    const defaultBg = theme === "dark" ? "#1C4792" : "#ffecff"; 
-    document.body.style.background = localStorage.getItem(bodyBgKey) || defaultBg;
+    const initColorStorage = () => {
+        if (!localStorage.getItem("darkBodyBgColor")) localStorage.setItem("darkBodyBgColor", "#333333");
+        if (!localStorage.getItem("lightBodyBgColor")) localStorage.setItem("lightBodyBgColor", "#f0ffff");
+    };
 
-    const bodyBgPicker = document.getElementById("bodyBgColorPicker");
-    bodyBgPicker.value = document.body.style.background;
-    
-    bodyBgPicker.addEventListener("input", (e) => {
-        const color = e.target.value;
-        const currentTheme = document.documentElement.getAttribute("data-theme");
-        document.body.style.background = color;
-        localStorage.setItem(`${currentTheme}BodyBgColor`, color); 
+    const applyThemeColor = () => {
+        const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+        const colorKey = `${currentTheme}BodyBgColor`;
+        document.body.style.background = localStorage.getItem(colorKey);
+        document.getElementById("bodyBgColorPicker").value = localStorage.getItem(colorKey);
+    };
+
+    initColorStorage();
+
+    applyThemeColor();
+
+    const themeObserver = new MutationObserver((mutations) => {
+        mutations.forEach(mutation => {
+            if (mutation.attributeName === "data-theme") {
+                applyThemeColor();
+            }
+        });
+    });
+    themeObserver.observe(document.documentElement, { attributes: true });
+
+    document.getElementById("bodyBgColorPicker").addEventListener("input", (e) => {
+        const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+        const colorKey = `${currentTheme}BodyBgColor`;
+        const newColor = e.target.value;
+        
+        document.body.style.background = newColor;
+        localStorage.setItem(colorKey, newColor);
     });
 });
 </script>
@@ -3013,7 +3573,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const requiredElements = ['dateDisplay', 'timeDisplay', 'lunarDisplay'];
     requiredElements.forEach(id => {
         if (!document.getElementById(id)) {
-            console.error(`元素 #${id} 未找到`);
+            console.error(`Element #${id} not found`);
         }
     });
 });
@@ -3160,7 +3720,7 @@ function updateDateTime() {
 
         const timeElement = document.getElementById('timeDisplay');
         if (timeElement) {
-            if (['zh', 'hk', 'jp', 'kr'].includes(lang)) {
+            if (['zh', 'hk', 'ja', 'ko'].includes(lang)) {
                 timeElement.innerHTML = `
                     <span class="ancient-time">${ancientTime}</span>
                     <span class="modern-time">${timeStr}</span>
@@ -3193,13 +3753,13 @@ function updateDateTime() {
                 case 'hk':
                     dateStr = `${now.getFullYear()}${translations.labels.year}${now.getMonth()+1}${translations.labels.month}${now.getDate()}${translations.labels.day}`;
                     break;
-                case 'vn':
+                case 'vi':
                     dateStr = `${translations.labels.day} ${now.getDate()} ${translations.labels.month} ${now.getMonth()+1} ${translations.labels.year} ${now.getFullYear()}`;
                     break;
-                case 'kr':
+                case 'ko':
                     dateStr = `${now.getFullYear()}${translations.labels.year} ${now.getMonth()+1}${translations.labels.month} ${now.getDate()}${translations.labels.day}`;
                     break;
-                case 'jp':
+                case 'ja':
                     dateStr = `${now.getFullYear()}${translations.labels.year}${now.getMonth()+1}${translations.labels.month}${now.getDate()}${translations.labels.day}`;
                     break;
                 default:
@@ -3210,7 +3770,7 @@ function updateDateTime() {
 
         const weekElement = document.getElementById('weekDisplay');
         if (weekElement) {
-            if (['zh', 'hk', 'kr', 'jp'].includes(lang)) {
+            if (['zh', 'hk', 'ko', 'ja'].includes(lang)) {
                 weekElement.textContent = `${translations.labels.week}${weekDay}`;
             } else if (lang === 'vn') {
                 weekElement.textContent = '';
@@ -3220,16 +3780,16 @@ function updateDateTime() {
         }
 
         const lunarElement = document.getElementById('lunarDisplay');
-        if (['zh', 'hk', 'jp', 'kr'].includes(lang) && lunarElement) {
+        if (['zh', 'hk', 'ja', 'ko'].includes(lang) && lunarElement) {
             const lunar = getLunar(now); 
             lunarElement.textContent = (() => {
                 switch(lang) {
                     case 'zh':
                     case 'hk':
                         return `${lunar.year} ${lunar.month}${lunar.day} ${lunar.zodiac}年`;
-                    case 'jp':
+                    case 'ja':
                         return `${lunar.year} ${lunar.month}${lunar.day} ${lunar.zodiac}年`;
-                    case 'kr':
+                    case 'ko':
                         return `${lunar.year} ${lunar.month}${lunar.day} ${lunar.zodiac}띠`;
                     default: 
                         return '';
@@ -3314,6 +3874,7 @@ function getAncientTime(date, translations) {
 
 const elements = document.querySelectorAll('.time-display span');
 const currentSong = document.querySelector('#currentSong');
+const floatingCurrentSong = document.getElementById('floatingCurrentSong');
 
 let usedColors = [];
 
@@ -3352,8 +3913,11 @@ function rotateColors() {
     if (currentSong) {
         currentSong.style.color = getNextColor(colorList);
     }
-}
 
+    if (floatingCurrentSong) {
+        floatingCurrentSong.style.color = getNextColor(colorList);
+    }
+}
 setInterval(rotateColors, 4000);
 </script>
 
@@ -3539,11 +4103,12 @@ body {
 
 .playlist-item:hover {
     background: var(--item-hover-bg);
+    color: #fff;
     font-weight: bold;
 }
 
 .playlist-item.active {
-    background: var(--color-accent);
+    background: var(--rose-bg);
     color: white;
     font-weight: bold;
 }
@@ -3556,24 +4121,31 @@ body {
     padding: 15px 10px;
     border-radius: 20px;
     backdrop-filter: var(--glass-blur);
+    display: none; 
     opacity: 0;
+    pointer-events: none;
+    cursor: default; 
     transition: opacity 0.3s ease;
-    pointer-events: auto;
     writing-mode: vertical-rl;
     text-orientation: mixed;
     line-height: 2;
     z-index: 2;
-    display: flex;
     flex-direction: column; 
     gap: 0.5em;
-
+    width: 200px;
+    resize: none;
+    overflow: auto;
+    user-select: none;
 }
 
 #floatingLyrics.visible {
+    display: flex;
     opacity: 1;
+    pointer-events: auto;
+    cursor: move;  
 }
 
-#floatingLyrics #currentSong.vertical-title {
+#floatingLyrics #floatingCurrentSong.vertical-title {
     font-size: 1.8rem;
     font-weight: 700;
     color: var(--accent-color);
@@ -3594,6 +4166,7 @@ body {
     transition: transform 0.3s ease;
     display: inline-block; 
     position: relative;
+    margin-bottom: 10px;
 }
 
 .floating-controls {
@@ -3624,7 +4197,7 @@ body {
 }
 
 .ctrl-btn i {
-    font-size: 1.2rem;
+    font-size: 1.6rem;
 }
 
 .ctrl-btn.clicked {
@@ -3647,6 +4220,8 @@ body {
 
 .char {
     transition: all 0.3s ease;
+    display: inline-block;
+    margin-right: 2px;
 }
 
 #floatingLyrics .char.active {
@@ -3700,6 +4275,14 @@ body {
     cursor: pointer; 
 }
 
+.char.active {
+    transform: scale(1.2);
+}
+
+.char[data-start] + .char[data-start] {
+    margin-left: 12px;
+}
+
 .lyrics-loading {
     position: relative;
     min-height: 100px;
@@ -3721,6 +4304,8 @@ body {
     font-size: 1.5rem;
     padding: 10px 2px;
     letter-spacing: 0.2em;
+    writing-mode: vertical-rl; 
+    text-orientation: upright; 
 }
 
 @keyframes glow {
@@ -3805,6 +4390,109 @@ body {
     }
 }
 
+.log-box {
+    position: fixed;
+    left: 20px;
+    padding: 12px 16px;
+    background: var(--sand-bg);
+    color: white;
+    border-radius: 8px;
+    z-index: 9999;
+    max-width: 320px;
+    font-size: 15px;
+    word-wrap: break-word;
+    line-height: 1.5;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    transform: translateY(0);
+    opacity: 0;
+    animation: scrollUp 12s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    display: inline-block;
+    margin-bottom: 10px;
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes scrollUp {
+    0% {
+        top: 90%;
+        opacity: 0;
+    }
+    20% {
+        opacity: 1;
+    }
+    80% {
+        top: 50%;
+        opacity: 1;
+    }
+    100% {
+        top: 45%;
+        opacity: 0;
+    }
+}
+
+.log-box.exiting {
+    animation: fadeOut 0.3s forwards;
+}
+
+.log-content {
+    padding: 6px 20px 6px 8px;
+    color: white;
+}
+
+.close-btn {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.log-box:hover .close-btn {
+    opacity: 0.7;
+    pointer-events: auto;
+}
+
+.log-box:hover .close-btn:hover {
+    opacity: 1;
+}
+
+@keyframes fadeOut {
+    to { 
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+}
+
+.log-icon {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    margin-right: 3px;
+    vertical-align: middle;
+}
+
+.log-box.error { background: linear-gradient(145deg, #ff4444, #cc0000); }
+.log-box.warning { background: linear-gradient(145deg, #ffc107, #ffab00); }
+.log-box.info { background: linear-gradient(145deg, #2196F3, #1976D2); }
+
+@media (max-width: 768px) {
+    .log-box {
+        left: 10px;
+        right: 10px;
+        max-width: none;
+        font-size: 14px;
+    }
+}
+
 .list-group-item {
     cursor: pointer;
     color: var(--text-primary);
@@ -3815,6 +4503,12 @@ body {
 
 .list-group-item:hover {
     background: var(--item-hover-bg);
+    color: white !important;
+}
+
+.list-group-item:hover .text-muted,
+.list-group-item:hover .text-truncate {
+    color: white !important;
 }
 
 .list-group-item.active {
@@ -3889,47 +4583,84 @@ let isHovering = false;
 let isManualScroll = false;
 let isSmallScreen = window.innerWidth < 768;
 
-const logBox = document.createElement('div');
-logBox.style.position = 'fixed';
-logBox.style.top = '90%';
-logBox.style.left = '20px';
-logBox.style.padding = '10px';
-logBox.style.backgroundColor = 'green';
-logBox.style.color = 'white';
-logBox.style.borderRadius = '5px';
-logBox.style.zIndex = '9999';
-logBox.style.maxWidth = '250px';
-logBox.style.fontSize = '14px';
-logBox.style.display = 'none';
-logBox.style.maxWidth = '300px';
-logBox.style.wordWrap = 'break-word';
-document.body.appendChild(logBox);
+const showLogMessage = (function() {
+    const bgColors = [
+        'var(--ocean-bg)',
+        'var(--forest-bg)',
+        'var(--lavender-bg)',
+        'var(--sand-bg)'
+    ];
+    
+    let currentIndex = 0;
+    const activeLogs = new Set();
+    const BASE_OFFSET = 20;
+    const MARGIN = 10;
 
-function showLogMessage(message) {
-    const decodedMessage = decodeURIComponent(message);
-    logBox.textContent = decodedMessage;
-    logBox.style.display = 'block';
-    logBox.style.animation = 'scrollUp 8s ease-out forwards';
-    logBox.style.width = 'auto';
-    logBox.style.maxWidth = '300px';
-
-    setTimeout(() => {
-        logBox.style.display = 'none';
-    }, 8000);
-}
-
-const styleSheet = document.createElement('style');
-styleSheet.innerHTML = `
-    @keyframes scrollUp {
-        0% {
-            top: 90%;
-        }
-        100% {
-            top: 50%;
-        }
+    function createIcon(type) {
+        const icons = {
+            error: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z',
+            warning: 'M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z',
+            info: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'
+        };
+    
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#fff" d="${icons[type] || icons.info}"/></svg>`;
+    
+        return `data:image/svg+xml;base64,${btoa(svg)}`;
     }
-`;
-document.head.appendChild(styleSheet);
+
+    function updatePositions() {
+        let verticalPos = BASE_OFFSET;
+        activeLogs.forEach(log => {
+            log.style.transform = `translateY(${verticalPos}px)`;
+            verticalPos += log.offsetHeight + MARGIN;
+        });
+    }
+
+    return function(message, type = '') {
+        const logBox = document.createElement('div');
+        logBox.className = `log-box ${type}`;
+        
+        if (!type) {
+            logBox.style.background = bgColors[currentIndex];
+            currentIndex = (currentIndex + 1) % bgColors.length;
+        }
+
+        logBox.innerHTML = `
+            <div class="log-content">
+                <span class="log-icon" style="background-image:url('${createIcon(type)}')"></span>
+                ${decodeURIComponent(message)}
+                <button class="close-btn">&times;</button>
+            </div>
+        `;
+
+        logBox.querySelector('.close-btn').onclick = () => {
+            logBox.classList.add('exiting');
+            setTimeout(() => logBox.remove(), 300);
+        };
+
+        logBox.addEventListener('mouseenter', () => 
+            logBox.style.animationPlayState = 'paused');
+        logBox.addEventListener('mouseleave', () => 
+            logBox.style.animationPlayState = 'running');
+
+        document.body.appendChild(logBox);
+        activeLogs.add(logBox);
+        
+        requestAnimationFrame(() => {
+            logBox.classList.add('active');
+            updatePositions();
+        });
+
+        setTimeout(() => {
+            logBox.classList.add('exiting');
+            setTimeout(() => {
+                logBox.remove();
+                activeLogs.delete(logBox);
+                updatePositions();
+            }, 300);
+        }, 12000);
+    };
+})();
 
 function speakMessage(message) {
     const utterance = new SpeechSynthesisUtterance(message);
@@ -4045,17 +4776,29 @@ function updatePlaylistUI() {
             ${decodeURIComponent(url.split('/').pop().replace(/\.\w+$/, ''))}
         </div>
     `).join('');
-    showLogMessage(`播放列表已加载：${songs.length} 首歌曲`);
+    showLogMessage(`Playlist loaded: ${songs.length} songs`);
     setTimeout(() => scrollToCurrentTrack(), 100);
 }
 
 function playTrack(index) {
     const songName = decodeURIComponent(songs[index].split('/').pop().replace(/\.\w+$/, ''));
-    showLogMessage(
-        `${translations['playlist_click'] || 'Playlist Click'}：${translations['index'] || 'Index'}：${index + 1}，${translations['song_name'] || 'Song Name'}：${songName}`
-    );
+    const message = `${translations['playlist_click'] || 'Playlist Click'}：${translations['index'] || 'Index'}：${index + 1}，${translations['song_name'] || 'Song Name'}：${songName}`;
+    audioPlayer.pause();
     currentTrackIndex = index;
     loadTrack(songs[index]);
+    
+    isPlaying = true;
+    audioPlayer.play().catch((error) => {
+        isPlaying = false;
+    });
+    
+    updatePlayButton();
+    savePlayerState();
+    showLogMessage(message);
+    speakMessage(message);
+    
+    event.target.classList.add('clicked');
+    setTimeout(() => event.target.classList.remove('clicked'), 200);
 }
 
 function scrollToCurrentTrack() {
@@ -4078,15 +4821,25 @@ function loadLyrics(songUrl) {
     ];
     
     containers.forEach(container => {
+        const message = translations['loading_lyrics'] || 'Loading Lyrics...';
+        const verticalText = message.split('').map(char => `<span class="char">${char}</span>`).join('');
+    
         const statusMsg = container.id === 'lyricsContainer' 
-            ? `<div id="no-lyrics">${translations['loading_lyrics'] || 'Loading Lyrics...'}</div>`
-            : `<div id="noLyricsFloating">${translations['loading_lyrics'] || 'Loading Lyrics...'}</div>`;
+            ? `<div id="no-lyrics">${message}</div>`
+            : `<div id="noLyricsFloating" class="vertical-message">${verticalText}</div>`;
+
         container.innerHTML = statusMsg;
     });
 
     fetch(lyricsUrl)
         .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('LYRICS_NOT_FOUND');
+                } else {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+            }
             return response.arrayBuffer();
         })
         .then(buffer => {
@@ -4096,15 +4849,30 @@ function loadLyrics(songUrl) {
             document.dispatchEvent(new Event('lyricsLoaded'));
         })
         .catch(error => {
-            console.error(`${translations['lyrics_load_failed'] || 'Lyrics Load Failed'}:`, error);
-            containers.forEach(container => {
-                const errorMsg = container.id === 'lyricsContainer'
-                    ? `<div id="no-lyrics">${translations['no_lyrics'] || 'No Lyrics Available'}</div>`
-                    : `<div id="noLyricsFloating">${translations['no_lyrics'] || 'No Lyrics Available'}</div>`;
-                container.innerHTML = errorMsg;
-            });
+            if (error.message === 'LYRICS_NOT_FOUND') {
+                containers.forEach(container => {
+                    if (container.id === 'lyricsContainer') {
+                        container.innerHTML = `<div id="no-lyrics">${translations['no_lyrics'] || 'No Lyrics Available'}</div>`;
+                    } else {
+                        const message = translations['no_lyrics'] || 'No Lyrics Available';
+                        const verticalText = message.split('').map(char => `<span class="char">${char}</span>`).join('');
+                        container.innerHTML = `<div id="noLyricsFloating" class="vertical-text">${verticalText}</div>`;
+                    }
+                });
+            } else {
+                console.error(`${translations['lyrics_load_failed'] || 'Lyrics Load Failed'}:`, error);
+                containers.forEach(container => {
+                    if (container.id === 'lyricsContainer') {
+                        container.innerHTML = `<div id="no-lyrics">${translations['lyrics_load_failed'] || 'Failed to load lyrics'}</div>`;
+                    } else {
+                        const message = translations['lyrics_load_failed'] || 'Failed to load lyrics';
+                        const verticalText = message.split('').map(char => `<span class="char">${char}</span>`).join('');
+                        container.innerHTML = `<div id="noLyricsFloating" class="vertical-message">${verticalText}</div>`;
+                    }
+                });
+            }
         });
-} 
+}
 
 function parseLyrics(text) {
     window.lyrics = {};
@@ -4211,6 +4979,52 @@ function createCharSpans(text, startTime, endTime) {
     return spans;
 }
 
+function isEnglishWord(text) {
+    return /^[a-zA-Z']+$/.test(text);
+}
+
+function createCharSpans(text, startTime, endTime) {
+    const elements = [];
+    const words = text.split(/(\s+)/); 
+    
+    let currentTime = startTime;
+    const totalDuration = endTime - startTime;
+    const validWords = words.filter(word => word.trim().length > 0);
+    const durationPerWord = totalDuration / validWords.length;
+
+    words.forEach(word => {
+        if (word.trim().length === 0) return;
+
+        const isEnglish = isEnglishWord(word.replace(/[^a-zA-Z']/g, ''));
+        const span = document.createElement('span');
+        span.className = 'char';
+        
+        if (isEnglish) {
+            span.textContent = word;
+            span.dataset.start = currentTime;
+            span.dataset.end = currentTime + durationPerWord;
+            currentTime += durationPerWord;
+        } else {
+            const chars = word.split('');
+            const charDuration = durationPerWord / chars.length;
+            chars.forEach((char, index) => {
+                const charSpan = document.createElement('span');
+                charSpan.className = 'char';
+                charSpan.textContent = char;
+                charSpan.dataset.start = currentTime + index * charDuration;
+                charSpan.dataset.end = currentTime + (index + 1) * charDuration;
+                elements.push(charSpan);
+            });
+            currentTime += durationPerWord;
+            return;
+        }
+        
+        elements.push(span);
+    });
+
+    return elements;
+}
+
 function displayLyrics() {
     const lyricsContainer = document.getElementById('lyricsContainer');
     const floatingLyrics = document.querySelector('#floatingLyrics .vertical-lyrics');
@@ -4219,8 +5033,11 @@ function displayLyrics() {
     floatingLyrics.innerHTML = '';
 
     if (Object.keys(window.lyrics).length === 0) {
-        lyricsContainer.innerHTML = `<div id="no-lyrics">${translations['no_lyrics'] || 'No Lyrics Available'}</div>`;
-        floatingLyrics.innerHTML = `<div id="noLyricsFloating">${translations['no_lyrics'] || 'No Lyrics Available'}</div>`;
+        const message = translations['no_lyrics'] || 'No Lyrics Available';
+        const verticalText = message.split('').map(char => `<span class="char">${char}</span>`).join('');
+    
+        lyricsContainer.innerHTML = `<div id="no-lyrics">${message}</div>`;
+        floatingLyrics.innerHTML = `<div id="noLyricsFloating" class="vertical-message">${verticalText}</div>`;
         return;
     }
 
@@ -4233,8 +5050,8 @@ function displayLyrics() {
                       ? lyricTimes[index + 1] 
                       : time + 3; 
         
-        const chars = createCharSpans(lyrics[time], time, endTime);
-        chars.forEach(span => line.appendChild(span)); 
+        const elements = createCharSpans(lyrics[time], time, endTime);
+        elements.forEach(element => line.appendChild(element));
         lyricsContainer.appendChild(line);
     });
 
@@ -4276,7 +5093,7 @@ function syncLyrics() {
     lines.forEach(line => {
     line.classList.remove('highlight', 'played');
     line.style.color = 'white'; 
-});
+    });
 
     for (let i = lines.length - 1; i >= 0; i--) {
         const line = lines[i];
@@ -4384,21 +5201,25 @@ function loadTrack(url) {
         container.innerHTML = `<div class="no-lyrics">${translations['loading_lyrics'] || 'Loading Lyrics...'}</div>`;
     });
 
+    audioPlayer.pause();
     audioPlayer.src = url;
+    
+    audioPlayer.load();
+    audioPlayer.addEventListener('canplaythrough', () => {
+        audioPlayer.play().catch((error) => {
+            console.log(`${translations['autoplay_blocked'] || 'Autoplay Blocked'}:`, error);
+            showLogMessage(translations['click_to_play'] || 'Click play button to start');
+        });
+        isPlaying = true;
+        updatePlayButton();
+    }, { once: true });
+
     updatePlayButton(); 
     updatePlaylistUI();
     loadLyrics(url);
     updateCurrentSong(url);
     updateTimeDisplay();
     
-    if (isPlaying) {
-        audioPlayer.play().catch((error) => {
-            console.log(`${translations['autoplay_blocked'] || 'Autoplay Blocked'}:`, error);
-            isPlaying = false;
-            updatePlayButton();
-            savePlayerState();
-        });
-    }
     savePlayerState();
 }
 
@@ -4437,7 +5258,7 @@ function updateCurrentSong(url) {
     const songName = decodeURIComponent(url.split('/').pop().replace(/\.\w+$/, ''));
     document.getElementById('currentSong').textContent = songName;
     
-    const floatingTitle = document.querySelector('#floatingLyrics #currentSong');
+    const floatingTitle = document.querySelector('#floatingLyrics #floatingCurrentSong');
     if (floatingTitle) floatingTitle.textContent = songName;
 
     const modalTitle = document.querySelector('#musicModal #currentSong');
@@ -4556,7 +5377,7 @@ function loadDefaultPlaylist() {
                 updateCurrentSong(songs[currentTrackIndex]);
             }
         })
-        .catch(error => console.error('播放列表加载失败:', error));
+        .catch(error => console.error('Playlist loading failed:', error));
 }
 
 function updatePlaylistUI() {
@@ -4569,15 +5390,23 @@ function updatePlaylistUI() {
             ${decodeURIComponent(url.split('/').pop().replace(/\.\w+$/, ''))}
         </div>
     `).join('');
-    
     setTimeout(() => {
         const activeItem = playlist.querySelector('.active');
         if (activeItem) {
-            activeItem.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-            });
-            activeItem.classList.toggle('blink', !isPlaying);
+            const itemTop = activeItem.offsetTop;
+            const itemHeight = activeItem.offsetHeight;
+            const containerHeight = playlist.offsetHeight;
+
+            if (itemTop < playlist.scrollTop || 
+                itemTop + itemHeight > playlist.scrollTop + containerHeight) {
+                activeItem.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'nearest'
+                });
+            }
+
+            activeItem.style.animation = 'none';
         }
     }, 300);
 }
@@ -4585,6 +5414,61 @@ function updatePlaylistUI() {
 loadDefaultPlaylist();
 window.addEventListener('resize', () => {
     isSmallScreen = window.innerWidth < 768;
+});
+</script>
+
+<style>
+.lyrics-mode {
+    .non-lyrics-content {
+        display: none !important;
+    }
+
+    #lyricsContainer {
+        height: calc(70vh - 150px) !important; 
+        position: relative;
+        z-index: 1000;
+    }
+
+    #currentSong {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    #floatingLyrics {
+        display: none;
+    }
+}
+
+#lyricsToggle .bi {
+    transition: transform 0.3s;
+}
+.lyrics-mode #lyricsToggle .bi {
+    transform: rotate(180deg);
+}
+</style>
+
+<script>
+let isLyricsMode = localStorage.getItem('lyricsMode') === 'true';
+
+function toggleLyricsMode() {
+    const modal = document.getElementById('musicModal');
+    const icon = document.getElementById('lyricsIcon');
+
+    isLyricsMode = !isLyricsMode;
+    modal.classList.toggle('lyrics-mode', isLyricsMode);
+    localStorage.setItem('lyricsMode', isLyricsMode);
+
+    icon.className = isLyricsMode ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const icon = document.getElementById('lyricsIcon');
+    document.getElementById('lyricsToggle').addEventListener('click', toggleLyricsMode);
+
+    if (isLyricsMode) {
+        document.getElementById('musicModal').classList.add('lyrics-mode');
+        icon.className = 'bi bi-chevron-up';
+    }
 });
 </script>
 
@@ -4605,67 +5489,144 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 
 <script>
-const volumeSlider = document.getElementById('volumeSlider');
-const volumeToggle = document.getElementById('volumeToggle');
-const volumePanel = document.getElementById('volumePanel');
-let lastVolume = 1;
+  const muteToggle    = document.getElementById('muteToggle');
+  const volumeToggle  = document.getElementById('volumeToggle');
+  const volumePanel   = document.getElementById('volumePanel');
+  const volumeSlider  = document.getElementById('volumeSlider');
+  const muteIconEl    = muteToggle.querySelector('i');
+  const volumeIconEl  = volumeToggle.querySelector('i');
 
-const savedVolume = localStorage.getItem('audioVolume');
-if (savedVolume !== null) {
+  let lastVolume = 1;
+
+  const savedVolume = localStorage.getItem('audioVolume');
+  const savedMuted  = localStorage.getItem('audioMuted');
+  if (savedVolume !== null) {
     lastVolume = parseFloat(savedVolume);
-    audioPlayer.volume = lastVolume;
-    volumeSlider.value = lastVolume;
-}
+  }
+  audioPlayer.volume = lastVolume;
+  volumeSlider.value = lastVolume;
+  audioPlayer.muted = (savedMuted === 'true');
 
-volumeToggle.addEventListener('click', (e) => {
-    e.stopPropagation();
+  updateVolumeIcon();
+
+  function togglePanel() {
     const isVisible = volumePanel.classList.contains('show');
     if (isVisible) {
-        volumePanel.classList.remove('show');
-        setTimeout(() => volumePanel.style.display = 'none', 200);
+      volumePanel.classList.remove('show');
+      setTimeout(() => (volumePanel.style.display = 'none'), 200);
     } else {
-        volumePanel.style.display = 'block';
-        setTimeout(() => volumePanel.classList.add('show'), 10); 
+      volumePanel.style.display = 'block';
+      setTimeout(() => volumePanel.classList.add('show'), 10);
     }
-});
+  }
 
-document.addEventListener('click', () => {
-    if (volumePanel.classList.contains('show')) {
-        volumePanel.classList.remove('show');
-        setTimeout(() => volumePanel.style.display = 'none', 200);
+  function toggleMute() {
+    audioPlayer.muted = !audioPlayer.muted;
+    if (!audioPlayer.muted && audioPlayer.volume === 0) {
+      audioPlayer.volume = lastVolume;
+      volumeSlider.value = lastVolume;
     }
-});
-
-volumeSlider.addEventListener('input', (e) => {
-    const value = parseFloat(e.target.value);
-    audioPlayer.volume = value;
-
-    if (audioPlayer.muted) {
-        audioPlayer.muted = false;
-    }
-
-    localStorage.setItem('audioVolume', value);
-
+    localStorage.setItem('audioMuted', audioPlayer.muted);
     updateVolumeIcon();
-});
 
-function updateVolumeIcon() {
-    const icon = volumeToggle.querySelector('i');
+    const muteMessage = audioPlayer.muted
+      ? (translations['mute_on']  || 'Audio muted')
+      : (translations['mute_off'] || 'Audio unmuted');
+    showLogMessage(muteMessage);
+    speakMessage(muteMessage);
+  }
+
+  function updateVolumeIcon() {
+    let cls;
     if (audioPlayer.muted || audioPlayer.volume === 0) {
-        icon.className = 'bi bi-volume-mute-fill';
+      cls = 'bi bi-volume-mute-fill';
     } else if (audioPlayer.volume < 0.5) {
-        icon.className = 'bi bi-volume-down-fill';
+      cls = 'bi bi-volume-down-fill';
     } else {
-        icon.className = 'bi bi-volume-up-fill';
+      cls = 'bi bi-volume-up-fill';
     }
+    muteIconEl.className = cls;
+    volumeIconEl.className = cls;
 
     if (!audioPlayer.muted) {
-        lastVolume = audioPlayer.volume;
+      lastVolume = audioPlayer.volume;
+      localStorage.setItem('audioVolume', lastVolume);
     }
-}
+  }
 
-audioPlayer.volume = lastVolume;
-updateVolumeIcon();
+  muteToggle.addEventListener('click', e => {
+    e.stopPropagation();
+    toggleMute();
+  });
+
+  volumeToggle.addEventListener('click', e => {
+    e.stopPropagation();
+    if (e.target === volumeIconEl) {
+      toggleMute();
+    } else {
+      togglePanel();
+    }
+  });
+
+  document.addEventListener('click', () => {
+    if (volumePanel.classList.contains('show')) {
+      volumePanel.classList.remove('show');
+      setTimeout(() => (volumePanel.style.display = 'none'), 200);
+    }
+  });
+
+  volumeSlider.addEventListener('input', e => {
+    const vol = Math.round(parseFloat(e.target.value) * 100);
+    audioPlayer.volume = e.target.value;
+    if (audioPlayer.muted) {
+      audioPlayer.muted = false;
+      localStorage.setItem('audioMuted', 'false');
+    }
+    updateVolumeIcon();
+
+    const volumeMessage = translations['volume_change']
+      ? translations['volume_change'].replace('{vol}', vol)
+      : `Volume adjusted to ${vol}%`;
+    showLogMessage(volumeMessage);
+    speakMessage(volumeMessage);
+  });
+
+  const speedToggle = document.getElementById('speedToggle');
+  const speedLabel = document.getElementById('speedLabel');
+  const speeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
+  let speedIndex = 1;
+
+  const savedSpeed = localStorage.getItem('audioSpeed');
+  if (savedSpeed !== null) {
+    const idx = speeds.indexOf(parseFloat(savedSpeed));
+    if (idx !== -1) {
+      speedIndex = idx;
+    }
+  }
+
+  audioPlayer.playbackRate = speeds[speedIndex];
+  speedLabel.textContent = speeds[speedIndex] + '×';
+
+  function toggleSpeed() {
+    speedIndex = (speedIndex + 1) % speeds.length;
+    const rate = speeds[speedIndex];
+    audioPlayer.playbackRate = rate;
+    speedLabel.textContent = rate + '×';
+    localStorage.setItem('audioSpeed', rate);
+
+    const speedMessage = translations['speed_change']
+      ? translations['speed_change'].replace('{rate}', rate)
+      : `Playback speed changed to ${rate}x`;
+    showLogMessage(speedMessage);
+    speakMessage(speedMessage);
+  }
+
+  speedToggle.addEventListener('click', e => {
+    e.stopPropagation();
+    toggleSpeed();
+  });
+
+  speedToggle.addEventListener('click', e => e.stopPropagation());
 </script>
 
 <script>
@@ -4681,17 +5642,18 @@ document.getElementById('clear-cache-btn').addEventListener('click', function() 
 });
 
 function confirmAndClearCache() {
-    const confirmed = confirm(translations['clear_confirm'] || 'Are you sure you want to clear the configuration?');
-    if (confirmed) {
+    const confirmText = translations['clear_confirm'] || 'Are you sure you want to clear the configuration?';
+    speakMessage(translations['clear_confirm'] || 'Are you sure you want to clear the configuration?');
+    showConfirmation(confirmText, () => {
         clearCache();
-    }
+    });
 }
 
 function clearCache() {
-    location.reload(true);
     localStorage.clear();
     sessionStorage.clear();
     sessionStorage.setItem('cacheCleared', 'true');
+    location.reload(true);
 }
 
 window.addEventListener('load', function() {
@@ -4700,6 +5662,9 @@ window.addEventListener('load', function() {
         showLogMessage(message);
         speakMessage(message);
         sessionStorage.removeItem('cacheCleared');
+        setTimeout(() => {
+            window.top.location.href = "/cgi-bin/luci/admin/services/spectra";
+        }, 3000);
     }
 });
 
@@ -4790,19 +5755,25 @@ document.getElementById('urlModal').addEventListener('hidden.bs.modal', function
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("fontToggleBtn");
+  const icon = document.getElementById("fontToggleIcon");
   const body = document.body;
   const storageKey = "fontToggle";
 
   const fonts = [
-    { class: "default-font", key: "font_default" },
-    { class: "fredoka-font", key: "font_fredoka" },
-    { class: "system-nofo-font", key: "font_noto" },
-    { class: "system-mono-font", key: "font_mono" } 
+    { class: "default-font", key: "font_default", icon: "fa-font" },
+    { class: "fredoka-font", key: "font_fredoka", icon: "fa-child-reaching" },
+    { class: "system-nofo-font", key: "font_noto", icon: "fa-language" },
+    { class: "system-mono-font", key: "font_mono", icon: "fa-code" },
+    { class: "dm-serif-font", key: "font_dm_serif", icon: "fa-feather-pointed" }
   ];
 
   const savedFont = localStorage.getItem(storageKey);
   if (savedFont) {
+    const fontObj = fonts.find(f => f.class === savedFont);
     body.classList.add(savedFont);
+    if (fontObj) updateIcon(fontObj.icon);
+  } else {
+    updateIcon("fa-font");
   }
 
   btn.addEventListener("click", () => {
@@ -4814,49 +5785,19 @@ document.addEventListener("DOMContentLoaded", () => {
     body.classList.add(nextFont.class);
     localStorage.setItem(storageKey, nextFont.class);
 
+    updateIcon(nextFont.icon);
+
     const message = translations[nextFont.key] || "Switched font";
-
-    if (typeof speakMessage === "function") {
-      speakMessage(message);
-    }
-
-    if (typeof showLogMessage === "function") {
-      showLogMessage(message);
-    }
+    if (typeof speakMessage === "function") speakMessage(message);
+    if (typeof showLogMessage === "function") showLogMessage(message);
   });
+
+  function updateIcon(iconName) {
+    icon.className = `fa-solid ${iconName}`;
+    icon.style.color = "white";
+  }
 });
 </script>
-
-<html lang="<?php echo $currentLang; ?>">
-<div class="modal fade" id="langModal" tabindex="-1" aria-labelledby="langModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="langModalLabel" data-translate="select_language">Select Language</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <select id="langSelect" class="form-select" onchange="changeLanguage(this.value)">
-                    <option value="zh" data-translate="simplified_chinese">Simplified Chinese</option>
-                    <option value="hk" data-translate="traditional_chinese">Traditional Chinese</option>
-                    <option value="en" data-translate="english">English</option>
-                    <option value="kr" data-translate="korean">Korean</option>
-                    <option value="vn" data-translate="vietnamese">Vietnamese</option>
-                    <option value="th" data-translate="thailand">Thailand</option>
-                    <option value="jp" data-translate="japanese"></option>
-                    <option value="ru" data-translate="russian"></option>
-                    <option value="de" data-translate="germany">Germany</option>
-                    <option value="fr" data-translate="france">France</option>
-                    <option value="ar" data-translate="arabic"></option>
-                    <option value="es" data-translate="spanish">spanish</option>
-                </select>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="close">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <?php
 $langFilePath = __DIR__ . '/language.txt';
@@ -4870,21 +5811,22 @@ $langData = [
         'english'                => '英文',
         'korean'                 => '韩语',
         'vietnamese'             => '越南语',
-        'thailand'             => '泰语',
+        'thailand'               => '泰语',
         'japanese'               => '日语',
         'russian'                => '俄语',
         'germany'                => '德语',
         'france'                 => '法语',
         'arabic'                 => '阿拉伯语',
         'spanish'                => '西班牙语',
+        'bangladesh'             => '孟加拉语',
         'close'                  => '关闭',
         'save'                   => '保存',
         'theme_download'         => '主题下载',
         'select_all'             => '全选',
         'batch_delete'           => '批量删除选中文件',
-        'batch_delete_success' => '✅ 批量删除成功',
-        'batch_delete_failed' => '❌ 批量删除失败',
-        'confirm_delete' => '确定删除？',
+        'batch_delete_success'   => '✅ 批量删除成功',
+        'batch_delete_failed'    => '❌ 批量删除失败',
+        'confirm_delete'         => '确定删除？',
         'total'                  => '总共：',
         'free'                   => '剩余：',
         'hover_to_preview'       => '点击激活悬停播放',
@@ -4916,7 +5858,7 @@ $langData = [
         'set_background'         => '设置背景',
         'preview'                => '预览',
         'toggle_fullscreen'      => '切换全屏',
-        'supported_formats'      => '支持格式：[ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'supported_formats'      => '支持格式：[ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => '拖放文件到这里',
         'or'                     => '或',
         'select_files'           => '选择文件',
@@ -4997,12 +5939,13 @@ $langData = [
         'initial' => '初',  
         'middle' => '正',   
         'final' =>'末',  
-        'clear_confirm' =>'确定要清除配置吗？', 
+        'clear_confirm' =>'确定要清除目前配置恢复预设配置吗？', 
         'back_to_first' => '已返回播放列表第一首歌曲',
         'font_default' => '已切换为圆润字体',
         'font_fredoka' => '已切换为默认字体',
         'font_mono'   => '已切换为趣味手写字体',
         'font_noto'     => '已切换为中文衬线字体',
+        'font_dm_serif'     => '已切换为 DM Serif Display 字体',
         'error_loading_time' => '时间显示异常',
         'switch_to_light_mode' => '切换到亮色模式',
         'switch_to_dark_mode' => '切换到暗色模式',
@@ -5032,6 +5975,80 @@ $langData = [
         "waitingMessage" => "等待操作开始...",
         "update_plugin" => "更新插件",
         "installation_complete" => "安装完成！",
+        'confirm_title'             => '确认操作',
+        'confirm_delete_file'   => '确定要删除文件 %s 吗？',
+        'delete_success'      => '删除成功：%s',
+        'delete_failure'      => '删除失败：%s',
+        'upload_error_type_not_supported' => '不支持的文件类型：%s',
+        'upload_error_move_failed'        => '文件上传失败：%s',
+        'confirm_clear_background' => '确定要清除背景吗？',
+        'background_cleared'      => '背景已清除！',
+        'createShareLink' => '创建分享链接',
+        'closeButton' => '关闭',
+        'expireTimeLabel' => '过期时间',
+        'expire1Hour' => '1 小时',
+        'expire1Day' => '1 天',
+        'expire7Days' => '7 天',
+        'expire30Days' => '30 天',
+        'maxDownloadsLabel' => '最大下载次数',
+        'max1Download' => '1 次',
+        'max5Downloads' => '5 次',
+        'max10Downloads' => '10 次',
+        'maxUnlimited' => '不限',
+        'shareLinkLabel' => '分享链接',
+        'copyLinkButton' => '复制链接',
+        'closeButtonFooter' => '关闭',
+        'generateLinkButton' => '生成链接',
+        'fileNotSelected' => '未选择文件',
+        'httpError' => 'HTTP 错误',
+        'linkGenerated' => '✅ 分享链接已生成',
+        'operationFailed' => '❌ 操作失败',
+        'generateLinkFirst' => '请先生成分享链接',
+        'linkCopied' => '📋 链接已复制',
+        'copyFailed' => '❌ 复制失败',
+        'cleanExpiredButton' => '清理过期',
+        'deleteAllButton' => '删除全部',
+        'cleanSuccess' => '✅ 清理完成，%s 项已删除',
+        'deleteSuccess' => '✅ 所有分享记录已删除，%s 个文件已移除',
+        'confirmDeleteAll' => '⚠️ 确定要删除所有分享记录吗？',
+        'operationFailed' => '❌ 操作失败',
+        'ip_info' => 'IP详细信息',
+        'ip_support' => 'IP支持',
+        'ip_address' => 'IP地址',
+        'location' => '地区',
+        'isp' => '运营商',
+        'asn' => 'ASN',
+        'timezone' => '时区',
+        'latitude_longitude' => '经纬度',
+        'latency_info' => '延迟信息',
+        'mute_on' => '音频已静音',
+        'mute_off' => '音频取消静音',
+        'volume_change' => '音量调整为 {vol}%',
+        'speed_change' => '播放速度切换为 {rate} 倍',
+        'invalid_city_non_chinese' => '请输入非中文的城市名称。',
+        'invalid_city_uppercase' => '城市名称必须以大写英文字母开头。',
+        'city_saved' => '城市已保存为：{city}',
+        'city_saved_speak' => '城市已保存为{city}，正在获取最新天气信息...',
+        'invalid_city' => '请输入有效的城市名称。',
+        'set_city' => '设置城市',
+        'input_label' => '城市名称',
+        'input_placeholder' => '例如：Beijing',
+        'floating_lyrics_enabled' => '浮动歌词已开启',
+        'floating_lyrics_disabled' => '浮动歌词已关闭',
+        'weather_label'     => '天气',
+        'temperature_label' => '温度',
+        'feels_like_label'  => '体感',
+        'humidity_label'    => '湿度',
+        'pressure_label'    => '气压',
+        'wind_label'        => '风速',
+        'sunrise_label'     => '日出',
+        'sunset_label'      => '日落',
+        'fit_contain'    => '正常比例',
+        'fit_fill'       => '拉伸填充',
+        'fit_none'       => '原始尺寸',
+        'fit_scale-down' => '智能适应',
+        'fit_cover'      => '默认裁剪',
+        'current_fit_mode'    => '当前显示模式',
         'selected_info' => '已选择 %d 个文件，合计 %s MB'
     ],
 
@@ -5042,13 +6059,14 @@ $langData = [
         'english'                => '英文',
         'korean'                 => '韓語',
         'vietnamese'             => '越南語',
-        'thailand'            => '泰語',
+        'thailand'               => '泰語',
         'japanese'               => '日語',
         'russian'                => '俄語',
         'germany'                => '德語',
         'france'                 => '法語',
         'arabic'                 => '阿拉伯語',
         'spanish'                => '西班牙語',
+       'bangladesh'              => '孟加拉語',
         'close'                  => '關閉',
         'save'                   => '保存',
         'theme_download'         => '主題下載',
@@ -5086,7 +6104,7 @@ $langData = [
         'set_background'         => '設置背景',
         'preview'                => '預覽',
         'toggle_fullscreen'      => '切換全屏',
-        'supported_formats'      => '支持格式：[ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'supported_formats'      => '支持格式：[ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => '拖放文件到這裡',
         'or'                     => '或',
         'select_files'           => '選擇文件',
@@ -5167,7 +6185,7 @@ $langData = [
         'initial' => '初',  
         'middle' => '正',   
         'final' =>'末',   
-        'clear_confirm' => '確定要清除配置嗎？',
+        'clear_confirm' => '確定要清除目前配置恢復預設配置嗎？',
         'back_to_first' => '已返回播放列表第一首歌曲', 
         'error_loading_time' => '時間顯示異常',
         'switch_to_light_mode' => '切換到亮色模式',
@@ -5193,6 +6211,7 @@ $langData = [
         'font_fredoka' => '已切換為預設字體',
         'font_mono'    => '已切換為趣味手寫字體',
         'font_noto'    => '已切換為中文襯線字體',
+        'font_dm_serif'     => '已切換為 DM Serif Display 字體',
         'batch_delete_success' => '✅ 批量刪除成功',
         'batch_delete_failed' => '❌ 批量刪除失敗',
         'confirm_delete' => '確定刪除？',
@@ -5205,10 +6224,84 @@ $langData = [
         "waitingMessage" => "等待操作開始...",
         "update_plugin" => "更新插件",
         "installation_complete" => "安裝完成！",
+        'confirm_title'         => '確認操作',
+        'confirm_delete_file'   => '確定要刪除文件 %s 嗎？',
+        'delete_success'      => '刪除成功：%s',
+        'delete_failure'      => '刪除失敗：%s',
+        'upload_error_type_not_supported' => '不支持的文件類型：%s',
+        'upload_error_move_failed'        => '文件上傳失敗：%s',
+        'confirm_clear_background' => '確定要清除背景嗎？',
+        'background_cleared'      => '背景已清除！',
+        'createShareLink' => '創建分享鏈接',
+        'closeButton' => '關閉',
+        'expireTimeLabel' => '過期時間',
+        'expire1Hour' => '1 小時',
+        'expire1Day' => '1 天',
+        'expire7Days' => '7 天',
+        'expire30Days' => '30 天',
+        'maxDownloadsLabel' => '最大下載次數',
+        'max1Download' => '1 次',
+        'max5Downloads' => '5 次',
+        'max10Downloads' => '10 次',
+        'maxUnlimited' => '不限',
+        'shareLinkLabel' => '分享鏈接',
+        'copyLinkButton' => '複製鏈接',
+        'closeButtonFooter' => '關閉',
+        'generateLinkButton' => '生成鏈接',
+        'fileNotSelected' => '未選擇文件',
+        'httpError' => 'HTTP 錯誤',
+        'linkGenerated' => '✅ 分享鏈接已生成',
+        'operationFailed' => '❌ 操作失敗',
+        'generateLinkFirst' => '請先生成分享鏈接',
+        'linkCopied' => '📋 鏈接已複製',
+        'copyFailed' => '❌ 複製失敗',
+        'cleanExpiredButton' => '清理過期',
+        'deleteAllButton' => '刪除全部',
+        'cleanSuccess' => '✅ 清理完成，%s 項已刪除',
+        'deleteSuccess' => '✅ 所有分享記錄已刪除，%s 個文件已移除',
+        'confirmDeleteAll' => '⚠️ 確定要刪除所有分享記錄嗎？',
+        'operationFailed' => '❌ 操作失敗',
+        'ip_info' => 'IP詳細資料',
+        'ip_support' => 'IP支援',
+        'ip_address' => 'IP地址',
+        'location' => '地區',
+        'isp' => '運營商',
+        'asn' => 'ASN',
+        'timezone' => '時區',
+        'latitude_longitude' => '經緯度',
+        'latency_info' => '延遲資訊',
+        'mute_on' => '音頻已靜音',
+        'mute_off' => '音頻取消靜音',
+        'volume_change' => '音量調整為 {vol}%',
+        'speed_change' => '播放速度切換為 {rate} 倍',
+        'invalid_city_non_chinese' => '請輸入非中文的城市名稱。',
+        'invalid_city_uppercase' => '城市名稱必須以大寫英文字母開頭。',
+        'city_saved' => '城市已保存為：{city}',
+        'city_saved_speak' => '城市已保存為{city}，正在獲取最新天氣信息...',
+        'invalid_city' => '請輸入有效的城市名稱。',
+        'set_city' => '設置城市',
+        'input_label' => '城市名稱',
+        'input_placeholder' => '例如：Beijing',
+        'floating_lyrics_enabled' => '浮動歌詞已開啟',
+        'floating_lyrics_disabled' => '浮動歌詞已關閉',
+        'weather_label'     => '天氣',
+        'temperature_label' => '溫度',
+        'feels_like_label'  => '體感',
+        'humidity_label'    => '濕度',
+        'pressure_label'    => '氣壓',
+        'wind_label'        => '風速',
+        'sunrise_label'     => '日出',
+        'sunset_label'      => '日落',
+        'fit_contain'    => '正常比例',
+        'fit_fill'       => '拉伸填充',
+        'fit_none'       => '原始尺寸',
+        'fit_scale-down' => '智能適應',
+        'fit_cover'      => '預設裁剪',
+        'current_fit_mode'    => '當前顯示模式',
         'selected_info' => '已選擇 %d 個文件，合計 %s MB'
     ],
 
-    'kr' => [
+    'ko' => [
         'select_language'        => '언어 선택',
         'simplified_chinese'     => '중국어 간체',
         'traditional_chinese'    => '중국어 번체',
@@ -5222,6 +6315,7 @@ $langData = [
         'france'                 => '프랑스어',
         'arabic'                 => '아랍어',
         'spanish'                => '스페인어',
+        'bangladesh'             => '벵골어',
         'close'                  => '닫기',
         'save'                   => '저장',
         'theme_download'         => '테마 다운로드',
@@ -5259,7 +6353,7 @@ $langData = [
         'set_background'         => '배경 설정',
         'preview'                => '미리보기',
         'toggle_fullscreen'      => '전체 화면 전환',
-        'supported_formats'      => '지원 포맷: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'supported_formats'      => '지원 포맷: [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => '파일을 여기에 드롭하세요',
         'or'                     => '또는',
         'select_files'           => '파일 선택',
@@ -5366,6 +6460,7 @@ $langData = [
         'font_fredoka' => '기본 글꼴로 전환되었습니다',
         'font_mono'    => '재미있는 손글씨 글꼴로 전환되었습니다',
         'font_noto'    => '중국어 명조체 글꼴로 전환되었습니다',
+        'font_dm_serif'     => 'DM Serif Display 글꼴로 변경됨',
         'batch_delete_success' => '✅ 배치 삭제 성공',
         'batch_delete_failed' => '❌ 배치 삭제 실패',
         'confirm_delete' => '삭제하시겠습니까?',
@@ -5378,116 +6473,193 @@ $langData = [
         "waitingMessage" => "작업이 시작될 때까지 기다리는 중...",
         "update_plugin" => "플러그인 업데이트",
         "installation_complete" => "설치 완료!",
+        'confirm_title'         => '작업 확인',
+        'confirm_delete_file'   => '파일 %s을(를) 삭제하시겠습니까?',
+        'delete_success'      => '삭제 성공: %s',
+        'delete_failure'      => '삭제 실패: %s',
+        'upload_error_type_not_supported' => '지원되지 않는 파일 형식: %s',
+        'upload_error_move_failed'        => '파일 업로드 실패: %s',
+        'confirm_clear_background' => '배경을 지우시겠습니까?',
+        'background_cleared'      => '배경이 지워졌습니다!',
+        'createShareLink' => '공유 링크 생성',
+        'closeButton' => '닫기',
+        'expireTimeLabel' => '만료 시간',
+        'expire1Hour' => '1 시간',
+        'expire1Day' => '1 일',
+        'expire7Days' => '7 일',
+        'expire30Days' => '30 일',
+        'maxDownloadsLabel' => '최대 다운로드 횟수',
+        'max1Download' => '1 회',
+        'max5Downloads' => '5 회',
+        'max10Downloads' => '10 회',
+        'maxUnlimited' => '무제한',
+        'shareLinkLabel' => '공유 링크',
+        'copyLinkButton' => '링크 복사',
+        'closeButtonFooter' => '닫기',
+        'generateLinkButton' => '링크 생성',
+        'fileNotSelected' => '파일을 선택하지 않았습니다',
+        'httpError' => 'HTTP 오류',
+        'linkGenerated' => '✅ 공유 링크 생성됨',
+        'operationFailed' => '❌ 작업 실패',
+        'generateLinkFirst' => '먼저 공유 링크를 생성하십시오',
+        'linkCopied' => '📋 링크 복사됨',
+        'copyFailed' => '❌ 복사 실패',
+        'cleanExpiredButton' => '만료 정리',
+        'deleteAllButton' => '모두 삭제',
+        'cleanSuccess' => '✅ 정리 완료, %s 항목이 삭제되었습니다',
+        'deleteSuccess' => '✅ 모든 공유 기록이 삭제되었습니다, %s 개의 파일이 제거되었습니다',
+        'confirmDeleteAll' => '⚠️ 모든 공유 기록을 삭제하시겠습니까?',
+        'operationFailed' => '❌ 작업 실패',
+        'ip_info' => 'IP 상세 정보',
+        'ip_support' => 'IP 지원',
+        'ip_address' => 'IP 주소',
+        'location' => '지역',
+        'isp' => '통신사',
+        'asn' => 'ASN',
+        'timezone' => '시간대',
+        'latitude_longitude' => '좌표',
+        'latency_info' => '지연 정보',
+        'mute_on' => '오디오가 음소거되었습니다',
+        'mute_off' => '오디오 음소거 해제',
+        'volume_change' => '볼륨이 {vol}%로 조정되었습니다',
+        'speed_change' => '재생 속도가 {rate}배로 변경되었습니다',
+        'invalid_city_non_chinese' => '중국어 문자가 없는 도시 이름을 입력하세요.',
+        'invalid_city_uppercase' => '도시 이름은 대문자로 시작해야 합니다.',
+        'city_saved' => '도시가 저장되었습니다: {city}',
+        'city_saved_speak' => '도시가 {city}로 저장되었습니다. 최신 날씨 정보를 가져오고 있습니다...',
+        'invalid_city' => '유효한 도시 이름을 입력하세요.',
+        'set_city' => '도시 설정',
+        'input_label' => '도시 이름',
+        'input_placeholder' => '예: Beijing',
+        'floating_lyrics_enabled' => '플로팅 가사가 활성화되었습니다',
+        'floating_lyrics_disabled' => '플로팅 가사가 비활성화되었습니다',
+        'weather_label'     => '날씨',
+        'temperature_label' => '기온',
+        'feels_like_label'  => '체감 온도',
+        'humidity_label'    => '습도',
+        'pressure_label'    => '기압',
+        'wind_label'        => '풍속',
+        'sunrise_label'     => '일출',
+        'sunset_label'      => '일몰',
+        'current_fit_mode'    => '현재 모드',
+        'fit_contain'    => '정상 비율',
+        'fit_fill'       => '채우기',
+        'fit_none'       => '원본 크기',
+        'fit_scale-down' => '스케일 다운',
+        'fit_cover'      => '자르기',
         'selected_info' => '선택된 파일: %d개, 총합: %s MB'
     ],
 
-    'jp' => [
+    'ja' => [
         'select_language'        => '言語を選択',
         'simplified_chinese'     => '簡体字中国語',
         'traditional_chinese'    => '繁体字中国語',
         'english'                => '英語',
         'korean'                 => '韓国語',
         'vietnamese'             => 'ベトナム語',
-        'thailand'              => 'タイ語',
+        'thailand'               => 'タイ語',
         'japanese'               => '日本語',
         'russian'                => 'ロシア語',
         'germany'                => 'ドイツ語',
         'france'                 => 'フランス語',
         'arabic'                 => 'アラビア語',
         'spanish'                => 'スペイン語',
+        'bangladesh'             => 'ベンガル語',
         'close'                  => '閉じる',
         'save'                   => '保存',
-        'theme_download'         => 'テーマをダウンロード',
+        'theme_download'         => 'テーマのダウンロード',
         'select_all'             => 'すべて選択',
-        'batch_delete'           => '選択したファイルを一括削除',
+        'batch_delete'           => '一括削除',
+        'batch_delete_success'   => '✅ 一括削除成功',
+        'batch_delete_failed'    => '❌ 一括削除失敗',
+        'confirm_delete'         => '削除しますか？',
         'total'                  => '合計：',
-        'free'                   => '残り：',
-        'hover_to_preview'       => 'クリックしてプレビューを有効化',
-        'mount_info'             => 'マウントポイント：{{mount}}｜使用済み容量：{{used}}',
-        'spectra_config'         => 'Spectra 設定管理',
+        'free'                   => '空き容量：',
+        'hover_to_preview'       => 'ホバーでプレビュー（クリックで有効化）',
+        'spectra_config'         => 'Spectra設定管理',
         'current_mode'           => '現在のモード：読み込み中...',
-        'toggle_mode'            => 'モード切り替え',
-        'check_update'           => '更新を確認',
-        'batch_upload'           => 'ファイルを選択して一括アップロード',
-        'add_to_playlist'        => 'チェックを入れてプレイリストに追加',
+        'toggle_mode'            => 'モード切替',
+        'check_update'           => 'アップデート確認',
+        'batch_upload'           => '一括アップロード',
+        'add_to_playlist'        => 'プレイリストに追加',
         'clear_background'       => '背景をクリア',
-        'clear_background_label' => '背景をクリア',
-        'file_list'              => 'ファイルリスト',
-        'component_bg_color'     => 'コンポーネント背景色を選択',
-        'page_bg_color'          => 'ページ背景色を選択',
-        'toggle_font'            => 'フォント切り替え',
-        'filename'               => '名前：',
+        'clear_background_label' => '背景クリア',
+        'file_list'              => 'ファイル一覧',
+        'component_bg_color'     => 'コンポーネント背景色',
+        'page_bg_color'          => 'ページ背景色',
+        'toggle_font'            => 'フォント切替',
+        'filename'               => 'ファイル名：',
         'filesize'               => 'サイズ：',
         'duration'               => '再生時間：',
         'resolution'             => '解像度：',
         'bitrate'                => 'ビットレート：',
         'type'                   => 'タイプ：',
         'image'                  => '画像',
-        'video'                  => 'ビデオ',
-        'audio'                  => 'オーディオ',
+        'video'                  => '動画',
+        'audio'                  => '音声',
         'document'               => 'ドキュメント',
         'delete'                 => '削除',
-        'rename'                 => '名前を変更',
+        'rename'                 => '名前変更',
         'download'               => 'ダウンロード',
-        'set_background'         => '背景を設定',
+        'set_background'         => '背景設定',
         'preview'                => 'プレビュー',
-        'toggle_fullscreen'      => '全画面切り替え',
-        'supported_formats'      => '対応形式：[ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
-        'drop_files_here'        => 'ここにファイルをドロップ',
+        'toggle_fullscreen'      => '全画面切替',
+        'supported_formats'      => '対応フォーマット：[ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'ファイルをドラッグ＆ドロップ',
         'or'                     => 'または',
         'select_files'           => 'ファイルを選択',
-        'unlock_php_upload_limit'=> 'PHPのアップロード制限を解除',
+        'unlock_php_upload_limit'=> 'PHPアップロード制限解除',
         'upload'                 => 'アップロード',
         'cancel'                 => 'キャンセル',
-        'rename_file'            => 'ファイル名を変更',
+        'rename_file'            => 'ファイル名変更',
         'new_filename'           => '新しいファイル名',
-        'invalid_filename_chars' => 'ファイル名に次の文字を含めることはできません：\\/：*?"<>|',
+        'invalid_filename_chars' => '使用不可文字：\\/:*?"<>|',
         'confirm'                => '確認',
         'media_player'           => 'メディアプレイヤー',
         'playlist'               => 'プレイリスト',
-        'clear_list'             => 'リストをクリア',
-        'toggle_list'            => 'リストを非表示',
-        'picture_in_picture'     => 'ピクチャ・イン・ピクチャ',
-        'fullscreen'             => '全画面',
-        'music_player'           => '音楽プレイヤー',
+        'clear_list'             => 'リストクリア',
+        'toggle_list'            => 'リスト非表示',
+        'picture_in_picture'     => 'ピクチャーインピクチャー',
+        'fullscreen'             => '全画面表示',
+        'music_player'           => 'ミュージックプレイヤー',
         'play_pause'             => '再生/一時停止',
-        'previous_track'         => '前のトラック',
-        'next_track'             => '次のトラック',
+        'previous_track'         => '前の曲',
+        'next_track'             => '次の曲',
         'repeat_mode'            => 'リピート再生',
         'toggle_floating_lyrics' => 'フローティング歌詞',
-        'clear_config'           => '設定をクリア',
+        'clear_config'           => '設定クリア',
         'custom_playlist'        => 'カスタムプレイリスト',
         'volume'                 => '音量',
-        'update_playlist'        => 'プレイリストを更新',
+        'update_playlist'        => 'プレイリスト更新',
         'playlist_url'           => 'プレイリストURL',
-        'reset_default'          => 'デフォルトにリセット',
-        'toggle_lyrics'          => '歌詞を非表示',
-        'fetching_version'       => 'バージョン情報を取得中...',
-        'download_local'         => 'ローカルにダウンロード',
-        'change_language'        => '言語を変更',
-        'pause_playing'          => '再生を一時停止',
-        'start_playing'          => '再生を開始',
-        'manual_switch'          => '手動切り替え',
-        'auto_switch'            => '自動切り替え',
-        'switch_to'              => '切り替え：',
+        'reset_default'          => 'デフォルトに戻す',
+        'toggle_lyrics'          => '歌詞非表示',
+        'fetching_version'       => 'バージョン確認中...',
+        'download_local'         => 'ローカルに保存',
+        'change_language'        => '言語変更',
+        'pause_playing'          => '再生停止',
+        'start_playing'          => '再生開始',
+        'manual_switch'          => '手動切替',
+        'auto_switch'            => '自動切替：',
+        'switch_to'              => '切り替え先：',
         'auto_play'              => '自動再生',
-        'lyrics_load_failed'     => '歌詞の読み込みに失敗しました',
-        'order_play'             => '順番再生',
-        'single_loop'            => '単一ループ',
+        'lyrics_load_failed'     => '歌詞読み込み失敗',
+        'order_play'             => '順次再生',
+        'single_loop'            => '一曲リピート',
         'shuffle_play'           => 'シャッフル再生',
         'playlist_click'         => 'プレイリストクリック',
-        'index'                  => 'インデックス',
+        'index'                  => '番号',
         'song_name'              => '曲名',
-        'no_lyrics'              => '歌詞がありません',
-        'loading_lyrics'         => '歌詞を読み込み中...',
+        'no_lyrics'              => '歌詞なし',
+        'loading_lyrics'         => '歌詞読み込み中...',
         'autoplay_blocked'       => '自動再生がブロックされました',
-        'cache_cleared'               => '設定がクリアされました',
+        'cache_cleared'               => '設定をクリアしました',
         'open_custom_playlist'        => 'カスタムプレイリストを開く',
-        'reset_default_playlist'      => 'デフォルトのプレイリストリンクに戻りました',
-        'reset_default_error'         => 'デフォルトリンク復元中にエラーが発生しました',
-        'reset_default_failed'        => 'デフォルトリンクの復元に失敗しました',
-        'playlist_load_failed'        => 'プレイリストの読み込みに失敗しました',
-        'playlist_load_failed_message'=> 'プレイリストの読み込みに失敗しました',
+        'reset_default_playlist'      => 'デフォルトプレイリストを復元',
+        'reset_default_error'         => 'リセットエラーが発生しました',
+        'reset_default_failed'        => 'リセットに失敗しました',
+        'playlist_load_failed'        => 'プレイリストの読み込み失敗',
+        'playlist_load_failed_message'=> 'プレイリスト読み込みに失敗しました',
         'hour_announcement'      => '時報、現在の時間は',
         'hour_exact'             => '時ちょうど',
         'weekDays' =>  ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'],
@@ -5513,82 +6685,157 @@ $langData = [
         'initial' => '初',  
         'middle' => '正',   
         'final' =>'末',  
-        'clear_confirm' => '設定を削除してもよろしいですか？',
-        'back_to_first' => 'プレイリストの最初の曲に戻りました',
-        'error_loading_time' => '時間表示エラー',
-        'switch_to_light_mode' => 'ライトモードに切り替え',
-        'switch_to_dark_mode' => 'ダークモードに切り替え',
-        'current_mode_dark' => '現在のモード：ダークモード',
-        'current_mode_light' => '現在のモード：ライトモード',
-        'fetching_version' => 'バージョン情報を取得中...',
+        'clear_confirm' =>'設定をリセットしますか？', 
+        'back_to_first' => 'プレイリストの先頭に戻りました',
+        'font_default' => '丸ゴシック体に変更',
+        'font_fredoka' => 'デフォルトフォントに戻す',
+        'font_mono'   => '手書き風フォントに変更',
+        'font_noto'     => '漢字書体に変更',
+        'font_dm_serif'     => 'DM Serif Display フォントに切り替えました',
+        'error_loading_time' => '時刻表示エラー',
+        'switch_to_light_mode' => 'ライトモードへ',
+        'switch_to_dark_mode' => 'ダークモードへ',
+        'current_mode_dark' => '現在のモード：ダーク',
+        'current_mode_light' => '現在のモード：ライト',
+        'fetching_version' => 'バージョン確認中...',
         'latest_version' => '最新バージョン',
-        'unable_to_fetch_version' => '最新バージョン情報を取得できません',
-        'request_failed' => 'リクエストに失敗しました。後でもう一度試してください',
-        'pip_not_supported' => '現在のメディアはピクチャ・イン・ピクチャをサポートしていません',
-        'pip_operation_failed' => 'ピクチャ・イン・ピクチャ操作に失敗しました',
-        'exit_picture_in_picture' => 'ピクチャ・イン・ピクチャを終了',
-        'picture_in_picture' => 'ピクチャ・イン・ピクチャ',
-        'hide_playlist' => 'リストを非表示',
-        'show_playlist' => 'リストを表示',
-        'enter_fullscreen' => '全画面に切り替え',
-        'exit_fullscreen' => '全画面を終了',
+        'unable_to_fetch_version' => '最新バージョン取得失敗',
+        'request_failed' => 'リクエスト失敗、後ほど再試行してください',
+        'pip_not_supported' => 'ピクチャーインピクチャー非対応',
+        'pip_operation_failed' => 'ピクチャーインピクチャー操作失敗',
+        'exit_picture_in_picture' => 'ピクチャーインピクチャー終了',
+        'picture_in_picture' => 'ピクチャーインピクチャー',
+        'hide_playlist' => 'リスト非表示',
+        'show_playlist' => 'リスト表示',
+        'enter_fullscreen' => '全画面開始',
+        'exit_fullscreen' => '全画面終了',
         'confirm_update_php' => 'PHP設定を更新しますか？',
         'select_files_to_delete' => '削除するファイルを選択してください！',
-        'confirm_batch_delete' => '選択された%d個のファイルを削除しますか？',
-        'font_default' => '丸みのあるフォントに切り替えました',
-        'font_fredoka' => 'デフォルトフォントに切り替えました',
-        'font_mono'    => '手書き風フォントに切り替えました',
-        'font_noto'    => '中国語セリフ体フォントに切り替えました',
-        'batch_delete_success' => '✅ 一括削除成功',
-        'batch_delete_failed' => '❌ 一括削除失敗',
-        'confirm_delete' => '削除してもよろしいですか？',
-        'unable_to_fetch_current_version' => '現在のバージョン情報を取得しています...',
+        'confirm_batch_delete' => '%d個のファイルを削除しますか？',
+        'unable_to_fetch_current_version' => '現在のバージョン確認中...',
         'current_version' => '現在のバージョン',
         'copy_command'     => 'コマンドをコピー',
-        'command_copied'   => 'コマンドがクリップボードにコピーされました！',
+        'command_copied'   => 'コマンドをコピーしました！',
         "updateModalLabel" => "更新ステータス",
-        "updateDescription" => "更新プロセスが間もなく開始されます。",
-        "waitingMessage" => "操作が開始されるのを待っています...",
-        "update_plugin" => "プラグインを更新する",
+        "updateDescription" => "更新プロセスを開始します",
+        "waitingMessage" => "処理開始待機中...",
+        "update_plugin" => "プラグイン更新",
         "installation_complete" => "インストール完了！",
-        'selected_info' => '選択されたファイル：%d個、合計：%s MB'
+        'confirm_title'             => '操作確認',
+        'confirm_delete_file'   => 'ファイル「%s」を削除しますか？',
+        'delete_success'      => '削除成功：%s',
+        'delete_failure'      => '削除失敗：%s',
+        'upload_error_type_not_supported' => '非対応フォーマット：%s',
+        'upload_error_move_failed'        => 'アップロード失敗：%s',
+        'confirm_clear_background' => '背景をクリアしますか？',
+        'background_cleared'      => '背景をクリアしました！',
+        'createShareLink' => 'シェアリンクを作成',
+        'closeButton' => '閉じる',
+        'expireTimeLabel' => '有効期限',
+        'expire1Hour' => '1 時間',
+        'expire1Day' => '1 日',
+        'expire7Days' => '7 日',
+        'expire30Days' => '30 日',
+        'maxDownloadsLabel' => '最大ダウンロード回数',
+        'max1Download' => '1 回',
+        'max5Downloads' => '5 回',
+        'max10Downloads' => '10 回',
+        'maxUnlimited' => '無制限',
+        'shareLinkLabel' => 'シェアリンク',
+        'copyLinkButton' => 'リンクをコピー',
+        'closeButtonFooter' => '閉じる',
+        'generateLinkButton' => 'リンクを生成',
+        'fileNotSelected' => 'ファイルが選択されていません',
+        'httpError' => 'HTTP エラー',
+        'linkGenerated' => '✅ シェアリンクが生成されました',
+        'operationFailed' => '❌ 操作失敗',
+        'generateLinkFirst' => '先にシェアリンクを生成してください',
+        'linkCopied' => '📋 リンクがコピーされました',
+        'copyFailed' => '❌ コピー失敗',
+        'cleanExpiredButton' => '期限切れを削除',
+        'deleteAllButton' => 'すべて削除',
+        'cleanSuccess' => '✅ クリーン完了, %s 件が削除されました',
+        'deleteSuccess' => '✅ すべての共有記録を削除しました, %s 個のファイルが削除されました',
+        'confirmDeleteAll' => '⚠️ すべての共有記録を削除してもよろしいですか？',
+        'operationFailed' => '❌ 操作に失敗しました',
+        'ip_info' => 'IP詳細情報',
+        'ip_support' => 'IPサポート',
+        'ip_address' => 'IPアドレス',
+        'location' => '地域',
+        'isp' => 'プロバイダ',
+        'asn' => 'ASN',
+        'timezone' => 'タイムゾーン',
+        'latitude_longitude' => '座標',
+        'latency_info' => 'レイテンシ情報',
+        'mute_on' => 'オーディオがミュートされました',
+        'mute_off' => 'オーディオのミュートが解除されました',
+        'volume_change' => '音量が {vol}% に調整されました',
+        'speed_change' => '再生速度が {rate} 倍に変更されました',
+        'invalid_city_non_chinese' => '中国語の文字を含まない都市名を入力してください。',
+        'invalid_city_uppercase' => '都市名は大文字の英字で始める必要があります。',
+        'city_saved' => '保存された都市: {city}',
+        'city_saved_speak' => '保存された都市: {city}、最新の天気情報を取得しています...',
+        'invalid_city' => '有効な都市名を入力してください。',
+        'set_city' => '都市を設定',
+        'input_label' => '都市名',
+        'input_placeholder' => '例: 北京',
+        'floating_lyrics_enabled' => 'フローティング歌詞が有効になりました',
+        'floating_lyrics_disabled' => 'フローティング歌詞が無効になりました',
+        'weather_label'     => '天気',
+        'temperature_label' => '気温',
+        'feels_like_label'  => '体感',
+        'humidity_label'    => '湿度',
+        'pressure_label'    => '気圧',
+        'wind_label'        => '風速',
+        'sunrise_label'     => '日の出',
+        'sunset_label'      => '日の入り',
+        'fit_contain'    => '標準比率',
+        'fit_fill'       => '引き伸ばし',
+        'fit_none'       => '元のサイズ',
+        'fit_scale-down' => '自動調整',
+        'fit_cover'      => 'トリミング',
+        'current_fit_mode'    => '現在のモード',
+        'selected_info' => '%dファイル選択（%s MB）'
     ],
 
-    'vn' => [
+    'vi' => [
         'select_language'        => 'Chọn ngôn ngữ',
-        'simplified_chinese'     => 'Tiếng Trung giản thể',
-        'traditional_chinese'    => 'Tiếng Trung phồn thể',
+        'simplified_chinese'     => 'Tiếng Trung Giản thể',
+        'traditional_chinese'    => 'Tiếng Trung Phồn thể',
         'english'                => 'Tiếng Anh',
         'korean'                 => 'Tiếng Hàn',
-        'thailand'               => 'Thái',
         'vietnamese'             => 'Tiếng Việt',
+        'thailand'               => 'Tiếng Thái',
         'japanese'               => 'Tiếng Nhật',
         'russian'                => 'Tiếng Nga',
         'germany'                => 'Tiếng Đức',
         'france'                 => 'Tiếng Pháp',
         'arabic'                 => 'Tiếng Ả Rập',
         'spanish'                => 'Tiếng Tây Ban Nha',
+        'bangladesh'             => 'Tiếng Bangladesh',
         'close'                  => 'Đóng',
         'save'                   => 'Lưu',
-        'theme_download'         => 'Tải xuống chủ đề',
+        'theme_download'         => 'Tải chủ đề',
         'select_all'             => 'Chọn tất cả',
-        'batch_delete'           => 'Xóa nhiều tệp đã chọn',
-        'total'                  => 'Tổng cộng:',
+        'batch_delete'           => 'Xóa hàng loạt',
+        'batch_delete_success'   => '✅ Xóa hàng loạt thành công',
+        'batch_delete_failed'    => '❌ Xóa hàng loạt thất bại',
+        'confirm_delete'         => 'Xác nhận xóa?',
+        'total'                  => 'Tổng:',
         'free'                   => 'Còn lại:',
-        'hover_to_preview'       => 'Nhấn để kích hoạt xem trước',
-        'mount_info'             => 'Điểm gắn kết: {{mount}}｜Dung lượng đã sử dụng: {{used}}',
+        'hover_to_preview'       => 'Nhấp để kích hoạt xem trước khi di chuột',
         'spectra_config'         => 'Quản lý cấu hình Spectra',
         'current_mode'           => 'Chế độ hiện tại: Đang tải...',
-        'toggle_mode'            => 'Chuyển đổi chế độ',
+        'toggle_mode'            => 'Chuyển chế độ',
         'check_update'           => 'Kiểm tra cập nhật',
         'batch_upload'           => 'Chọn tệp để tải lên hàng loạt',
         'add_to_playlist'        => 'Chọn để thêm vào danh sách phát',
         'clear_background'       => 'Xóa nền',
         'clear_background_label' => 'Xóa nền',
         'file_list'              => 'Danh sách tệp',
-        'component_bg_color'     => 'Chọn màu nền của thành phần',
+        'component_bg_color'     => 'Chọn màu nền thành phần',
         'page_bg_color'          => 'Chọn màu nền trang',
-        'toggle_font'            => 'Chuyển đổi phông chữ',
+        'toggle_font'            => 'Thay đổi phông chữ',
         'filename'               => 'Tên:',
         'filesize'               => 'Kích thước:',
         'duration'               => 'Thời lượng:',
@@ -5604,17 +6851,17 @@ $langData = [
         'download'               => 'Tải xuống',
         'set_background'         => 'Đặt nền',
         'preview'                => 'Xem trước',
-        'toggle_fullscreen'      => 'Chuyển đổi chế độ toàn màn hình',
-        'supported_formats'      => 'Định dạng được hỗ trợ: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'toggle_fullscreen'      => 'Chuyển toàn màn hình',
+        'supported_formats'      => 'Định dạng hỗ trợ: [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => 'Kéo thả tệp vào đây',
         'or'                     => 'hoặc',
         'select_files'           => 'Chọn tệp',
-        'unlock_php_upload_limit'=> 'Mở khóa giới hạn tải lên của PHP',
+        'unlock_php_upload_limit'=> 'Mở khóa giới hạn tải lên PHP',
         'upload'                 => 'Tải lên',
         'cancel'                 => 'Hủy',
         'rename_file'            => 'Đổi tên tệp',
-        'new_filename'           => 'Tên tệp mới',
-        'invalid_filename_chars' => 'Tên tệp không được chứa các ký tự sau: \\/:*?"<>|',
+        'new_filename'           => 'Tên mới',
+        'invalid_filename_chars' => 'Tên tệp không được chứa: \\/:*?"<>|',
         'confirm'                => 'Xác nhận',
         'media_player'           => 'Trình phát đa phương tiện',
         'playlist'               => 'Danh sách phát',
@@ -5623,7 +6870,7 @@ $langData = [
         'picture_in_picture'     => 'Hình trong hình',
         'fullscreen'             => 'Toàn màn hình',
         'music_player'           => 'Trình phát nhạc',
-        'play_pause'             => 'Phát / Dừng',
+        'play_pause'             => 'Phát/Tạm dừng',
         'previous_track'         => 'Bài trước',
         'next_track'             => 'Bài tiếp theo',
         'repeat_mode'            => 'Phát lặp lại',
@@ -5632,36 +6879,36 @@ $langData = [
         'custom_playlist'        => 'Danh sách phát tùy chỉnh',
         'volume'                 => 'Âm lượng',
         'update_playlist'        => 'Cập nhật danh sách phát',
-        'playlist_url'           => 'URL danh sách phát',
-        'reset_default'          => 'Đặt lại mặc định',
-        'toggle_lyrics'          => 'Ẩn lời bài hát',
-        'fetching_version'       => 'Đang lấy thông tin phiên bản...',
+        'playlist_url'           => 'Đường dẫn danh sách phát',
+        'reset_default'          => 'Khôi phục mặc định',
+        'toggle_lyrics'          => 'Tắt lời bài hát',
+        'fetching_version'       => 'Đang kiểm tra phiên bản...',
         'download_local'         => 'Tải về máy',
         'change_language'        => 'Thay đổi ngôn ngữ',
         'pause_playing'          => 'Tạm dừng phát',
         'start_playing'          => 'Bắt đầu phát',
-        'manual_switch'          => 'Chuyển đổi thủ công',
-        'auto_switch'            => 'Chuyển đổi tự động',
-        'switch_to'              => 'Chuyển sang:',
+        'manual_switch'          => 'Chuyển thủ công',
+        'auto_switch'            => 'Tự động chuyển sang',
+        'switch_to'              => 'Chuyển sang',
         'auto_play'              => 'Tự động phát',
-        'lyrics_load_failed'     => 'Không tải được lời bài hát',
-        'order_play'             => 'Phát theo thứ tự',
-        'single_loop'            => 'Lặp lại một bài',
+        'lyrics_load_failed'     => 'Tải lời bài hát thất bại',
+        'order_play'             => 'Phát tuần tự',
+        'single_loop'            => 'Lặp lại bài hát',
         'shuffle_play'           => 'Phát ngẫu nhiên',
-        'playlist_click'         => 'Nhấn vào danh sách phát',
-        'index'                  => 'Mục lục',
+        'playlist_click'         => 'Nhấp vào danh sách phát',
+        'index'                  => 'Thứ tự',
         'song_name'              => 'Tên bài hát',
         'no_lyrics'              => 'Không có lời bài hát',
         'loading_lyrics'         => 'Đang tải lời bài hát...',
         'autoplay_blocked'       => 'Tự động phát bị chặn',
-        'cache_cleared'               => 'Cấu hình đã được xóa',
+        'cache_cleared'               => 'Đã xóa cấu hình',
         'open_custom_playlist'        => 'Mở danh sách phát tùy chỉnh',
-        'reset_default_playlist'      => 'Đã khôi phục liên kết danh sách phát mặc định',
-        'reset_default_error'         => 'Lỗi khi khôi phục liên kết mặc định',
-        'reset_default_failed'        => 'Không thể khôi phục liên kết mặc định',
-        'playlist_load_failed'        => 'Không thể tải danh sách phát',
-        'playlist_load_failed_message'=> 'Không thể tải danh sách phát',
-        'hour_announcement'      => 'Thông báo giờ, hiện tại là',
+        'reset_default_playlist'      => 'Đã khôi phục đường dẫn mặc định',
+        'reset_default_error'         => 'Lỗi khi khôi phục mặc định',
+        'reset_default_failed'        => 'Khôi phục mặc định thất bại',
+        'playlist_load_failed'        => 'Tải danh sách phát thất bại',
+        'playlist_load_failed_message'=> 'Tải danh sách phát thất bại',
+        'hour_announcement'      => 'Báo giờ, hiện tại là',  
         'hour_exact'             => 'giờ đúng',
         'weekDays' => ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'],
         'labels' => [
@@ -5683,46 +6930,120 @@ $langData = [
         'day_suffix' => '',
         'periods' => ['Tý', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tỵ', 'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi'],
         'default_period' => ' Giờ',
-        'clear_confirm' => 'Bạn có chắc chắn muốn xóa cấu hình không?',
-        'back_to_first' => 'Đã quay lại bài hát đầu tiên trong danh sách phát',
-        'year_format' => '{heavenlyStem} {earthlyBranch}{suffix}',
+        'initial' => 'đầu',  
+        'middle' => 'giữa',   
+        'final' =>'cuối',  
+        'clear_confirm' =>'Xác nhận xóa cấu hình hiện tại?', 
+        'back_to_first' => 'Đã quay về bài đầu tiên',
+        'font_default' => 'Đã chuyển sang font tròn',
+        'font_fredoka' => 'Đã chuyển về font mặc định',
+        'font_mono'   => 'Đã chuyển sang font viết tay',
+        'font_noto'     => 'Đã chuyển sang font chữ Hán',
+        'font_dm_serif'     => 'Đã chuyển sang font DM Serif Display',
         'error_loading_time' => 'Lỗi hiển thị thời gian',
         'switch_to_light_mode' => 'Chuyển sang chế độ sáng',
         'switch_to_dark_mode' => 'Chuyển sang chế độ tối',
-        'current_mode_dark' => 'Chế độ hiện tại: Chế độ tối',
-        'current_mode_light' => 'Chế độ hiện tại: Chế độ sáng',
-        'fetching_version' => 'Đang lấy thông tin phiên bản...',
+        'current_mode_dark' => 'Chế độ hiện tại: Tối',
+        'current_mode_light' => 'Chế độ hiện tại: Sáng',
+        'fetching_version' => 'Đang kiểm tra phiên bản...',
         'latest_version' => 'Phiên bản mới nhất',
-        'unable_to_fetch_version' => 'Không thể lấy thông tin phiên bản mới nhất',
-        'request_failed' => 'Yêu cầu thất bại, vui lòng thử lại sau',
-        'pip_not_supported' => 'Phương tiện hiện tại không hỗ trợ Hình trong hình',
-        'pip_operation_failed' => 'Thao tác Hình trong hình thất bại',
-        'exit_picture_in_picture' => 'Thoát Hình trong hình',
+        'unable_to_fetch_version' => 'Không thể kiểm tra phiên bản mới',
+        'request_failed' => 'Yêu cầu thất bại, vui lòng thử lại',
+        'pip_not_supported' => 'Không hỗ trợ hình trong hình',
+        'pip_operation_failed' => 'Thao tác hình trong hình thất bại',
+        'exit_picture_in_picture' => 'Thoát hình trong hình',
         'picture_in_picture' => 'Hình trong hình',
-        'hide_playlist' => 'Ẩn danh sách phát',
-        'show_playlist' => 'Hiện danh sách phát',
-        'enter_fullscreen' => 'Chuyển sang toàn màn hình',
+        'hide_playlist' => 'Ẩn danh sách',
+        'show_playlist' => 'Hiện danh sách',
+        'enter_fullscreen' => 'Vào toàn màn hình',
         'exit_fullscreen' => 'Thoát toàn màn hình',
-        'confirm_update_php' => 'Bạn có chắc muốn cập nhật cấu hình PHP không?',
-        'select_files_to_delete' => 'Vui lòng chọn tệp để xóa!',
-        'confirm_batch_delete' => 'Bạn có chắc muốn xóa %d tệp đã chọn không?',
-        'font_default' => 'Đã chuyển sang phông tròn',
-        'font_fredoka' => 'Đã chuyển sang phông mặc định',
-        'font_mono'    => 'Đã chuyển sang phông chữ viết tay thú vị',
-        'font_noto'    => 'Đã chuyển sang phông chữ chân Trung Quốc',
-        'batch_delete_success' => '✅ Xóa hàng loạt thành công',
-        'batch_delete_failed' => '❌ Xóa hàng loạt thất bại',
-        'confirm_delete' => 'Bạn có chắc chắn muốn xóa không?',
-        'unable_to_fetch_current_version' => 'Đang lấy thông tin phiên bản hiện tại...',
+        'confirm_update_php' => 'Xác nhận cập nhật cấu hình PHP?',
+        'select_files_to_delete' => 'Vui lòng chọn tệp cần xóa!',
+        'confirm_batch_delete' => 'Xác nhận xóa %d tệp?',
+        'unable_to_fetch_current_version' => 'Đang kiểm tra phiên bản hiện tại...',
         'current_version' => 'Phiên bản hiện tại',
         'copy_command'     => 'Sao chép lệnh',
-        'command_copied'   => 'Lệnh đã được sao chép vào bảng tạm!',
+        'command_copied'   => 'Đã sao chép lệnh!',
         "updateModalLabel" => "Trạng thái cập nhật",
-        "updateDescription" => "Quá trình cập nhật sẽ sớm bắt đầu.",
-        "waitingMessage" => "Đang chờ bắt đầu thao tác...",
+        "updateDescription" => "Quá trình cập nhật đang bắt đầu.",
+        "waitingMessage" => "Đang chờ bắt đầu...",
         "update_plugin" => "Cập nhật plugin",
         "installation_complete" => "Cài đặt hoàn tất!",
-        'selected_info' => 'Đã chọn %d tệp, tổng cộng %s MB'
+        'confirm_title'             => 'Xác nhận thao tác',
+        'confirm_delete_file'   => 'Xác nhận xóa tệp %s?',
+        'delete_success'      => 'Xóa thành công: %s',
+        'delete_failure'      => 'Xóa thất bại: %s',
+        'upload_error_type_not_supported' => 'Không hỗ trợ định dạng: %s',
+        'upload_error_move_failed'        => 'Tải lên thất bại: %s',
+        'confirm_clear_background' => 'Xác nhận xóa nền?',
+        'background_cleared'      => 'Đã xóa nền!',
+        'createShareLink' => 'Tạo liên kết chia sẻ',
+        'closeButton' => 'Đóng',
+        'expireTimeLabel' => 'Thời gian hết hạn',
+        'expire1Hour' => '1 giờ',
+        'expire1Day' => '1 ngày',
+        'expire7Days' => '7 ngày',
+        'expire30Days' => '30 ngày',
+        'maxDownloadsLabel' => 'Số lượt tải tối đa',
+        'max1Download' => '1 lần',
+        'max5Downloads' => '5 lần',
+        'max10Downloads' => '10 lần',
+        'maxUnlimited' => 'Không giới hạn',
+        'shareLinkLabel' => 'Liên kết chia sẻ',
+        'copyLinkButton' => 'Sao chép liên kết',
+        'closeButtonFooter' => 'Đóng',
+        'generateLinkButton' => 'Tạo liên kết',
+        'fileNotSelected' => 'Chưa chọn tệp',
+        'httpError' => 'Lỗi HTTP',
+        'linkGenerated' => '✅ Đã tạo liên kết chia sẻ',
+        'operationFailed' => '❌ Thao tác thất bại',
+        'generateLinkFirst' => 'Vui lòng tạo liên kết chia sẻ trước',
+        'linkCopied' => '📋 Liên kết đã được sao chép',
+        'copyFailed' => '❌ Sao chép thất bại',
+        'cleanExpiredButton' => 'Dọn hết hạn',
+        'deleteAllButton' => 'Xóa tất cả',
+        'cleanSuccess' => '✅ Dọn dẹp hoàn tất, %s mục đã bị xóa',
+        'deleteSuccess' => '✅ Tất cả liên kết đã bị xóa, %s tệp đã bị xóa',
+        'confirmDeleteAll' => '⚠️ Bạn có chắc muốn xóa TẤT CẢ các liên kết chia sẻ không?',
+        'operationFailed' => '❌ Thao tác thất bại',
+        'ip_info' => 'Thông tin IP',
+        'ip_support' => 'Hỗ trợ IP',
+        'ip_address' => 'Địa chỉ IP',
+        'location' => 'Khu vực',
+        'isp' => 'Nhà cung cấp',
+        'asn' => 'ASN',
+        'timezone' => 'Múi giờ',
+        'latitude_longitude' => 'Tọa độ',
+        'latency_info' => 'Thông tin độ trễ',
+        'mute_on' => 'Âm thanh đã được tắt',
+        'mute_off' => 'Âm thanh đã được bật lại',
+        'volume_change' => 'Âm lượng đã điều chỉnh thành {vol}%',
+        'speed_change' => 'Tốc độ phát đã chuyển sang {rate} lần',
+        'invalid_city_non_chinese' => 'Vui lòng nhập tên thành phố không chứa ký tự tiếng Trung.',
+        'invalid_city_uppercase' => 'Tên thành phố phải bắt đầu bằng chữ cái in hoa.',
+        'city_saved' => 'Đã lưu thành phố: {city}',
+        'city_saved_speak' => 'Đã lưu thành phố {city}, đang lấy thông tin thời tiết mới nhất...',
+        'invalid_city' => 'Vui lòng nhập tên thành phố hợp lệ.',
+        'set_city' => 'Đặt Thành Phố',
+        'input_label' => 'Tên Thành Phố',
+        'input_placeholder' => 'ví dụ: Beijing',
+        'floating_lyrics_enabled' => 'Đã bật lời bài hát nổi',
+        'floating_lyrics_disabled' => 'Đã tắt lời bài hát nổi',
+        'weather_label'     => 'Thời tiết',
+        'temperature_label' => 'Nhiệt độ',
+        'feels_like_label'  => 'Cảm giác như',
+        'humidity_label'    => 'Độ ẩm',
+        'pressure_label'    => 'Áp suất',
+        'wind_label'        => 'Tốc độ gió',
+        'sunrise_label'     => 'Bình minh',
+        'sunset_label'      => 'Hoàng hôn',
+        'current_fit_mode'    => 'Chế độ hiện tại',
+        'fit_contain'    => 'Giữ tỷ lệ',
+        'fit_fill'       => 'Kéo giãn',
+        'fit_none'       => 'Kích thước gốc',
+        'fit_scale-down' => 'Tự động thu nhỏ',
+        'fit_cover'      => 'Cắt vừa',
+        'selected_info' => 'Đã chọn %d tệp (%s MB)'
     ],
 
     'th' => [
@@ -5738,6 +7059,7 @@ $langData = [
         'france'                 => 'ภาษาฝรั่งเศส',
         'arabic'                 => 'ภาษาอาหรับ',
         'spanish'                => 'ภาษาสเปน',
+        'bangladesh'             => 'เบงกาลี',
         'close'                  => 'ปิด',
         'save'                   => 'บันทึก',
         'theme_download'         => 'ดาวน์โหลดธีม',
@@ -5775,7 +7097,7 @@ $langData = [
         'set_background'         => 'ตั้งค่าพื้นหลัง',
         'preview'                => 'ดูตัวอย่าง',
         'toggle_fullscreen'      => 'สลับเป็นเต็มจอ',
-        'supported_formats'      => 'รูปแบบที่รองรับ: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'supported_formats'      => 'รูปแบบที่รองรับ: [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => 'ลากไฟล์มาที่นี่',
         'or'                     => 'หรือ',
         'select_files'           => 'เลือกไฟล์',
@@ -5866,6 +7188,7 @@ $langData = [
         'font_fredoka' => 'เปลี่ยนเป็นแบบอักษรเริ่มต้นแล้ว',
         'font_mono'    => 'เปลี่ยนเป็นแบบอักษรลายมือสนุก ๆ แล้ว',
         'font_noto'    => 'เปลี่ยนเป็นแบบอักษรมีเชิงภาษาจีนแล้ว',
+        'font_dm_serif'     => 'เปลี่ยนเป็นฟอนต์ DM Serif Display',
         'batch_delete_success' => '✅ การลบเป็นกลุ่มสำเร็จ',
         'batch_delete_failed' => '❌ การลบเป็นกลุ่มล้มเหลว',
         'confirm_delete' => 'คุณแน่ใจหรือไม่ว่าต้องการลบ?',
@@ -5878,6 +7201,80 @@ $langData = [
         "waitingMessage" => "รอให้การดำเนินการเริ่มต้น...",
         "update_plugin" => "อัปเดตปลั๊กอิน",
         "installation_complete" => "การติดตั้งเสร็จสิ้น!",
+        'confirm_title'         => 'ยืนยันการดำเนินการ',
+        'confirm_delete_file'   => 'คุณแน่ใจหรือไม่ที่จะลบไฟล์ %s?',
+        'delete_success'      => 'ลบสำเร็จ: %s',
+        'delete_failure'      => 'ลบไม่สำเร็จ: %s',
+        'upload_error_type_not_supported' => 'ประเภทไฟล์ที่ไม่รองรับ: %s',
+        'upload_error_move_failed'        => 'การอัปโหลดไฟล์ล้มเหลว: %s',
+        'confirm_clear_background' => 'แน่ใจหรือไม่ว่าต้องการลบพื้นหลัง?',
+        'background_cleared'      => 'ลบพื้นหลังแล้ว!',
+        'createShareLink' => 'สร้างลิงค์การแชร์',
+        'closeButton' => 'ปิด',
+        'expireTimeLabel' => 'เวลาหมดอายุ',
+        'expire1Hour' => '1 ชั่วโมง',
+        'expire1Day' => '1 วัน',
+        'expire7Days' => '7 วัน',
+        'expire30Days' => '30 วัน',
+        'maxDownloadsLabel' => 'จำนวนการดาวน์โหลดสูงสุด',
+        'max1Download' => '1 ครั้ง',
+        'max5Downloads' => '5 ครั้ง',
+        'max10Downloads' => '10 ครั้ง',
+        'maxUnlimited' => 'ไม่จำกัด',
+        'shareLinkLabel' => 'ลิงค์การแชร์',
+        'copyLinkButton' => 'คัดลอกลิงค์',
+        'closeButtonFooter' => 'ปิด',
+        'generateLinkButton' => 'สร้างลิงค์',
+        'fileNotSelected' => 'ไม่เลือกไฟล์',
+        'httpError' => 'ข้อผิดพลาด HTTP',
+        'linkGenerated' => '✅ สร้างลิงค์การแชร์แล้ว',
+        'operationFailed' => '❌ การดำเนินการล้มเหลว',
+        'generateLinkFirst' => 'โปรดสร้างลิงค์การแชร์ก่อน',
+        'linkCopied' => '📋 ลิงค์ถูกคัดลอก',
+        'copyFailed' => '❌ การคัดลอกล้มเหลว',
+        'cleanExpiredButton' => 'ล้างที่หมดอายุ',
+        'deleteAllButton' => 'ลบทั้งหมด',
+        'cleanSuccess' => '✅ ล้างสำเร็จ, %s รายการถูกลบ',
+        'deleteSuccess' => '✅ ลบประวัติการแชร์ทั้งหมดแล้ว, %s ไฟล์ถูกลบ',
+        'confirmDeleteAll' => '⚠️ คุณแน่ใจหรือไม่ว่าต้องการลบประวัติการแชร์ทั้งหมด?',
+        'operationFailed' => '❌ ล้มเหลวในการดำเนินการ',
+        'ip_info' => 'รายละเอียด IP',
+        'ip_support' => 'การสนับสนุน IP',
+        'ip_address' => 'ที่อยู่ IP',
+        'location' => 'ที่ตั้ง',
+        'isp' => 'ผู้ให้บริการ',
+        'asn' => 'ASN',
+        'timezone' => 'เขตเวลา',
+        'latitude_longitude' => 'พิกัด',
+        'latency_info' => 'ข้อมูลความหน่วง',
+        'mute_on' => 'เสียงถูกปิด',
+        'mute_off' => 'เสียงถูกเปิด',
+        'volume_change' => 'ปรับระดับเสียงเป็น {vol}%',
+        'speed_change' => 'เปลี่ยนความเร็วการเล่นเป็น {rate} เท่า',
+        'invalid_city_non_chinese' => 'กรุณาใส่ชื่อเมืองที่ไม่มีอักษรจีน',
+        'invalid_city_uppercase' => 'ชื่อเมืองต้องขึ้นต้นด้วยตัวอักษรพิมพ์ใหญ่',
+        'city_saved' => 'เมืองถูกบันทึกแล้ว: {city}',
+        'city_saved_speak' => 'เมืองถูกบันทึกเป็น {city} กำลังดึงข้อมูลสภาพอากาศล่าสุด...',
+        'invalid_city' => 'กรุณาใส่ชื่อเมืองที่ถูกต้อง',
+        'set_city' => 'ตั้งค่าชื่อเมือง',
+        'input_label' => 'ชื่อเมือง',
+        'input_placeholder' => 'ตัวอย่าง: Beijing',
+        'floating_lyrics_enabled' => 'เปิดใช้งานเนื้อเพลงลอย',
+        'floating_lyrics_disabled' => 'ปิดใช้งานเนื้อเพลงลอย',
+        'weather_label'     => 'สภาพอากาศ',
+        'temperature_label' => 'อุณหภูมิ',
+        'feels_like_label'  => 'รู้สึกเหมือน',
+        'humidity_label'    => 'ความชื้น',
+        'pressure_label'    => 'ความกดอากาศ',
+        'wind_label'        => 'ความเร็วลม',
+        'sunrise_label'     => 'พระอาทิตย์ขึ้น',
+        'sunset_label'      => 'พระอาทิตย์ตก',
+        'current_fit_mode'    => 'โหมดปัจจุบัน',
+        'fit_contain'    => 'อัตราส่วนปกติ',
+        'fit_fill'       => 'เติมเต็ม',
+        'fit_none'       => 'ขนาดดั้งเดิม',
+        'fit_scale-down' => 'ปรับอัตโนมัติ',
+        'fit_cover'      => 'ครอบตัด',
         'selected_info' => 'เลือกไฟล์แล้ว %d ไฟล์ รวมทั้งหมด %s MB'
     ],
 
@@ -5888,13 +7285,14 @@ $langData = [
         'english'                => 'Английский',
         'korean'                 => 'Корейский',
         'vietnamese'             => 'Вьетнамский',
-        'thailand'              => 'Тайский',
+        'thailand'               => 'Тайский',
         'japanese'               => 'Японский',
         'russian'                => 'Русский',
         'germany'                => 'Немецкий',
         'france'                 => 'Французский',
         'arabic'                 => 'Арабский',
         'spanish'                => 'Испанский',
+        'bangladesh'             => 'Бенгальский',
         'close'                  => 'Закрыть',
         'save'                   => 'Сохранить',
         'theme_download'         => 'Скачать тему',
@@ -5932,7 +7330,7 @@ $langData = [
         'set_background'         => 'Установить фон',
         'preview'                => 'Предварительный просмотр',
         'toggle_fullscreen'      => 'Переключить полноэкранный режим',
-        'supported_formats'      => 'Поддерживаемые форматы: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'supported_formats'      => 'Поддерживаемые форматы: [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => 'Перетащите файлы сюда',
         'or'                     => 'или',
         'select_files'           => 'Выбрать файлы',
@@ -6023,6 +7421,7 @@ $langData = [
         'font_fredoka' => 'Переключено на шрифт по умолчанию',
         'font_mono'    => 'Переключено на забавный рукописный шрифт',
         'font_noto'    => 'Переключено на китайский рубленый шрифт',
+        'font_dm_serif'     => 'Переключено на шрифт DM Serif Display',
         'batch_delete_success' => '✅ Успешное массовое удаление',
         'batch_delete_failed' => '❌ Ошибка массового удаления',
         'confirm_delete' => 'Вы уверены, что хотите удалить?',
@@ -6035,6 +7434,81 @@ $langData = [
         "waitingMessage" => "Ожидание начала операции...",
         "update_plugin" => "Обновить плагин",
         "installation_complete" => "Установка завершена!",
+        'confirm_title'         => 'Подтвердите действие',
+        'confirm_delete_file'   => 'Вы уверены, что хотите удалить файл %s?',
+        'confirm_delete_file' => 'Вы уверены, что хотите удалить файл %s?',
+        'delete_success'      => 'Успешно удалено: %s',
+        'delete_failure'      => 'Не удалось удалить: %s',
+        'upload_error_type_not_supported' => 'Неподдерживаемый тип файла: %s',
+        'upload_error_move_failed'        => 'Ошибка загрузки файла: %s',
+        'confirm_clear_background' => 'Вы уверены, что хотите очистить фон?',
+        'background_cleared'      => 'Фон очищен!',
+        'createShareLink' => 'Создать ссылку для обмена',
+        'closeButton' => 'Закрыть',
+        'expireTimeLabel' => 'Время истечения',
+        'expire1Hour' => '1 час',
+        'expire1Day' => '1 день',
+        'expire7Days' => '7 дней',
+        'expire30Days' => '30 дней',
+        'maxDownloadsLabel' => 'Максимальное количество загрузок',
+        'max1Download' => '1 раз',
+        'max5Downloads' => '5 раз',
+        'max10Downloads' => '10 раз',
+        'maxUnlimited' => 'Неограничено',
+        'shareLinkLabel' => 'Ссылка для обмена',
+        'copyLinkButton' => 'Копировать ссылку',
+        'closeButtonFooter' => 'Закрыть',
+        'generateLinkButton' => 'Создать ссылку',
+        'fileNotSelected' => 'Файл не выбран',
+        'httpError' => 'Ошибка HTTP',
+        'linkGenerated' => '✅ Ссылка для обмена создана',
+        'operationFailed' => '❌ Операция не удалась',
+        'generateLinkFirst' => 'Сначала создайте ссылку для обмена',
+        'linkCopied' => '📋 Ссылка скопирована',
+        'copyFailed' => '❌ Ошибка копирования',
+        'cleanExpiredButton' => 'Очистить просроченное',
+        'deleteAllButton' => 'Удалить всё',
+        'cleanSuccess' => '✅ Очистка завершена, %s предмет(ов) удалено',
+        'deleteSuccess' => '✅ Все записи о совместном доступе удалены, %s файл(ов) удалено',
+        'confirmDeleteAll' => '⚠️ Вы уверены, что хотите удалить ВСЕ записи о совместном доступе?',
+        'operationFailed' => '❌ Не удалось выполнить операцию',
+        'ip_info' => 'IP информация',
+        'ip_support' => 'IP поддержка',
+        'ip_address' => 'IP адрес',
+        'location' => 'Локация',
+        'isp' => 'Провайдер',
+        'asn' => 'ASN',
+        'timezone' => 'Часовой пояс',
+        'latitude_longitude' => 'Координаты',
+        'latency_info' => 'Задержка',
+        'mute_on' => 'Аудио отключено',
+        'mute_off' => 'Аудио включено',
+        'volume_change' => 'Громкость изменена на {vol}%',
+        'speed_change' => 'Скорость воспроизведения изменена на {rate}x',
+        'invalid_city_non_chinese' => 'Введите название города без китайских символов.',
+        'invalid_city_uppercase' => 'Название города должно начинаться с заглавной буквы.',
+        'city_saved' => 'Город сохранен: {city}',
+        'city_saved_speak' => 'Город сохранен: {city}, получение последней информации о погоде...',
+        'invalid_city' => 'Введите допустимое название города.',
+        'set_city' => 'Установить город',
+        'input_label' => 'Название города',
+        'input_placeholder' => 'например: Пекин',
+        'floating_lyrics_enabled' => 'Плавающие тексты включены',
+        'floating_lyrics_disabled' => 'Плавающие тексты отключены',
+        'weather_label'     => 'Погода',
+        'temperature_label' => 'Температура',
+        'feels_like_label'  => 'Ощущается как',
+        'humidity_label'    => 'Влажность',
+        'pressure_label'    => 'Давление',
+        'wind_label'        => 'Скорость ветра',
+        'sunrise_label'     => 'Восход',
+        'sunset_label'      => 'Закат',
+        'current_fit_mode'    => 'Текущий режим',
+        'fit_contain'    => 'Обычное соотношение',
+        'fit_fill'       => 'Растянуть',
+        'fit_none'       => 'Оригинальный размер',
+        'fit_scale-down' => 'Уменьшить при необходимости',
+        'fit_cover'      => 'Обрезать по размеру',
         'selected_info' => 'Выбрано %d файлов, всего %s MB'
     ],
 
@@ -6045,28 +7519,31 @@ $langData = [
         'english'                => 'الإنجليزية',
         'korean'                 => 'الكورية',
         'vietnamese'             => 'الفيتنامية',
-        'thailand'              => 'التايلاندية',
+        'thailand'               => 'التايلاندية',
         'japanese'               => 'اليابانية',
         'russian'                => 'الروسية',
         'germany'                => 'الألمانية',
         'france'                 => 'الفرنسية',
         'arabic'                 => 'العربية',
         'spanish'                => 'الإسبانية',
+        'bangladesh'             => 'البنغالية',
         'close'                  => 'إغلاق',
         'save'                   => 'حفظ',
-        'theme_download'         => 'تنزيل الثيم',
+        'theme_download'         => 'تنزيل السمة',
         'select_all'             => 'تحديد الكل',
-        'batch_delete'           => 'حذف الملفات المحددة دفعة واحدة',
+        'batch_delete'           => 'حذف جماعي للملفات المحددة',
+        'batch_delete_success'   => '✅ الحذف الجماعي ناجح',
+        'batch_delete_failed'    => '❌ فشل الحذف الجماعي',
+        'confirm_delete'         => 'تأكيد الحذف؟',
         'total'                  => 'الإجمالي:',
         'free'                   => 'المتبقي:',
-        'hover_to_preview'       => 'انقر لتفعيل المعاينة',
-        'mount_info'             => 'نقطة التركيب: {{mount}}｜المساحة المستخدمة: {{used}}',
+        'hover_to_preview'       => 'انقر لتفعيل معاينة التحويم',
         'spectra_config'         => 'إدارة إعدادات Spectra',
-        'current_mode'           => 'الوضع الحالي: جارٍ التحميل...',
+        'current_mode'           => 'الوضع الحالي: جاري التحميل...',
         'toggle_mode'            => 'تبديل الوضع',
-        'check_update'           => 'تحقق من التحديث',
-        'batch_upload'           => 'حدد الملفات للتحميل دفعة واحدة',
-        'add_to_playlist'        => 'إضافة الملفات المحددة إلى قائمة التشغيل',
+        'check_update'           => 'التحقق من التحديثات',
+        'batch_upload'           => 'اختر ملفات للرفع الجماعي',
+        'add_to_playlist'        => 'حدد لإضافة إلى قائمة التشغيل',
         'clear_background'       => 'مسح الخلفية',
         'clear_background_label' => 'مسح الخلفية',
         'file_list'              => 'قائمة الملفات',
@@ -6086,19 +7563,19 @@ $langData = [
         'delete'                 => 'حذف',
         'rename'                 => 'إعادة تسمية',
         'download'               => 'تنزيل',
-        'set_background'         => 'تعيين الخلفية',
+        'set_background'         => 'تعيين خلفية',
         'preview'                => 'معاينة',
-        'toggle_fullscreen'      => 'تبديل وضع الشاشة الكاملة',
-        'supported_formats'      => 'الصيغ المدعومة: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
-        'drop_files_here'        => 'اسحب الملفات هنا',
+        'toggle_fullscreen'      => 'تبديل ملء الشاشة',
+        'supported_formats'      => 'التنسيقات المدعومة: [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'أسقط الملفات هنا',
         'or'                     => 'أو',
-        'select_files'           => 'حدد الملفات',
-        'unlock_php_upload_limit'=> 'إزالة حد التحميل الخاص بـ PHP',
+        'select_files'           => 'اختر ملفات',
+        'unlock_php_upload_limit'=> 'رفع قيود الرفع في PHP',
         'upload'                 => 'رفع',
         'cancel'                 => 'إلغاء',
         'rename_file'            => 'إعادة تسمية الملف',
-        'new_filename'           => 'الاسم الجديد للملف',
-        'invalid_filename_chars' => 'اسم الملف لا يمكن أن يحتوي على الأحرف التالية: \\/:*?"<>|',
+        'new_filename'           => 'اسم الملف الجديد',
+        'invalid_filename_chars' => 'لا يمكن أن يحتوي اسم الملف على: \\/:*?"<>|',
         'confirm'                => 'تأكيد',
         'media_player'           => 'مشغل الوسائط',
         'playlist'               => 'قائمة التشغيل',
@@ -6108,91 +7585,170 @@ $langData = [
         'fullscreen'             => 'ملء الشاشة',
         'music_player'           => 'مشغل الموسيقى',
         'play_pause'             => 'تشغيل/إيقاف مؤقت',
-        'previous_track'         => 'المسار السابق',
-        'next_track'             => 'المسار التالي',
-        'repeat_mode'            => 'وضع التكرار',
-        'toggle_floating_lyrics' => 'كلمات الأغاني العائمة',
+        'previous_track'         => 'المقطع السابق',
+        'next_track'             => 'المقطع التالي',
+        'repeat_mode'            => 'تكرار التشغيل',
+        'toggle_floating_lyrics' => 'كلمات عائمة',
         'clear_config'           => 'مسح الإعدادات',
         'custom_playlist'        => 'قائمة تشغيل مخصصة',
-        'volume'                 => 'مستوى الصوت',
+        'volume'                 => 'الصوت',
         'update_playlist'        => 'تحديث قائمة التشغيل',
         'playlist_url'           => 'رابط قائمة التشغيل',
-        'reset_default'          => 'إعادة التعيين إلى الافتراضي',
-        'toggle_lyrics'          => 'إخفاء كلمات الأغاني',
-        'fetching_version'       => 'جاري جلب معلومات الإصدار...',
+        'reset_default'          => 'إعادة الضبط',
+        'toggle_lyrics'          => 'إخفاء الكلمات',
+        'fetching_version'       => 'جاري التحقق من الإصدار...',
         'download_local'         => 'تنزيل محلي',
         'change_language'        => 'تغيير اللغة',
-        'pause_playing'          => 'إيقاف التشغيل مؤقتًا',
+        'pause_playing'          => 'إيقاف التشغيل',
         'start_playing'          => 'بدء التشغيل',
-        'manual_switch'          => 'التبديل اليدوي',
-        'auto_switch'            => 'التبديل التلقائي',
-        'switch_to'              => 'التبديل إلى:',
+        'manual_switch'          => 'تبديل يدوي',
+        'auto_switch'            => 'تبديل تلقائي إلى',
+        'switch_to'              => 'التبديل إلى',
         'auto_play'              => 'تشغيل تلقائي',
-        'lyrics_load_failed'     => 'فشل تحميل كلمات الأغاني',
-        'order_play'             => 'تشغيل بالترتيب',
-        'single_loop'            => 'تكرار الملف الواحد',
+        'lyrics_load_failed'     => 'فشل تحميل الكلمات',
+        'order_play'             => 'تشغيل بالتسلسل',
+        'single_loop'            => 'تكرار المقطع',
         'shuffle_play'           => 'تشغيل عشوائي',
-        'playlist_click'         => 'النقر على قائمة التشغيل',
+        'playlist_click'         => 'نقر قائمة التشغيل',
         'index'                  => 'الفهرس',
         'song_name'              => 'اسم الأغنية',
         'no_lyrics'              => 'لا توجد كلمات',
-        'loading_lyrics'         => 'جارٍ تحميل كلمات الأغاني...',
+        'loading_lyrics'         => 'جاري تحميل الكلمات...',
         'autoplay_blocked'       => 'تم حظر التشغيل التلقائي',
         'cache_cleared'               => 'تم مسح الإعدادات',
-        'open_custom_playlist'        => 'فتح قائمة التشغيل المخصصة',
+        'open_custom_playlist'        => 'فتح قائمة تشغيل مخصصة',
         'reset_default_playlist'      => 'تمت إعادة تعيين رابط قائمة التشغيل الافتراضي',
-        'reset_default_error'         => 'حدث خطأ أثناء إعادة تعيين الرابط الافتراضي',
-        'reset_default_failed'        => 'فشل في إعادة تعيين الرابط الافتراضي',
+        'reset_default_error'         => 'خطأ أثناء إعادة التعيين',
+        'reset_default_failed'        => 'فشل إعادة التعيين',
         'playlist_load_failed'        => 'فشل تحميل قائمة التشغيل',
         'playlist_load_failed_message'=> 'فشل تحميل قائمة التشغيل',
-        'hour_announcement'      => 'إعلان الساعة، الآن الساعة',
-        'hour_exact'             => 'بالضبط',
-        'weekDays' => ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+        'hour_announcement'      => 'النشرة الزمنية، التوقيت المحلي هو',  
+        'hour_exact'             => 'الساعة بالضبط',
+        'weekDays' => ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
         'labels' => [
             'year' => 'سنة',
             'month' => 'شهر',
             'day' => 'يوم',
             'week' => 'أسبوع'
         ],
+        'zodiacs' => ['القرد','الديك','الكلب','الخنزير','الفأر','الثور','النمر','الأرنب','التنين','الأفعى','الحصان','الخروف'],
+        'heavenlyStems' => ['جيا','يي','بينغ','دينغ','وو','جي','قينغ','شين','رين','غوي'],
+        'earthlyBranches' => ['زي','تشو','يين','ماو','تشين','سي','وو','وي','شين','يو','شو','هاي'],
+        'months' => ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],
+        'days' => ['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن','التاسع','العاشر',
+                   'الحادي عشر','الثاني عشر','الثالث عشر','الرابع عشر','الخامس عشر','السادس عشر','السابع عشر','الثامن عشر','التاسع عشر','العشرون',
+                   'الحادي والعشرون','الثاني والعشرون','الثالث والعشرون','الرابع والعشرون','الخامس والعشرون','السادس والعشرون','السابع والعشرون','الثامن والعشرون','التاسع والعشرون','الثلاثون'],
+        'clear_confirm' =>'هل تريد مسح الإعدادات الحالية؟', 
+        'back_to_first' => 'العودة إلى أول مقطع في القائمة',
+        'font_default' => 'تم التبديل إلى الخط المدور',
+        'font_fredoka' => 'تم التبديل إلى الخط الافتراضي',
+        'font_mono'   => 'تم التبديل إلى الخط اليدوي',
+        'font_noto'     => 'تم التبديل إلى الخط الصيني',
+        'font_dm_serif'     => 'تم التبديل إلى خط DM Serif Display',
         'error_loading_time' => 'خطأ في عرض الوقت',
-        'switch_to_light_mode' => 'التبديل إلى الوضع الفاتح',
-        'switch_to_dark_mode' => 'التبديل إلى الوضع الداكن',
-        'current_mode_dark' => 'الوضع الحالي: الوضع الداكن',
-        'current_mode_light' => 'الوضع الحالي: الوضع الفاتح',
-        'fetching_version' => 'جاري جلب معلومات الإصدار...',
-        'latest_version' => 'أحدث إصدار',
-        'unable_to_fetch_version' => 'تعذر الحصول على أحدث إصدار',
-        'request_failed' => 'فشل الطلب، يرجى المحاولة لاحقًا',
-        'pip_not_supported' => 'الوسائط الحالية لا تدعم صورة داخل صورة',
-        'pip_operation_failed' => 'فشل تشغيل صورة داخل صورة',
-        'exit_picture_in_picture' => 'الخروج من صورة داخل صورة',
+        'switch_to_light_mode' => 'الوضع الفاتح',
+        'switch_to_dark_mode' => 'الوضع الداكن',
+        'current_mode_dark' => 'الوضع الحالي: داكن',
+        'current_mode_light' => 'الوضع الحالي: فاتح',
+        'fetching_version' => 'جاري التحقق من الإصدار...',
+        'latest_version' => 'آخر إصدار',
+        'unable_to_fetch_version' => 'تعذر الحصول على آخر إصدار',
+        'request_failed' => 'فشل الطلب، حاول لاحقًا',
+        'pip_not_supported' => 'لا يدعم التشغيل بصورة داخل صورة',
+        'pip_operation_failed' => 'فشل عملية الصورة داخل الصورة',
+        'exit_picture_in_picture' => 'خروج من صورة داخل صورة',
         'picture_in_picture' => 'صورة داخل صورة',
         'hide_playlist' => 'إخفاء القائمة',
         'show_playlist' => 'إظهار القائمة',
-        'enter_fullscreen' => 'تبديل إلى وضع ملء الشاشة',
-        'exit_fullscreen' => 'الخروج من وضع ملء الشاشة',
-        'confirm_update_php' => 'هل أنت متأكد أنك تريد تحديث إعدادات PHP؟',
-        'select_files_to_delete' => 'يرجى اختيار الملفات المراد حذفها!',
-        'confirm_batch_delete' => 'هل تريد بالتأكيد حذف الملفات المحددة وعددها %d؟',
-        'clear_confirm' => 'هل أنت متأكد أنك تريد مسح الإعدادات؟',
-        'back_to_first' => 'تم العودة إلى أول أغنية في قائمة التشغيل',
-        'font_default' => 'تم التبديل إلى خط دائري',
-        'font_fredoka' => 'تم التبديل إلى الخط الافتراضي',
-        'font_mono'    => 'تم التبديل إلى خط يدوي ممتع',
-        'font_noto'    => 'تم التبديل إلى خط صيني منمق',
-        'batch_delete_success' => '✅ تم الحذف الجماعي بنجاح',
-        'batch_delete_failed' => '❌ فشل الحذف الجماعي',
-        'confirm_delete' => 'هل أنت متأكد أنك تريد الحذف؟',
-        'unable_to_fetch_current_version' => 'جارٍ الحصول على إصدار حالي...',
+        'enter_fullscreen' => 'ملء الشاشة',
+        'exit_fullscreen' => 'خروج من ملء الشاشة',
+        'confirm_update_php' => 'هل تريد تحديث إعدادات PHP؟',
+        'select_files_to_delete' => 'الرجاء اختيار الملفات للحذف أولاً!',
+        'confirm_batch_delete' => 'هل تريد حذف %d ملفات؟',
+        'unable_to_fetch_current_version' => 'جاري التحقق من الإصدار الحالي...',
         'current_version' => 'الإصدار الحالي',
         'copy_command'     => 'نسخ الأمر',
-        'command_copied'   => 'تم نسخ الأمر إلى الحافظة!',
+        'command_copied'   => 'تم نسخ الأمر!',
         "updateModalLabel" => "حالة التحديث",
-        "updateDescription" => "عملية التحديث ستبدأ قريبًا.",
-        "waitingMessage" => "انتظار بدء العملية...",
-        "update_plugin" => "تحديث الإضافة",
-        "installation_complete" => "اكتملت عملية التثبيت!",
-        'selected_info' => 'تم اختيار %d ملف، الحجم الإجمالي %s ميغابايت'
+        "updateDescription" => "جاري بدء عملية التحديث.",
+        "waitingMessage" => "بانتظار بدء العملية...",
+        "update_plugin" => "تحديث الملحق",
+        "installation_complete" => "اكتمل التثبيت!",
+        'confirm_title'             => 'تأكيد العملية',
+        'confirm_delete_file'   => 'هل تريد حذف الملف %s؟',
+        'delete_success'      => 'تم الحذف: %s',
+        'delete_failure'      => 'فشل الحذف: %s',
+        'upload_error_type_not_supported' => 'نوع ملف غير مدعوم: %s',
+        'upload_error_move_failed'        => 'فشل الرفع: %s',
+        'confirm_clear_background' => 'هل تريد مسح الخلفية؟',
+        'background_cleared'      => 'تم مسح الخلفية!',
+        'createShareLink' => 'إنشاء رابط المشاركة',
+        'closeButton' => 'إغلاق',
+        'expireTimeLabel' => 'وقت الانتهاء',
+        'expire1Hour' => '1 ساعة',
+        'expire1Day' => '1 يوم',
+        'expire7Days' => '7 أيام',
+        'expire30Days' => '30 يوم',
+        'maxDownloadsLabel' => 'الحد الأقصى للتنزيلات',
+        'max1Download' => '1 مرة',
+        'max5Downloads' => '5 مرات',
+        'max10Downloads' => '10 مرات',
+        'maxUnlimited' => 'غير محدود',
+        'shareLinkLabel' => 'رابط المشاركة',
+        'copyLinkButton' => 'نسخ الرابط',
+        'closeButtonFooter' => 'إغلاق',
+        'generateLinkButton' => 'إنشاء الرابط',
+        'fileNotSelected' => 'لم يتم اختيار الملف',
+        'httpError' => 'خطأ HTTP',
+        'linkGenerated' => '✅ تم إنشاء رابط المشاركة',
+        'operationFailed' => '❌ فشل العملية',
+        'generateLinkFirst' => 'يرجى إنشاء رابط المشاركة أولاً',
+        'linkCopied' => '📋 تم نسخ الرابط',
+        'copyFailed' => '❌ فشل النسخ',
+        'cleanExpiredButton' => 'تنظيف المنتهية',
+        'deleteAllButton' => 'حذف الكل',
+        'cleanSuccess' => '✅ تم التنظيف بنجاح، تم حذف %s عنصرًا منتهي الصلاحية',
+        'deleteSuccess' => '✅ تم حذف جميع سجلات المشاركة، تم حذف %s ملفًا',
+        'confirmDeleteAll' => '⚠️ هل أنت متأكد أنك تريد حذف جميع سجلات المشاركة؟',
+        'operationFailed' => '❌ فشل في العملية',
+        'ip_info' => 'تفاصيل IP',
+        'ip_support' => 'دعم IP',
+        'ip_address' => 'عنوان IP',
+        'location' => 'الموقع',
+        'isp' => 'مزود الخدمة',
+        'asn' => 'ASN',
+        'timezone' => 'المنطقة الزمنية',
+        'latitude_longitude' => 'إحداثيات',
+        'latency_info' => 'معلومات التأخر',
+        'mute_on' => 'تم كتم الصوت',
+        'mute_off' => 'تم إلغاء كتم الصوت',
+        'volume_change' => 'تم تعديل مستوى الصوت إلى {vol}%',
+        'speed_change' => 'تم تغيير سرعة التشغيل إلى {rate}x',
+        'invalid_city_non_chinese' => 'يرجى إدخال اسم مدينة بدون أحرف صينية.',
+        'invalid_city_uppercase' => 'يجب أن يبدأ اسم المدينة بحرف كبير باللغة الإنجليزية.',
+        'city_saved' => 'تم حفظ المدينة: {city}',
+        'city_saved_speak' => 'تم حفظ المدينة: {city}، جارٍ جلب أحدث معلومات الطقس...',
+        'invalid_city' => 'يرجى إدخال اسم مدينة صالح.',
+        'set_city' => 'تعيين المدينة',
+        'input_label' => 'اسم المدينة',
+        'floating_lyrics_enabled' => 'تم تفعيل كلمات الأغاني العائمة',
+        'floating_lyrics_disabled' => 'تم تعطيل كلمات الأغاني العائمة',
+        'input_placeholder' => 'على سبيل المثال: بكين',   
+        'weather_label'     => 'الطقس',
+        'temperature_label' => 'درجة الحرارة',
+        'feels_like_label'  => 'يشعر كأنّه',
+        'humidity_label'    => 'الرطوبة',
+        'pressure_label'    => 'الضغط',
+        'wind_label'        => 'سرعة الرياح',
+        'sunrise_label'     => 'شروق الشمس',
+        'sunset_label'      => 'غروب الشمس',    
+        'current_fit_mode'    => 'الوضع الحالي',
+        'fit_contain'    => 'نسبة عادية',
+        'fit_fill'       => 'تمديد لملء',
+        'fit_none'       => 'الحجم الأصلي',
+        'fit_scale-down' => 'تكييف ذكي',
+        'fit_cover'      => 'اقتصاص افتراضي',
+        'selected_info' => 'تم اختيار %d ملفات (%s ميجابايت)'
     ],
 
     'es' => [
@@ -6209,6 +7765,7 @@ $langData = [
         'france'                 => 'Francés',
         'arabic'                 => 'Árabe',
         'spanish'                => 'Español',
+        'bangladesh'             => 'Bengalí',
         'close'                  => 'Cerrar',
         'save'                   => 'Guardar',
         'theme_download'         => 'Descargar tema',
@@ -6246,7 +7803,7 @@ $langData = [
         'set_background'         => 'Establecer fondo',
         'preview'                => 'Vista previa',
         'toggle_fullscreen'      => 'Cambiar a pantalla completa',
-        'supported_formats'      => 'Formatos compatibles: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'supported_formats'      => 'Formatos compatibles: [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => 'Arrastra los archivos aquí',
         'or'                     => 'o',
         'select_files'           => 'Seleccionar archivos',
@@ -6337,6 +7894,7 @@ $langData = [
         'font_fredoka' => 'Cambiado a fuente predeterminada',
         'font_mono'    => 'Cambiado a fuente manuscrita divertida',
         'font_noto'    => 'Cambiado a fuente serif en chino',
+        'font_dm_serif'     => 'Cambiado a la fuente DM Serif Display',
         'batch_delete_success' => '✅ Eliminación masiva exitosa',
         'batch_delete_failed' => '❌ Fallo en la eliminación masiva',
         'confirm_delete' => '¿Estás seguro de que deseas eliminar?',
@@ -6349,6 +7907,80 @@ $langData = [
         "waitingMessage" => "Esperando que comience la operación...",
         "update_plugin" => "Actualizar complemento",
         "installation_complete" => "¡Instalación completa!",
+        'confirm_title'         => 'Confirmar acción',
+        'confirm_delete_file'   => '¿Estás seguro de que deseas eliminar el archivo %s?',
+        'delete_success'      => 'Eliminado con éxito: %s',
+        'delete_failure'      => 'Error al eliminar: %s',
+        'upload_error_type_not_supported' => 'Tipo de archivo no soportado: %s',
+        'upload_error_move_failed'        => 'Error de carga: %s',
+        'confirm_clear_background' => '¿Estás seguro de que quieres borrar el fondo?',
+        'background_cleared'      => '¡Fondo borrado!',
+        'createShareLink' => 'Crear enlace de compartición',
+        'closeButton' => 'Cerrar',
+        'expireTimeLabel' => 'Tiempo de expiración',
+        'expire1Hour' => '1 Hora',
+        'expire1Day' => '1 Día',
+        'expire7Days' => '7 Días',
+        'expire30Days' => '30 Días',
+        'maxDownloadsLabel' => 'Descargas máximas',
+        'max1Download' => '1 vez',
+        'max5Downloads' => '5 veces',
+        'max10Downloads' => '10 veces',
+        'maxUnlimited' => 'Ilimitado',
+        'shareLinkLabel' => 'Enlace para compartir',
+        'copyLinkButton' => 'Copiar enlace',
+        'closeButtonFooter' => 'Cerrar',
+        'generateLinkButton' => 'Generar enlace',
+        'fileNotSelected' => 'Archivo no seleccionado',
+        'httpError' => 'Error HTTP',
+        'linkGenerated' => '✅ Enlace de compartición generado',
+        'operationFailed' => '❌ Operación fallida',
+        'generateLinkFirst' => 'Por favor, genera el enlace de compartición primero',
+        'linkCopied' => '📋 Enlace copiado',
+        'copyFailed' => '❌ Error al copiar',
+        'cleanExpiredButton' => 'Limpiar caducados',
+        'deleteAllButton' => 'Eliminar todo',
+        'cleanSuccess' => '✅ Limpieza completada, %s elemento(s) caducado(s) eliminado(s)',
+        'deleteSuccess' => '✅ Todos los registros compartidos han sido eliminados, %s archivo(s) eliminado(s)',
+        'confirmDeleteAll' => '⚠️ ¿Está seguro de que desea eliminar TODOS los registros compartidos?',
+        'operationFailed' => '❌ Operación fallida',
+        'ip_info' => 'Detalles de IP',
+        'ip_support' => 'Soporte IP',
+        'ip_address' => 'Dirección IP',
+        'location' => 'Ubicación',
+        'isp' => 'Proveedor',
+        'asn' => 'ASN',
+        'timezone' => 'Zona horaria',
+        'latitude_longitude' => 'Coordenadas',
+        'latency_info' => 'Informe de latencia',
+        'mute_on' => 'Audio silenciado',
+        'mute_off' => 'Audio reactivado',
+        'volume_change' => 'Volumen ajustado al {vol}%',
+        'speed_change' => 'Velocidad de reproducción cambiada a {rate}x',
+        'invalid_city_non_chinese' => 'Por favor, introduzca un nombre de ciudad sin caracteres chinos.',
+        'invalid_city_uppercase' => 'El nombre de la ciudad debe comenzar con una letra mayúscula.',
+        'city_saved' => 'Ciudad guardada como: {city}',
+        'city_saved_speak' => 'Ciudad guardada como: {city}, obteniendo la información meteorológica más reciente...',
+        'invalid_city' => 'Por favor, introduzca un nombre de ciudad válido.',
+        'set_city' => 'Establecer Ciudad',
+        'input_label' => 'Nombre de la ciudad',
+        'input_placeholder' => 'por ejemplo: Beijing',
+        'floating_lyrics_enabled' => 'Letras flotantes habilitadas',
+        'floating_lyrics_disabled' => 'Letras flotantes deshabilitadas',
+        'weather_label'     => 'Clima',
+        'temperature_label' => 'Temperatura',
+        'feels_like_label'  => 'Sensación térmica',
+        'humidity_label'    => 'Humedad',
+        'pressure_label'    => 'Presión',
+        'wind_label'        => 'Velocidad del viento',
+        'sunrise_label'     => 'Amanecer',
+        'sunset_label'      => 'Atardecer',
+        'current_fit_mode'    => 'Modo actual',
+        'fit_contain'    => 'Proporción normal',
+        'fit_fill'       => 'Estirar',
+        'fit_none'       => 'Tamaño original',
+        'fit_scale-down' => 'Escalado inteligente',
+        'fit_cover'      => 'Recorte predeterminado',
         'selected_info' => 'Seleccionados %d archivos, en total %s MB'
     ],
 
@@ -6359,13 +7991,14 @@ $langData = [
         'english'                => 'Englisch',
         'korean'                 => 'Koreanisch',
         'vietnamese'             => 'Vietnamesisch',
-        'thailand'             => 'Thailändisch',
+        'thailand'               => 'Thailändisch',
         'japanese'               => 'Japanisch',
         'russian'                => 'Russisch',
         'germany'                => 'Deutsch',
         'france'                 => 'Französisch',
         'arabic'                 => 'Arabisch',
         'spanish'                => 'Spanisch',
+        'bangladesh'             => 'Bengalisch',
         'close'                  => 'Schließen',
         'save'                   => 'Speichern',
         'theme_download'         => 'Theme herunterladen',
@@ -6403,7 +8036,7 @@ $langData = [
         'set_background'         => 'Hintergrund festlegen',
         'preview'                => 'Vorschau',
         'toggle_fullscreen'      => 'Vollbildmodus umschalten',
-        'supported_formats'      => 'Unterstützte Formate: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'supported_formats'      => 'Unterstützte Formate: [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => 'Dateien hier ablegen',
         'or'                     => 'oder',
         'select_files'           => 'Dateien auswählen',
@@ -6494,6 +8127,7 @@ $langData = [
         'font_fredoka' => 'Auf Standardschriftart umgestellt',
         'font_mono'    => 'Auf lustige Handschrift umgestellt',
         'font_noto'    => 'Auf chinesische Serifenschrift umgestellt',
+        'font_dm_serif'     => 'Auf DM Serif Display-Schriftart umgeschaltet',
         'batch_delete_success' => '✅ Stapel-Löschung erfolgreich',
         'batch_delete_failed' => '❌ Stapel-Löschung fehlgeschlagen',
         'confirm_delete' => 'Bist du sicher, dass du löschen möchtest?',
@@ -6506,6 +8140,80 @@ $langData = [
         "waitingMessage" => "Warten auf den Beginn der Operation...",
         "update_plugin" => "Plugin aktualisieren",
         "installation_complete" => "Installation abgeschlossen!",
+        'confirm_title'         => 'Bestätigen Sie die Aktion',
+        'confirm_delete_file'   => 'Möchten Sie die Datei %s wirklich löschen?',
+        'delete_success'      => 'Erfolgreich gelöscht: %s',
+        'delete_failure'      => 'Löschen fehlgeschlagen: %s',
+        'upload_error_type_not_supported' => 'Nicht unterstützter Dateityp: %s',
+        'upload_error_move_failed'        => 'Upload fehlgeschlagen: %s',
+        'confirm_clear_background' => 'Möchten Sie den Hintergrund wirklich löschen?',
+        'background_cleared'      => 'Hintergrund wurde gelöscht!',
+        'createShareLink' => 'Freigabelink erstellen',
+        'closeButton' => 'Schließen',
+        'expireTimeLabel' => 'Ablaufzeit',
+        'expire1Hour' => '1 Stunde',
+        'expire1Day' => '1 Tag',
+        'expire7Days' => '7 Tage',
+        'expire30Days' => '30 Tage',
+        'maxDownloadsLabel' => 'Maximale Downloads',
+        'max1Download' => '1 Mal',
+        'max5Downloads' => '5 Mal',
+        'max10Downloads' => '10 Mal',
+        'maxUnlimited' => 'Unbegrenzt',
+        'shareLinkLabel' => 'Freigabelink',
+        'copyLinkButton' => 'Link kopieren',
+        'closeButtonFooter' => 'Schließen',
+        'generateLinkButton' => 'Link erstellen',
+        'fileNotSelected' => 'Datei nicht ausgewählt',
+        'httpError' => 'HTTP-Fehler',
+        'linkGenerated' => '✅ Freigabelink generiert',
+        'operationFailed' => '❌ Vorgang fehlgeschlagen',
+        'generateLinkFirst' => 'Bitte generieren Sie zuerst den Freigabelink',
+        'linkCopied' => '📋 Link kopiert',
+        'copyFailed' => '❌ Kopieren fehlgeschlagen',
+        'cleanExpiredButton' => 'Abgelaufene löschen',
+        'deleteAllButton' => 'Alle löschen',
+        'cleanSuccess' => '✅ Reinigung abgeschlossen, %s Elemente wurden entfernt',
+        'deleteSuccess' => '✅ Alle Freigabelinks wurden gelöscht, %s Datei(en) wurden entfernt',
+        'confirmDeleteAll' => '⚠️ Möchten Sie wirklich ALLE Freigabelinks löschen?',
+        'operationFailed' => '❌ Vorgang fehlgeschlagen',
+        'ip_info' => 'IP-Informationen',
+        'ip_support' => 'IP-Support',
+        'ip_address' => 'IP-Adresse',
+        'location' => 'Standort',
+        'isp' => 'Anbieter',
+        'asn' => 'ASN',
+        'timezone' => 'Zeitzone',
+        'latitude_longitude' => 'Koordinaten',
+        'latency_info' => 'Latenzinformationen',
+        'mute_on' => 'Audio stummgeschaltet',
+        'mute_off' => 'Audio-Stummschaltung aufgehoben',
+        'volume_change' => 'Lautstärke auf {vol}% eingestellt',
+        'speed_change' => 'Wiedergabegeschwindigkeit auf {rate}x geändert',
+        'invalid_city_non_chinese' => 'Bitte geben Sie einen Städtenamen ohne chinesische Zeichen ein.',
+        'invalid_city_uppercase' => 'Der Städtename muss mit einem Großbuchstaben beginnen.',
+        'city_saved' => 'Stadt gespeichert als: {city}',
+        'city_saved_speak' => 'Stadt gespeichert als: {city}, die neuesten Wetterinformationen werden abgerufen...',
+        'invalid_city' => 'Bitte geben Sie einen gültigen Städtenamen ein.',
+        'set_city' => 'Stadt festlegen',
+        'input_label' => 'Stadtname',
+        'input_placeholder' => 'z.B.: Beijing',
+        'floating_lyrics_enabled' => 'Schwebende Liedtexte aktiviert',
+        'floating_lyrics_disabled' => 'Schwebende Liedtexte deaktiviert',
+        'weather_label'     => 'Wetter',
+        'temperature_label' => 'Temperatur',
+        'feels_like_label'  => 'Gefühlt',
+        'humidity_label'    => 'Luftfeuchtigkeit',
+        'pressure_label'    => 'Luftdruck',
+        'wind_label'        => 'Windgeschwindigkeit',
+        'sunrise_label'     => 'Sonnenaufgang',
+        'sunset_label'      => 'Sonnenuntergang',
+        'current_fit_mode'    => 'Aktueller Modus',
+        'fit_contain'    => 'Seitenverhältnis beibehalten',
+        'fit_fill'       => 'Ausfüllen',
+        'fit_none'       => 'Originalgröße',
+        'fit_scale-down' => 'Skalieren falls nötig',
+        'fit_cover'      => 'Zuschneiden',
         'selected_info' => '%d Dateien ausgewählt, insgesamt %s MB'
     ],
 
@@ -6516,13 +8224,14 @@ $langData = [
         'english'                => 'Anglais',
         'korean'                 => 'Coréen',
         'vietnamese'             => 'Vietnamien',
-        'thailand'                    => 'Thaï',
+        'thailand'               => 'Thaï',
         'japanese'               => 'Japonais',
         'russian'                => 'Russe',
         'germany'                => 'Allemand',
         'france'                 => 'Français',
         'arabic'                 => 'Arabe',
         'spanish'                => 'Espagnol',
+        'bangladesh'             => 'Bengali',
         'close'                  => 'Fermer',
         'save'                   => 'Enregistrer',
         'theme_download'         => 'Télécharger le thème',
@@ -6560,7 +8269,7 @@ $langData = [
         'set_background'         => 'Définir comme arrière-plan',
         'preview'                => 'Aperçu',
         'toggle_fullscreen'      => 'Activer/désactiver le mode plein écran',
-        'supported_formats'      => 'Formats pris en charge : [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'supported_formats'      => 'Formats pris en charge : [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => 'Déposez les fichiers ici',
         'or'                     => 'ou',
         'select_files'           => 'Sélectionner les fichiers',
@@ -6651,6 +8360,7 @@ $langData = [
         'font_fredoka' => 'Police par défaut activée',
         'font_mono'    => 'Police manuscrite activée',
         'font_noto'    => 'Police avec empattement chinoise activée',
+        'font_dm_serif'     => 'Passé à la police DM Serif Display',
         'batch_delete_success' => '✅ Suppression par lot réussie',
         'batch_delete_failed' => '❌ Échec de la suppression par lot',
         'confirm_delete' => 'Êtes-vous sûr de vouloir supprimer?',
@@ -6663,6 +8373,80 @@ $langData = [
         "waitingMessage" => "En attente du début de l'opération...",
         "update_plugin" => "Mettre à jour le plugin",
         "installation_complete" => "Installation terminée !",
+        'confirm_title'         => 'Confirmer l\'action',
+       'confirm_delete_file'   => 'Êtes-vous sûr de vouloir supprimer le fichier %s ?',
+        'delete_success'      => 'Suppression réussie : %s',
+        'delete_failure'      => 'Échec de la suppression : %s',
+        'upload_error_type_not_supported' => 'Type de fichier non pris en charge : %s',
+        'upload_error_move_failed'        => 'Échec du téléchargement : %s',
+        'confirm_clear_background' => 'Voulez-vous vraiment effacer l\'arrière-plan?',
+        'background_cleared'      => 'Arrière-plan effacé!',
+        'createShareLink' => 'Créer un lien de partage',
+        'closeButton' => 'Fermer',
+        'expireTimeLabel' => 'Temps d\'expiration',
+        'expire1Hour' => '1 Heure',
+        'expire1Day' => '1 Jour',
+        'expire7Days' => '7 Jours',
+        'expire30Days' => '30 Jours',
+        'maxDownloadsLabel' => 'Téléchargements maximum',
+        'max1Download' => '1 fois',
+        'max5Downloads' => '5 fois',
+        'max10Downloads' => '10 fois',
+        'maxUnlimited' => 'Illimité',
+        'shareLinkLabel' => 'Lien de partage',
+        'copyLinkButton' => 'Copier le lien',
+        'closeButtonFooter' => 'Fermer',
+        'generateLinkButton' => 'Générer le lien',
+        'fileNotSelected' => 'Fichier non sélectionné',
+        'httpError' => 'Erreur HTTP',
+        'linkGenerated' => '✅ Lien de partage généré',
+        'operationFailed' => '❌ Échec de l\'opération',
+        'generateLinkFirst' => 'Veuillez d\'abord générer le lien de partage',
+        'linkCopied' => '📋 Lien copié',
+        'copyFailed' => '❌ Échec de la copie',
+        'cleanExpiredButton' => 'Nettoyer expirés',
+        'deleteAllButton' => 'Supprimer tout',
+        'cleanSuccess' => '✅ Nettoyage terminé, %s élément(s) expiré(s) supprimé(s)',
+        'deleteSuccess' => '✅ Tous les liens partagés ont été supprimés, %s fichier(s) supprimé(s)',
+        'confirmDeleteAll' => '⚠️ Voulez-vous vraiment supprimer TOUS les enregistrements de partage ?',
+        'operationFailed' => '❌ Échec de l\'opération',
+        'ip_info' => 'Informations IP',
+        'ip_support' => 'Support IP',
+        'ip_address' => 'Adresse IP',
+        'location' => 'Localisation',
+        'isp' => 'Fournisseur',
+        'asn' => 'ASN',
+        'timezone' => 'Fuseau horaire',
+        'latitude_longitude' => 'Coordonnées',
+        'latency_info' => 'Informations de latence',
+        'mute_on' => 'Audio coupé',
+        'mute_off' => 'Audio réactivé',
+        'volume_change' => 'Volume ajusté à {vol}%',
+        'speed_change' => 'Vitesse de lecture changée à {rate}x',
+        'invalid_city_non_chinese' => 'Veuillez entrer un nom de ville sans caractères chinois.',
+        'invalid_city_uppercase' => 'Le nom de la ville doit commencer par une lettre majuscule.',
+        'city_saved' => 'Ville enregistrée : {city}',
+        'city_saved_speak' => 'Ville enregistrée : {city}, récupération des dernières informations météorologiques...',
+        'invalid_city' => 'Veuillez entrer un nom de ville valide.',
+        'set_city' => 'Définir la ville',
+        'input_label' => 'Nom de la ville',
+        'input_placeholder' => 'par exemple : Beijing',
+        'floating_lyrics_enabled' => 'Paroles flottantes activées',
+        'floating_lyrics_disabled' => 'Paroles flottantes désactivées',
+        'weather_label'     => 'Météo',
+        'temperature_label' => 'Température',
+        'feels_like_label'  => 'Ressenti',
+        'humidity_label'    => 'Humidité',
+        'pressure_label'    => 'Pression',
+        'wind_label'        => 'Vitesse du vent',
+        'sunrise_label'     => 'Lever du soleil',
+        'sunset_label'      => 'Coucher du soleil',
+        'current_fit_mode'    => 'Mode actuel',
+        'fit_contain'    => 'Proportions normales',
+        'fit_fill'       => 'Remplir',
+        'fit_none'       => 'Taille d’origine',
+        'fit_scale-down' => 'Réduction automatique',
+        'fit_cover'      => 'Rogner',
         'selected_info' => '%d fichiers sélectionnés, total de %s Mo'
     ],
 
@@ -6673,13 +8457,14 @@ $langData = [
         'english'                => 'English',
         'korean'                 => 'Korean',
         'vietnamese'             => 'Vietnamese',
-        'thailand'                  => 'Thai',
+        'thailand'               => 'Thai',
         'japanese'               => 'Japanese',
         'russian'                => 'Russian',
         'germany'                => 'German',
         'france'                 => 'French',
         'arabic'                 => 'Arabic',
         'spanish'                => 'Spanish',
+        'bangladesh'             => 'Bengali',
         'close'                  => 'Close',
         'save'                   => 'Save',
         'theme_download'         => 'Theme Download',
@@ -6717,7 +8502,7 @@ $langData = [
         'set_background'         => 'Set Background',
         'preview'                => 'Preview',
         'toggle_fullscreen'      => 'Toggle Fullscreen',
-        'supported_formats'      => 'Supported formats: [ jpg, jpeg, png, gif, mp4, mkv, mp3, wav, flac ]',
+        'supported_formats'      => 'Supported formats: [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
         'drop_files_here'        => 'Drop files here',
         'or'                     => 'or',
         'select_files'           => 'Select Files',
@@ -6821,6 +8606,7 @@ $langData = [
         'font_fredoka' => 'Switched to default font',
         'font_mono'    => 'Switched to fun handwriting font',
         'font_noto'    => 'Switched to Chinese serif font',
+        'font_dm_serif'     => 'Switched to DM Serif Display font',
         'batch_delete_success' => '✅ Batch delete successful',
         'batch_delete_failed' => '❌ Batch delete failed',
         'confirm_delete' => 'Are you sure you want to delete?',
@@ -6833,7 +8619,313 @@ $langData = [
         "waitingMessage" => "Waiting for the operation to start...",
         "update_plugin" => "Update Plugin",
         "installation_complete" => "Installation complete!",
+        'confirm_title'         => 'Confirm Action',
+        'confirm_delete_file'   => 'Are you sure you want to delete file %s?',
+        'delete_success'      => 'Deleted successfully: %s',
+        'delete_failure'      => 'Failed to delete: %s',
+        'upload_error_type_not_supported' => 'Unsupported file type: %s',
+        'upload_error_move_failed'        => 'Upload failed: %s',
+        'confirm_clear_background' => 'Are you sure you want to clear the background?',
+        'background_cleared'      => 'Background cleared!',
+        'createShareLink' => 'Create Share Link',
+        'closeButton' => 'Close',
+        'expireTimeLabel' => 'Expiration Time',
+        'expire1Hour' => '1 Hour',
+        'expire1Day' => '1 Day',
+        'expire7Days' => '7 Days',
+        'expire30Days' => '30 Days',
+        'maxDownloadsLabel' => 'Max Downloads',
+        'max1Download' => '1 Time',
+        'max5Downloads' => '5 Times',
+        'max10Downloads' => '10 Times',
+        'maxUnlimited' => 'Unlimited',
+        'shareLinkLabel' => 'Share Link',
+        'copyLinkButton' => 'Copy Link',
+        'closeButtonFooter' => 'Close',
+        'generateLinkButton' => 'Generate Link',
+        'fileNotSelected' => 'File not selected',
+        'httpError' => 'HTTP Error',
+        'linkGenerated' => '✅ Share link generated',
+        'operationFailed' => '❌ Operation failed',
+        'generateLinkFirst' => 'Please generate the share link first',
+        'linkCopied' => '📋 Link copied',
+        'copyFailed' => '❌ Copy failed',
+        'cleanExpiredButton' => 'Clean Expired',
+        'deleteAllButton' => 'Delete All',
+        'cleanSuccess' => '✅ Clean completed, %s expired item(s) removed',
+        'deleteSuccess' => '✅ All share records deleted, %s file(s) removed',
+        'confirmDeleteAll' => '⚠️ Are you sure you want to delete ALL share records?',
+        'operationFailed' => '❌ Operation failed',
+        'ip_info' => 'IP Details',
+        'ip_support' => 'IP Support',
+        'ip_address' => 'IP Address',
+        'location' => 'Location',
+        'isp' => 'ISP',
+        'asn' => 'ASN',
+        'timezone' => 'Timezone',
+        'latitude_longitude' => 'Coordinates',
+        'latency_info' => 'Latency Info',
+        'mute_on' => 'Audio muted',
+        'mute_off' => 'Audio unmuted',
+        'volume_change' => 'Volume adjusted to {vol}%',
+        'speed_change' => 'Playback speed changed to {rate}x',
+        'invalid_city_non_chinese' => 'Please enter a city name without Chinese characters.',
+        'invalid_city_uppercase' => 'The city name must start with an uppercase English letter.',
+        'city_saved' => 'City saved as: {city}',
+        'city_saved_speak' => 'City saved as {city}, fetching the latest weather information...',
+        'invalid_city' => 'Please enter a valid city name.',
+        'set_city' => 'Set City',
+        'input_label' => 'City Name',
+        'input_placeholder' => 'e.g., Beijing',
+        'floating_lyrics_enabled' => 'Floating lyrics enabled',
+        'floating_lyrics_disabled' => 'Floating lyrics disabled',
+        'weather_label'     => 'Weather',
+        'temperature_label' => 'Temperature',
+        'feels_like_label'  => 'Feels like',
+        'humidity_label'    => 'Humidity',
+        'pressure_label'    => 'Pressure',
+        'wind_label'        => 'Wind speed',
+        'sunrise_label'     => 'Sunrise',
+        'sunset_label'      => 'Sunset',
+        'current_fit_mode'    => 'Current mode',
+        'fit_contain'    => 'Contain',
+        'fit_fill'       => 'Fill',
+        'fit_none'       => 'Original size',
+        'fit_scale-down' => 'Scale down',
+        'fit_cover'      => 'Cover',
         'selected_info' => 'Selected %d files, total %s MB'
+    ],
+    'bn' => [
+        'select_language'        => 'ভাষা নির্বাচন করুন',
+        'simplified_chinese'     => 'সরলীকৃত চীনা',
+        'traditional_chinese'    => 'প্রথাগত চীনা',
+        'english'                => 'ইংরেজি',
+        'korean'                 => 'কোরিয়ান',
+        'vietnamese'             => 'ভিয়েতনামী',
+        'thailand'               => 'থাই',
+        'japanese'               => 'জাপানি',
+        'russian'                => 'রাশিয়ান',
+        'germany'                => 'জার্মান',
+        'france'                 => 'ফরাসি',
+        'arabic'                 => 'আরবি',
+        'spanish'                => 'স্প্যানিশ',
+        'bangladesh'             => 'বাংলা',
+        'close'                  => 'বন্ধ',
+        'save'                   => 'সংরক্ষণ',
+        'theme_download'         => 'থিম ডাউনলোড',
+        'select_all'             => 'সব নির্বাচন',
+        'batch_delete'           => 'নির্বাচিত ফাইল একসাথে মুছুন',
+        'batch_delete_success'   => '✅ একসাথে মুছুন সফল',
+        'batch_delete_failed'    => '❌ একসাথে মুছুন ব্যর্থ',
+        'confirm_delete'         => 'মুছে ফেলতে চান?',
+        'total'                  => 'মোট:',
+        'free'                   => 'অবশিষ্ট:',
+        'hover_to_preview'       => 'প্লে করতে ক্লিক করুন',
+        'spectra_config'         => 'Spectra কনফিগারেশন',
+        'current_mode'           => 'বর্তমান মোড: লোড হচ্ছে...',
+        'toggle_mode'            => 'মোড পরিবর্তন',
+        'check_update'           => 'আপডেট চেক করুন',
+        'batch_upload'           => 'একসাথে আপলোডের জন্য ফাইল নির্বাচন',
+        'add_to_playlist'        => 'প্লেলিস্টে যোগ করতে চেক করুন',
+        'clear_background'       => 'পটভূমি সাফ',
+        'clear_background_label' => 'পটভূমি সাফ',
+        'file_list'              => 'ফাইল তালিকা',
+        'component_bg_color'     => 'কম্পোনেন্টের পটভূমি রং নির্বাচন',
+        'page_bg_color'          => 'পৃষ্ঠার পটভূমি রং নির্বাচন',
+        'toggle_font'            => 'ফন্ট পরিবর্তন',
+        'filename'               => 'নাম:',
+        'filesize'               => 'আকার:',
+        'duration'               => 'সময়:',
+        'resolution'             => 'রেজোলিউশন:',
+        'bitrate'                => 'বিটরেট:',
+        'type'                   => 'ধরণ:',
+        'image'                  => 'ছবি',
+        'video'                  => 'ভিডিও',
+        'audio'                  => 'অডিও',
+        'document'               => 'ডকুমেন্ট',
+        'delete'                 => 'মুছুন',
+        'rename'                 => 'নাম পরিবর্তন',
+        'download'               => 'ডাউনলোড',
+        'set_background'         => 'পটভূমি সেট করুন',
+        'preview'                => 'প্রিভিউ',
+        'toggle_fullscreen'      => 'ফুলস্ক্রিন পরিবর্তন',
+        'supported_formats'      => 'সমর্থিত ফরম্যাট: [ jpg, jpeg, png, gif, webp, mp4, webm, mkv, mp3, wav, flac ]',
+        'drop_files_here'        => 'ফাইল এখানে ড্রপ করুন',
+        'or'                     => 'অথবা',
+        'select_files'           => 'ফাইল নির্বাচন',
+        'unlock_php_upload_limit'=> 'PHP আপলোড লিমিট আনলক',
+        'upload'                 => 'আপলোড',
+        'cancel'                 => 'বাতিল',
+        'rename_file'            => 'নাম পরিবর্তন',
+        'new_filename'           => 'নতুন ফাইলনাম',
+        'invalid_filename_chars' => 'ফাইলনামে এই অক্ষর থাকতে পারবে না: \\/：*?"<>|',
+        'confirm'                => 'নিশ্চিত',
+        'media_player'           => 'মিডিয়া প্লেয়ার',
+        'playlist'               => 'প্লেলিস্ট',
+        'clear_list'             => 'তালিকা সাফ',
+        'toggle_list'            => 'তালিকা লুকান',
+        'picture_in_picture'     => 'পিকচার ইন পিকচার',
+        'fullscreen'             => 'ফুলস্ক্রিন',
+        'music_player'           => 'মিউজিক প্লেয়ার',
+        'play_pause'             => 'প্লে/পজ',
+        'previous_track'         => 'আগের ট্র্যাক',
+        'next_track'             => 'পরের ট্র্যাক',
+        'repeat_mode'            => 'পুনরাবৃত্তি মোড',
+        'toggle_floating_lyrics' => 'ভাসমান গানের কথা',
+        'clear_config'           => 'কনফিগারেশন সাফ',
+        'custom_playlist'        => 'কাস্টম প্লেলিস্ট',
+        'volume'                 => 'ভলিউম',
+        'update_playlist'        => 'প্লেলিস্ট আপডেট',
+        'playlist_url'           => 'প্লেলিস্ট URL',
+        'reset_default'          => 'ডিফল্টে ফিরুন',
+        'toggle_lyrics'          => 'গানের কথা বন্ধ',
+        'fetching_version'       => 'সংস্করণ তথ্য পাওয়া হচ্ছে...',
+        'download_local'         => 'লোকালে ডাউনলোড',
+        'change_language'        => 'ভাষা পরিবর্তন',
+        'pause_playing'          => 'প্লে থামান',
+        'start_playing'          => 'প্লে শুরু',
+        'manual_switch'          => 'ম্যানুয়াল পরিবর্তন',
+        'auto_switch'            => 'স্বয়ংক্রিয়ভাবে পরিবর্তন',
+        'switch_to'              => 'পরিবর্তন করুন',
+        'auto_play'              => 'স্বয়ংক্রিয় প্লে',
+        'lyrics_load_failed'     => 'গানের কথা লোড ব্যর্থ',
+        'order_play'             => 'অনুক্রমিক প্লে',
+        'single_loop'            => 'একক লুপ',
+        'shuffle_play'           => 'এলোমেলো প্লে',
+        'playlist_click'         => 'প্লেলিস্ট ক্লিক',
+        'index'                  => 'সূচী',
+        'song_name'              => 'গানের নাম',
+        'no_lyrics'              => 'কোনো গানের কথা নেই',
+        'loading_lyrics'         => 'গানের কথা লোড হচ্ছে...',
+        'autoplay_blocked'       => 'স্বয়ংক্রিয় প্লে ব্লক করা হয়েছে',
+        'cache_cleared'          => 'কনফিগারেশন সাফ হয়েছে',
+        'open_custom_playlist'   => 'কাস্টম প্লেলিস্ট খুলুন',
+        'reset_default_playlist' => 'ডিফল্ট প্লেলিস্ট লিঙ্ক ফিরিয়ে দেওয়া হয়েছে',
+        'reset_default_error'    => 'ডিফল্ট লিঙ্ক ফিরিয়ে দেওয়ার সময় ত্রুটি',
+        'reset_default_failed'   => 'ডিফল্ট লিঙ্ক ফিরিয়ে দেওয়া ব্যর্থ',
+        'playlist_load_failed'   => 'প্লেলিস্ট লোড ব্যর্থ',
+        'playlist_load_failed_message' => 'প্লেলিস্ট লোড করতে ব্যর্থ',
+        'hour_announcement'      => 'ঘন্টা ঘোষণা, এখন বেইজিং সময়',
+        'hour_exact'             => 'টা বাজে',
+        'weekDays' => ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'],
+        'labels' => [
+            'year' => 'বছর',
+            'month' => 'মাস',
+            'day' => 'তারিখ',
+            'week' => 'সপ্তাহ'
+        ],
+        'zodiacs' => ['বানর','মোরগ','কুকুর','শূকর','ইঁদুর','গরু','বাঘ','খরগোশ','ড্রাগন','সাপ','ঘোড়া','ছাগল'],
+        'clear_confirm' =>'কনফিগারেশন সাফ করতে চান?', 
+        'back_to_first' => 'প্লেলিস্টের প্রথম গানে ফিরে গেছে',
+        'font_default' => 'গোলাকার ফন্টে পরিবর্তন করা হয়েছে',
+        'font_fredoka' => 'ডিফল্ট ফন্টে পরিবর্তন করা হয়েছে',
+        'font_mono'    => 'হাতের লেখা ফন্টে পরিবর্তন করা হয়েছে',
+        'font_noto'    => 'চীনা সেরিফ ফন্টে পরিবর্তন করা হয়েছে',
+        'font_dm_serif'     => 'DM Serif Display ফন্টে পরিবর্তিত হয়েছে',
+        'error_loading_time' => 'সময় প্রদর্শনে ত্রুটি',
+        'switch_to_light_mode' => 'হালকা মোডে পরিবর্তন',
+        'switch_to_dark_mode' => 'অন্ধকার মোডে পরিবর্তন',
+        'current_mode_dark' => 'বর্তমান মোড: অন্ধকার মোড',
+        'current_mode_light' => 'বর্তমান মোড: হালকা মোড',
+        'fetching_version' => 'সংস্করণ তথ্য পাওয়া হচ্ছে...',
+        'latest_version' => 'সর্বশেষ সংস্করণ',
+        'unable_to_fetch_version' => 'সর্বশেষ সংস্করণ তথ্য পাওয়া যায়নি',
+        'request_failed' => 'অনুরোধ ব্যর্থ, পরে আবার চেষ্টা করুন',
+        'pip_not_supported' => 'বর্তমান মিডিয়া পিকচার ইন পিকচার সমর্থন করে না',
+        'pip_operation_failed' => 'পিকচার ইন পিকচার অপারেশন ব্যর্থ',
+        'exit_picture_in_picture' => 'পিকচার ইন পিকচার থেকে বের হন',
+        'picture_in_picture' => 'পিকচার ইন পিকচার',
+        'hide_playlist' => 'তালিকা লুকান',
+        'show_playlist' => 'তালিকা দেখান',
+        'enter_fullscreen' => 'ফুলস্ক্রিনে যান',
+        'exit_fullscreen' => 'ফুলস্ক্রিন থেকে বের হন',
+        'confirm_update_php' => 'আপনি PHP কনফিগারেশন আপডেট করতে চান?',
+        'select_files_to_delete' => 'দয়া করে প্রথমে মুছতে চাওয়া ফাইল নির্বাচন করুন!',
+        'confirm_batch_delete' => '%d টি নির্বাচিত ফাইল মুছতে চান?',
+        'unable_to_fetch_current_version' => 'বর্তমান সংস্করণ পাওয়া হচ্ছে...',
+        'current_version' => 'বর্তমান সংস্করণ',
+        'copy_command'     => 'কমান্ড কপি',
+        'command_copied'   => 'কমান্ড ক্লিপবোর্ডে কপি হয়েছে!',
+        "updateModalLabel" => "আপডেট অবস্থা",
+        "updateDescription" => "আপডেট প্রক্রিয়া শুরু হতে চলেছে।",
+        "waitingMessage" => "অপারেশন শুরু হওয়ার জন্য অপেক্ষা...",
+        "update_plugin" => "প্লাগইন আপডেট",
+        "installation_complete" => "ইনস্টলেশন সম্পূর্ণ!",
+        'confirm_title'             => 'অপারেশন নিশ্চিত',
+        'confirm_delete_file'   => '%s ফাইলটি মুছতে চান?',
+        'delete_success'      => 'সফলভাবে মুছে ফেলা হয়েছে: %s',
+        'delete_failure'      => 'মুছতে ব্যর্থ: %s',
+        'upload_error_type_not_supported' => 'অসমর্থিত ফাইল টাইপ: %s',
+        'upload_error_move_failed'        => 'ফাইল আপলোড ব্যর্থ: %s',
+        'confirm_clear_background' => 'পটভূমি সাফ করতে চান?',
+        'background_cleared'      => 'পটভূমি সাফ করা হয়েছে!',
+        'fileNotSelected' => 'ফাইল নির্বাচন করা হয়নি',
+        'httpError' => 'HTTP ত্রুটি',
+        'linkGenerated' => '✅ শেয়ার লিঙ্ক তৈরি হয়েছে',
+        'operationFailed' => '❌ অপারেশন ব্যর্থ',
+        'generateLinkFirst' => 'দয়া করে আগে শেয়ার লিঙ্ক তৈরি করুন',
+        'linkCopied' => '📋 লিঙ্ক কপি করা হয়েছে',
+        'copyFailed' => '❌ কপি ব্যর্থ',
+        'createShareLink' => 'শেয়ার লিঙ্ক তৈরি করুন',
+        'closeButton' => 'বন্ধ করুন',
+        'expireTimeLabel' => 'মেয়াদ শেষ হওয়ার সময়',
+        'expire1Hour' => '1 ঘণ্টা',
+        'expire1Day' => '1 দিন',
+        'expire7Days' => '7 দিন',
+        'expire30Days' => '30 দিন',
+        'maxDownloadsLabel' => 'সর্বাধিক ডাউনলোড সংখ্যা',
+        'max1Download' => '1 বার',
+        'max5Downloads' => '5 বার',
+        'max10Downloads' => '10 বার',
+        'maxUnlimited' => 'অসীম',
+        'shareLinkLabel' => 'শেয়ার লিঙ্ক',
+        'copyLinkButton' => 'লিঙ্ক কপি করুন',
+        'closeButtonFooter' => 'বন্ধ করুন',
+        'generateLinkButton' => 'লিঙ্ক তৈরি করুন',
+        'cleanExpiredButton' => 'মেয়াদোত্তীর্ণ পরিষ্কার করুন',
+        'deleteAllButton' => 'সব মুছে ফেলুন',
+        'cleanSuccess' => '✅ পরিষ্কার সম্পন্ন হয়েছে, %s আইটেম মুছে ফেলা হয়েছে',
+        'deleteSuccess' => '✅ সব শেয়ার রেকর্ড মুছে ফেলা হয়েছে, %s ফাইল মুছে ফেলা হয়েছে',
+        'confirmDeleteAll' => '⚠️ আপনি কি নিশ্চিত আপনি সব শেয়ার রেকর্ড মুছে ফেলতে চান?',
+        'operationFailed' => '❌ অপারেশন ব্যর্থ হয়েছে',
+        'ip_info' => 'আইপি বিবরণ',
+        'ip_support' => 'আইপি সমর্থন',
+        'ip_address' => 'আইপি ঠিকানা',
+        'location' => 'অবস্থান',
+        'isp' => 'সেবা প্রদানকারী',
+        'asn' => 'ASN',
+        'timezone' => 'সময় অঞ্চল',
+        'latitude_longitude' => 'স্থানাঙ্ক',
+        'latency_info' => 'বিলম্ব তথ্য',
+        'mute_on' => 'অডিও নিস্তব্ধ করা হয়েছে',
+        'mute_off' => 'অডিও মিউট বন্ধ হয়েছে',
+        'volume_change' => 'ভলিউম {vol}% এ সমন্বয় করা হয়েছে',
+        'speed_change' => 'প্লেব্যাক গতি {rate}x এ পরিবর্তন করা হয়েছে',
+        'invalid_city_non_chinese' => 'চীনা অক্ষর ছাড়া একটি শহরের নাম লিখুন।',
+        'invalid_city_uppercase' => 'শহরের নাম বড় হাতের অক্ষর দিয়ে শুরু করতে হবে।',
+        'city_saved' => 'শহর সংরক্ষণ করা হয়েছে: {city}',
+        'city_saved_speak' => 'শহর সংরক্ষণ করা হয়েছে {city}, সর্বশেষ আবহাওয়া তথ্য আনছে...',
+        'invalid_city' => 'বৈধ শহরের নাম লিখুন।',
+        'set_city' => 'শহর সেট করুন',
+        'input_label' => 'শহরের নাম',
+        'input_placeholder' => 'যেমন: বেইজিং',
+        'floating_lyrics_enabled' => 'ভাসমান গানের কথা সক্রিয় করা হয়েছে',
+        'floating_lyrics_disabled' => 'ভাসমান গানের কথা অক্ষম করা হয়েছে',
+        'weather_label'     => 'আবহাওয়া',
+        'temperature_label' => 'তাপমাত্রা',
+        'feels_like_label'  => 'অনুভূত তাপমাত্রা',
+        'humidity_label'    => 'আর্দ্রতা',
+        'pressure_label'    => 'চাপ',
+        'wind_label'        => 'বায়ুর গতি',
+        'sunrise_label'     => 'সূর্যোদয়',
+        'sunset_label'      => 'সূর্যাস্ত',
+        'current_fit_mode'    => 'বর্তমান মোড',
+        'fit_contain'    => 'স্বাভাবিক অনুপাত',
+        'fit_fill'       => 'সম্পূর্ণ ভরাট',
+        'fit_none'       => 'মূল আকার',
+        'fit_scale-down' => 'স্মার্ট মানানসই',
+        'fit_cover'      => 'ক্রপ মোড',
+        'selected_info' => '%d টি ফাইল নির্বাচিত, মোট %s MB'
     ]
 ];
 
@@ -6936,21 +9028,20 @@ function updateFlagIcon(lang) {
         'zh': '/luci-static/ipip/flags/cn.png',
         'hk': '/luci-static/ipip/flags/hk.png',
         'en': '/luci-static/ipip/flags/us.png',
-        'kr': '/luci-static/ipip/flags/kr.png',
-        'jp': '/luci-static/ipip/flags/jp.png',
+        'ko': '/luci-static/ipip/flags/kr.png',
+        'ja': '/luci-static/ipip/flags/jp.png',
         'ru': '/luci-static/ipip/flags/ru.png',
         'ar': '/luci-static/ipip/flags/sa.png',
         'es': '/luci-static/ipip/flags/es.png',
         'de': '/luci-static/ipip/flags/de.png',
         'fr': '/luci-static/ipip/flags/fr.png',
         'th': '/luci-static/ipip/flags/th.png',
-        'vn': '/luci-static/ipip/flags/vn.png'
+        'bn': '/luci-static/ipip/flags/bd.png',
+        'vi': '/luci-static/ipip/flags/vn.png'
     };
     
     flagImg.src = flagMap[lang] || flagMap['en'];
 }
-
-
 
 function changeLanguage(lang) {
     fetch('', {
@@ -6969,15 +9060,16 @@ function changeLanguage(lang) {
               'zh': '语言已切换为简体中文',
               'hk': '語言已切換為繁體中文',
               'en': 'Language switched to English',
-              'kr': '언어가 한국어로 변경되었습니다',
-              'jp': '言語が日本語に変更されました',
+              'ko': '언어가 한국어로 변경되었습니다',
+              'ja': '言語が日本語に変更されました',
               'ru': 'Язык переключен на русский',
               'ar': 'تم تغيير اللغة إلى العربية',
               'es': 'El idioma ha cambiado a español',
               'de': 'Sprache auf Deutsch umgestellt',
               'fr': 'Langue changée en français',
               'th': 'เปลี่ยนภาษาเป็นภาษาไทยแล้ว',
-              'vn': 'Đã chuyển ngôn ngữ sang tiếng Việt'
+              'bn': 'ভাষা বাংলাতে পরিবর্তন করা হয়েছে',
+              'vi': 'Đã chuyển ngôn ngữ sang tiếng Việt'
           };
 
           const message = langLabelMap[lang] || 'Language switched';
@@ -7014,7 +9106,7 @@ document.addEventListener('keydown', function (event) {
             break;
         case 'ArrowUp':
             event.preventDefault();
-            document.getElementById('toggleFloatingLyrics')?.click();
+            document.querySelector('.toggleFloatingLyricsBtn')?.click();
             break;
         case 'ArrowDown': 
             event.preventDefault();
@@ -7039,9 +9131,9 @@ document.addEventListener('keydown', function (event) {
         case 'Escape':
             event.preventDefault();
             const confirmText = document.getElementById('clearConfirmText')?.textContent.trim() || 'Are you sure you want to clear the config?';
-            if (confirm(confirmText)) {
+            showConfirmation(confirmText, () => {
                 document.getElementById('clear-cache-btn')?.click();
-            }
+            });
             speakMessage(translations['clear_confirm'] || 'Are you sure you want to clear the configuration?');
             break;
     }
@@ -7068,33 +9160,33 @@ document.getElementById('selectAll').addEventListener('change', function(e) {
         wrapper.classList.toggle('force-visible', e.target.checked);
     });
 });
-
-function handleDeleteConfirmation(file) {
-    const confirmMessage = translations['confirm_delete'] || 'Are you sure you want to delete?'; 
-    if (confirm(confirmMessage)) {
-        window.location = `?delete=${file}`;
-    }
-}
 </script>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const grid = document.getElementById("fileGrid");
-    new Sortable(grid, {
-        animation: 150,
-        onEnd: function () {
-            const filenames = Array.from(grid.querySelectorAll('[data-filename]'))
-                                  .map(el => el.getAttribute('data-filename'));
-            
-            fetch('order_handler.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ order: filenames })
-            })
-            .then(response => response.ok ? console.log('Order saved.') : console.error('Failed to save.'))
-            .catch(console.error);
-        }
-    });
+
+    const isSmallScreen = window.innerWidth < 768;
+
+    if (!isSmallScreen) {
+        new Sortable(grid, {
+            animation: 150,
+            onEnd: function () {
+                const filenames = Array.from(grid.querySelectorAll('[data-filename]'))
+                                      .map(el => el.getAttribute('data-filename'));
+                
+                fetch('order_handler.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ order: filenames })
+                })
+                .then(response => response.ok ? console.log('Order saved.') : console.error('Failed to save.'))
+                .catch(console.error);
+            }
+        });
+    } else {
+        console.log('Drag and drop is disabled on small screens.');
+    }
 });
 </script>
 
@@ -7131,17 +9223,23 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(data => {
             if (data.includes("Installation complete!")) {
                 logOutput.textContent = "Installation complete!";
+                setTimeout(() => {
+                    updateModal.hide();
+                    window.top.location.href = "/cgi-bin/luci/admin/services/spectra";
+                }, 3000);
             } else {
                 logOutput.textContent = data;
+                setTimeout(() => {
+                    updateModal.hide();
+                }, 5000);
             }
-
-            setTimeout(() => {
-                updateModal.hide();
-            }, 5000);
         })
         .catch(error => {
+            const message = translations['installation_complete'] || 'Installation complete!';
             logOutput.textContent = '';
-            logOutput.textContent = translations['installation_complete'] || 'Installation complete!';
+            logOutput.textContent = message;
+            showLogMessage(message);
+            speakMessage(message);
 
             setTimeout(() => {
                 updateModal.hide();
@@ -7149,4 +9247,528 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 });
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    window.showConfirmation = function(message, onConfirm) {
+        const decodedMessage = decodeURIComponent(message);
+
+        document.getElementById('confirmModalMessage').innerText = decodedMessage;
+
+        const oldBtn = document.getElementById('confirmModalYes');
+        const newBtn = oldBtn.cloneNode(true);
+        oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+
+        newBtn.addEventListener('click', () => {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('confirmModal'));
+            modal.hide();
+            if (typeof onConfirm === 'function') onConfirm();
+        });
+
+        const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        modal.show();
+    };
+
+    window.handleDeleteConfirmation = function(file) {
+        const decodedFile = decodeURIComponent(file); 
+        const confirmMessage = (translations['confirm_delete_file'] || 'Are you sure you want to delete file %s?').replace('%s', decodedFile);
+        showConfirmation(confirmMessage, () => {
+            fetch(`?delete=${file}`)
+                .then(response => {
+                    if (response.ok) {
+                        const successMsg = (translations['delete_success'] || 'Successfully deleted: %s').replace('%s', decodedFile);
+                        showLogMessage(successMsg);
+                        speakMessage(successMsg);
+                        setTimeout(() => window.location.reload(), 9000); 
+                    } else {
+                        const errorMsg = (translations['delete_failure'] || 'Failed to delete: %s').replace('%s', decodedFile);
+                        showLogMessage(errorMsg);
+                        speakMessage(errorMsg);
+                    }
+                })
+                .catch(() => { /*  */ });
+        });
+    };
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  let currentFilename = '';
+  const shareModal = document.getElementById('shareModal');
+  const shareLinkInput = document.getElementById('shareLink');
+  const copyLinkBtn = document.getElementById('copyLinkBtn');
+  const generateShareBtn = document.getElementById('generateShareBtn');
+
+  shareModal.addEventListener('show.bs.modal', (event) => {
+    currentFilename = event.relatedTarget.dataset.filename;
+  });
+
+  generateShareBtn.addEventListener('click', async () => {
+    const expire = parseInt(document.getElementById('expireTime').value, 10) || 0;
+    const maxDownloads = parseInt(document.getElementById('maxDownloads').value, 10) || 0;
+
+    try {
+       if (!currentFilename) throw new Error(translations['fileNotSelected'] || 'No file selected');
+      
+      const response = await fetch('/luci-static/spectra/bgm/share.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          filename: currentFilename,
+          expire: expire,
+          max_downloads: maxDownloads,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || `${translations['httpError']} ${response.status}`);
+      }
+
+      const link = `${window.location.origin}/luci-static/spectra/bgm/download.php?token=${data.token}`;
+      shareLinkInput.value = link;
+      const message = translations['linkGenerated'] || '✅ Share link generated';
+      showLogMessage(message);
+      speakMessage(message);
+    } catch (error) {
+      console.error('Error:', error);
+      showLogMessage(`${translations['operationFailed'] || '❌ Operation failed'}: ${error.message}`);
+    }
+  });
+
+  copyLinkBtn.addEventListener('click', async () => {
+    try {
+      if (!shareLinkInput.value) throw new Error(translations['generateLinkFirst'] || 'Please generate the share link first');
+      
+      await navigator.clipboard.writeText(shareLinkInput.value);
+      showLogMessage(translations['linkCopied'] || '📋 Link copied to clipboard');
+    } catch (error) {
+      console.error('Copy failed:', error);
+      showLogMessage(`${translations['copyFailed'] || '❌ Copy failed'}: ${error.message}`);
+      shareLinkInput.select();
+      shareLinkInput.setSelectionRange(0, 99999);
+    }
+  });
+});
+
+const cleanExpiredBtn = document.getElementById('cleanExpiredBtn');
+cleanExpiredBtn.addEventListener('click', async () => {
+  try {
+    const res = await fetch('/luci-static/spectra/bgm/manage_tokens.php?action=clean');
+    const result = await res.json();
+
+    if (result.success) {
+      const msg = (translations['cleanSuccess'] || '✅ Clean completed').replace('%s', result.deleted);
+      showLogMessage(msg);
+      speakMessage(msg);
+    } else {
+      throw new Error(result.message || 'Operation failed');
+    }
+  } catch (err) {
+    showLogMessage(`${translations['operationFailed'] || '❌ Operation failed'}: ${err.message}`);
+  }
+});
+
+const deleteAllBtn = document.getElementById('deleteAllBtn');
+if (deleteAllBtn) {
+  deleteAllBtn.addEventListener('click', () => {
+    const confirmMessage = translations['confirmDeleteAll'] || '⚠️ Are you sure you want to delete ALL share records?';
+    showConfirmation(confirmMessage, async () => {
+      try {
+        const res = await fetch('/luci-static/spectra/bgm/manage_tokens.php?action=delete_all');
+        const result = await res.json();
+
+        if (result.success) {
+          const msg = (translations['deleteSuccess'] || '✅ All share records deleted').replace('%s', result.deleted);
+          showLogMessage(msg);
+          speakMessage(msg);
+        } else {
+          throw new Error(result.message || 'Operation failed');
+        }
+      } catch (err) {
+        showLogMessage(`${translations['operationFailed'] || '❌ Operation failed'}: ${err.message}`);
+      }
+    });
+  });
+}
+</script>
+
+<script>
+async function translateText(text, targetLang = null) {
+  if (!text?.trim()) return text;
+  const countryToLang = {
+    'CN':'zh-CN','HK':'zh-HK','TW':'zh-TW','JA':'ja',
+    'KO':'ko','VI':'vi','TH':'th','GB':'en','FR':'fr',
+    'DE':'de','RU':'ru','US':'en','MX':'es'
+  };
+  if (!targetLang) targetLang = localStorage.getItem('language') || 'CN';
+  targetLang = countryToLang[targetLang.toUpperCase()] || targetLang;
+  const apiLangMap = {
+    'zh-CN':'zh-CN','zh-HK':'zh-HK','zh-TW':'zh-TW',
+    'ja':'ja','ko':'ko','vi':'vi','en':'en-GB','ru':'ru'
+  };
+  const apiTargetLang = apiLangMap[targetLang] || targetLang;
+  const detectJP = t => /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(t);
+  const sourceLang = detectJP(text) ? 'ja' : 'en';
+  if (sourceLang.split('-')[0] === apiTargetLang.split('-')[0]) return text;
+  const cacheKey = `trans_${sourceLang}_${apiTargetLang}_${text}`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) return cached;
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${apiTargetLang}`;
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    const translated = data.responseData?.translatedText || text;
+    localStorage.setItem(cacheKey, translated);
+    return translated;
+  } catch {
+    return text;
+  }
+}
+
+let IP = {
+  ipApis: [
+    {url:'https://api.ipify.org?format=json', type:'json', key:'ip'},
+    {url:'https://ipapi.co/json/',           type:'json', key:'ip'}
+  ],
+  get(url,type) { return fetch(url,{cache:'no-store'}).then(r=> type==='text'?r.text():r.json()); },
+  async fetchIP() {
+    for (let api of this.ipApis) {
+      try {
+        const data = await this.get(api.url, api.type);
+        const ip = api.type==='json'
+          ? (api.key? data[api.key]: data.ip)
+          : (data.match(/\d+\.\d+\.\d+\.\d+/)||[])[0];
+        if (ip) return ip;
+      } catch {}
+    }
+    throw new Error('Unable to retrieve IP');
+  }
+};
+
+async function fetchGeo(ip) {
+  for (let url of [
+    `https://ipapi.co/${ip}/json/`,
+    `https://api.ip.sb/geoip/${ip}`
+  ]) {
+    try { return await IP.get(url,'json'); }
+    catch {}
+  }
+  throw new Error('Unable to retrieve geographic information');
+}
+
+const pingSites = { Baidu:'https://www.baidu.com', Taobao:'https://www.taobao.com', YouTube:'https://www.youtube.com', Google:'https://www.google.com', GitHub:'https://www.github.com', OpenAI:'https://www.openai.com' };
+async function checkAllPings() {
+  const res = {};
+  for (let [name,url] of Object.entries(pingSites)) {
+    try {
+      const t0 = performance.now();
+      await fetch(url,{mode:'no-cors',cache:'no-cache'});
+      res[name] = Math.round(performance.now()-t0);
+    } catch {
+      res[name] = 'Timeout';
+    }
+  }
+  return res;
+}
+
+async function showIpDetailModal() {
+  const modalEl = document.getElementById('ipDetailModal');
+  const modal   = new bootstrap.Modal(modalEl,{backdrop:'static',keyboard:false});
+  modal.show();
+
+  modalEl.querySelectorAll('.detail-value').forEach(el=>el.innerHTML=`<span class="spinner-border spinner-border-sm"></span>`);
+  document.getElementById('delayInfo').innerHTML=`<span class="spinner-border spinner-border-sm"></span>`;
+  document.querySelector('.map-coord-row').style.display='none';
+  document.querySelector('.map-container').style.display='none';
+
+  try {
+    const ip  = await IP.fetchIP();
+    const geo = await fetchGeo(ip);
+
+    const parts = [geo.city,geo.region,geo.country_name].filter(Boolean);
+    const unique = parts.filter((v,i,a)=>a.indexOf(v)===i).join(' ');
+    const locationText = await translateText(unique);
+
+    let isp = geo.org||geo.isp||'';
+    if (!isp && geo.as) isp = geo.as.split(' ').slice(1).join(' ');
+    isp = await translateText(isp);
+    const asn    = geo.asn||geo.as?.split(' ')[0]||'';
+    const asnOrg = await translateText(geo.asn_org||isp);
+
+    const vals = modalEl.querySelectorAll('.detail-row .detail-value');
+    vals[0].textContent = ip;
+    vals[1].textContent = locationText;
+    vals[2].textContent = isp;
+    vals[3].textContent = [asn,asnOrg].filter(Boolean).join(' ');
+    vals[4].textContent = geo.timezone||'';
+
+    if (geo.latitude && geo.longitude) {
+      document.querySelector('.map-coord-row').style.display='flex';
+      document.querySelector('.map-coord-row .detail-value').textContent = `${geo.latitude}, ${geo.longitude}`;
+      document.querySelector('.map-container').style.display='block';
+
+      setTimeout(()=>{
+        if (window._leafletMap) window._leafletMap.remove();
+        window._leafletMap = L.map('leafletMap').setView([geo.latitude,geo.longitude],10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window._leafletMap);
+        L.marker([geo.latitude,geo.longitude])
+         .addTo(window._leafletMap)
+         .bindPopup(locationText).openPopup();
+         window._leafletMap.addControl(new L.Control.FullScreen({
+             position: 'topright',
+             title: ' ',
+             titleCancel: ' ',
+             content: '<i class="fas fa-expand"></i>',
+             contentCancel: '<i class="fas fa-compress"></i>'
+         }));
+      },200);
+    }
+
+    const p = await checkAllPings();
+    document.getElementById('delayInfo').innerHTML = Object.entries(p).map(([n,t])=>{
+      const color = typeof t==='number'
+        ? (t<300?'#09B63F':t<700?'#FFA500':'#ff6b6b')
+        : '#ff6b6b';
+      return `<span style="margin-right:20px;color:${color}">${n}: ${t==='Timeout'?'Timeout':t+'ms'}</span>`;
+    }).join('');
+
+  } catch (err) {
+    console.error(err);
+    modalEl.querySelector('.modal-body').innerHTML = `
+      <div style="padding:20px;text-align:center;color:#c00;">
+        <p>Failed to retrieve the information, please try again later.</p>
+      </div>`;
+  }
+}
+</script>
+
+<link rel="stylesheet" href="/luci-static/spectra/css/leaflet.css" />
+<script src="/luci-static/spectra/js/leaflet.js"></script>
+<link rel="stylesheet" href="/luci-static/spectra/css/Control.FullScreen.min.css">
+<script src="/luci-static/spectra/js/Control.FullScreen.min.js"></script>
+
+<style>
+
+#ipDetailModal .modal-body h5 {
+    margin: 20px 0 15px !important;
+}
+
+.detail-row {
+    display: flex;
+    margin-bottom: 10px;
+    line-height: 1.6;
+}
+
+.detail-label {
+    flex: 0 0 200px;
+    text-align: left;
+    font-weight: 500;
+    padding-right: 18px;
+}
+
+.detail-value {
+    flex: 1;
+    text-align: left;
+    word-break: break-all;
+    margin-left: 0;
+}
+
+.leaflet-popup-content-wrapper {
+    background-color: var(--header-bg) !important;
+    border-top: 1px solid var(--border-color) !important;
+    color: var(--accent-color) !important;
+}
+
+.leaflet-popup-tip {
+    background-color: var(--header-bg) !important;
+}
+</style>
+
+<script>
+  let city = localStorage.getItem('city') || 'Beijing';
+  const apiKey = 'fc8bd2637768c286c6f1ed5f1915eb22';
+  let currentWeatherData = null;
+
+  const countryToLang = {
+    CN: 'zh_cn', ZH: 'zh_cn', HK: 'zh_tw',
+    EN: 'en', KO: 'kr', VI: 'vi', TH: 'th',
+    JA: 'ja', RU: 'ru', DE: 'de', FR: 'fr',
+    AR: 'ar', ES: 'es', BN: 'en'
+  };
+  let rawLang = localStorage.getItem('language') || 'CN';
+  const targetLang = countryToLang[rawLang.toUpperCase()] || rawLang;
+
+  const localeMap = {
+    zh_cn: 'zh-CN', zh_tw: 'zh-TW', en: 'en-US', kr: 'ko-KR',
+    vi: 'vi-VN', th: 'th-TH', ja: 'ja-JP', ru: 'ru-RU',
+    de: 'de-DE', fr: 'fr-FR', ar: 'ar-EG', es: 'es-ES'
+  };
+  const locale = localeMap[targetLang] || 'en-US';
+  const timeFormatter = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  const weatherIcon    = document.getElementById('weatherIcon');
+  const weatherText    = document.getElementById('weatherText');
+  const cityInput      = document.getElementById('cityInput');
+  const saveCityBtn    = document.getElementById('saveCityBtn');
+  const weatherDisplay = document.querySelector('.weather-display');
+
+  function owmCodeToWiClass(code) {
+    const map = {
+      '01d': 'wi-day-sunny',    '01n': 'wi-night-clear',
+      '02d': 'wi-day-cloudy',   '02n': 'wi-night-cloudy',
+      '03d': 'wi-cloud',        '03n': 'wi-cloud',
+      '04d': 'wi-cloudy',       '04n': 'wi-cloudy',
+      '09d': 'wi-showers',      '09n': 'wi-showers',
+      '10d': 'wi-day-rain',     '10n': 'wi-night-alt-rain',
+      '11d': 'wi-thunderstorm', '11n': 'wi-thunderstorm',
+      '13d': 'wi-snow',         '13n': 'wi-snow',
+      '50d': 'wi-fog',          '50n': 'wi-fog'
+    };
+    return map[code] || 'wi-na';
+  }
+
+  function updateWeatherUI(data) {
+    const iconCode = data.weather[0].icon;
+    const temp     = Math.round(data.main.temp);
+    const desc     = data.weather[0].description;
+
+    weatherIcon.className = `wi ${owmCodeToWiClass(iconCode)}`;
+    const colorMap = { '01d':'#FFD700','02d':'#C0C0C0','09d':'#00BFFF','13d':'#ADD8E6' };
+    weatherIcon.style.color = colorMap[iconCode] || '#FFF';
+    weatherIcon.title       = desc;
+    weatherText.textContent = `${desc} ${temp}℃`;
+  }
+
+  function fetchWeather() {
+    const url = `https://api.openweathermap.org/data/2.5/weather`
+              + `?q=${encodeURIComponent(city)}`
+              + `&appid=${apiKey}`
+              + `&units=metric`
+              + `&lang=${targetLang}`;
+    fetch(url)
+      .then(res => res.ok ? res.json() : Promise.reject('Network not OK'))
+      .then(data => {
+        if (data.weather && data.main) {
+          currentWeatherData = data;
+          updateWeatherUI(data);
+        }
+      })
+      .catch(err => console.error('Error fetching weather：', err));
+  }
+
+  function saveCity() {
+    const value = cityInput.value.trim();
+    const chineseCharPattern = /[\u4e00-\u9fff]/;
+    const startsUpper = /^[A-Z]/;
+
+    if (chineseCharPattern.test(value)) {
+      const msg = translations['invalid_city_non_chinese'];
+      speakMessage(msg); showLogMessage(msg);
+    }
+    else if (!startsUpper.test(value)) {
+      const msg = translations['invalid_city_uppercase'];
+      speakMessage(msg); showLogMessage(msg);
+    }
+    else if (value) {
+      city = value;
+      localStorage.setItem('city', city);
+      const savedMsg = translations['city_saved'].replace('{city}', city);
+      const speakMsg = translations['city_saved_speak'].replace('{city}', city);
+      showLogMessage(savedMsg);
+      speakMessage(speakMsg);
+      fetchWeather();
+      bootstrap.Modal.getInstance(document.getElementById('cityModal')).hide();
+    }
+    else {
+      const msg = translations['invalid_city'];
+      speakMessage(msg);
+    }
+  }
+
+  async function openWeatherModal() {
+    if (!currentWeatherData) return;
+    const d = currentWeatherData;
+
+    const translatedCityName = await translateText(d.name, rawLang);
+    document.getElementById('modalCityName').textContent = translatedCityName;
+    document.getElementById('modalDesc').textContent      = d.weather[0].description;
+    document.getElementById('modalTemp').textContent      = Math.round(d.main.temp);
+    document.getElementById('modalFeels').textContent     = Math.round(d.main.feels_like);
+    document.getElementById('modalHumidity').textContent  = d.main.humidity;
+    document.getElementById('modalPressure').textContent  = d.main.pressure;
+    document.getElementById('modalWind').textContent      = d.wind.speed;
+
+    const toTime = ts => timeFormatter.format(new Date(ts * 1000));
+    document.getElementById('modalSunrise').textContent   = toTime(d.sys.sunrise);
+    document.getElementById('modalSunset').textContent    = toTime(d.sys.sunset);
+
+    bootstrap.Modal.getOrCreateInstance(
+      document.getElementById('weatherModal')
+    ).show();
+  }
+
+  saveCityBtn.addEventListener('click', saveCity);
+  weatherDisplay.addEventListener('click', openWeatherModal);
+
+  document.addEventListener('DOMContentLoaded', () => {
+    cityInput.value = city;
+    fetchWeather();
+    setInterval(fetchWeather, 10 * 60 * 1000);
+  });
+</script>
+
+<script>
+(function() {
+  const toggleBtns = document.querySelectorAll('.toggleFloatingLyricsBtn');
+  const box = document.getElementById('floatingLyrics');
+
+  const savedState = localStorage.getItem('floatingLyricsVisible') === 'true';
+  box.classList.toggle('visible', savedState);
+
+  box.style.resize   = 'none';
+  box.style.overflow = 'auto';
+  box.style.position = 'absolute';
+
+  toggleBtns.forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const isNowVisible = box.classList.toggle('visible');
+      localStorage.setItem('floatingLyricsVisible', isNowVisible);
+
+      const msgKey = isNowVisible
+        ? 'floating_lyrics_enabled'
+        : 'floating_lyrics_disabled';
+      const message = translations[msgKey] ||
+        (isNowVisible
+          ? "Floating lyrics enabled"
+          : "Floating lyrics disabled");
+      showLogMessage(message);
+      speakMessage(message);
+    });
+  });
+
+  let isDragging = false, offsetX = 0, offsetY = 0;
+
+  box.addEventListener('mousedown', e => {
+    if (e.target.closest('.ctrl-btn')) return;
+    e.preventDefault();
+    isDragging = true;
+    offsetX = e.clientX - box.offsetLeft;
+    offsetY = e.clientY - box.offsetTop;
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    box.style.left = (e.clientX - offsetX) + 'px';
+    box.style.top  = (e.clientY - offsetY) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+})();
 </script>

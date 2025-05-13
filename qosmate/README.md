@@ -45,9 +45,10 @@ Before installing QoSmate, ensure that:
 Install the QoSmate backend (which contains a main script/init script/hotplug and a config-file) with the following command:
 
 ```bash
-wget -O /etc/init.d/qosmate https://raw.githubusercontent.com/hudra0/qosmate/main/etc/init.d/qosmate && chmod +x /etc/init.d/qosmate && \
-wget -O /etc/qosmate.sh https://raw.githubusercontent.com/hudra0/qosmate/main/etc/qosmate.sh && chmod +x /etc/qosmate.sh && \
-[ ! -f /etc/config/qosmate ] && wget -O /etc/config/qosmate https://raw.githubusercontent.com/hudra0/qosmate/main/etc/config/qosmate; \
+LATEST_TAG=$(uclient-fetch -O - https://api.github.com/repos/hudra0/qosmate/releases/latest 2>/dev/null | grep -o '"tag_name":"[^"]*' | sed 's/"tag_name":"//') && \
+uclient-fetch -O /etc/init.d/qosmate https://raw.githubusercontent.com/hudra0/qosmate/$LATEST_TAG/etc/init.d/qosmate && chmod +x /etc/init.d/qosmate && \
+uclient-fetch -O /etc/qosmate.sh https://raw.githubusercontent.com/hudra0/qosmate/$LATEST_TAG/etc/qosmate.sh && chmod +x /etc/qosmate.sh && \
+[ ! -f /etc/config/qosmate ] && uclient-fetch -O /etc/config/qosmate https://raw.githubusercontent.com/hudra0/qosmate/$LATEST_TAG/etc/config/qosmate; \
 /etc/init.d/qosmate enable
 ```
 
@@ -56,20 +57,21 @@ wget -O /etc/qosmate.sh https://raw.githubusercontent.com/hudra0/qosmate/main/et
 Install [luci-app-qosmate](https://github.com/hudra0/luci-app-qosmate) with this command:
 
 ```bash
+LATEST_TAG=$(uclient-fetch -O - https://api.github.com/repos/hudra0/luci-app-qosmate/releases/latest 2>/dev/null | grep -o '"tag_name":"[^"]*' | sed 's/"tag_name":"//') && \
 mkdir -p /www/luci-static/resources/view/qosmate /usr/share/luci/menu.d /usr/share/rpcd/acl.d /usr/libexec/rpcd && \
-wget -O /www/luci-static/resources/view/qosmate/settings.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/htdocs/luci-static/resources/view/settings.js && \
-wget -O /www/luci-static/resources/view/qosmate/hfsc.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/htdocs/luci-static/resources/view/hfsc.js && \
-wget -O /www/luci-static/resources/view/qosmate/cake.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/htdocs/luci-static/resources/view/cake.js && \
-wget -O /www/luci-static/resources/view/qosmate/advanced.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/htdocs/luci-static/resources/view/advanced.js && \
-wget -O /www/luci-static/resources/view/qosmate/rules.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/htdocs/luci-static/resources/view/rules.js && \
-wget -O /www/luci-static/resources/view/qosmate/connections.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/htdocs/luci-static/resources/view/connections.js && \
-wget -O /www/luci-static/resources/view/qosmate/custom_rules.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/htdocs/luci-static/resources/view/custom_rules.js && \
-wget -O /www/luci-static/resources/view/qosmate/ipsets.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/htdocs/luci-static/resources/view/ipsets.js && \
-wget -O /www/luci-static/resources/view/qosmate/statistics.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/htdocs/luci-static/resources/view/statistics.js && \
-wget -O /usr/share/luci/menu.d/luci-app-qosmate.json https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/root/usr/share/luci/menu.d/luci-app-qosmate.json && \
-wget -O /usr/share/rpcd/acl.d/luci-app-qosmate.json https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/root/usr/share/rpcd/acl.d/luci-app-qosmate.json && \
-wget -O /usr/libexec/rpcd/luci.qosmate https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/root/usr/libexec/rpcd/luci.qosmate && \
-wget -O /usr/libexec/rpcd/luci.qosmate_stats https://raw.githubusercontent.com/hudra0/luci-app-qosmate/main/root/usr/libexec/rpcd/luci.qosmate_stats && \
+uclient-fetch -O /www/luci-static/resources/view/qosmate/settings.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/htdocs/luci-static/resources/view/settings.js && \
+uclient-fetch -O /www/luci-static/resources/view/qosmate/hfsc.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/htdocs/luci-static/resources/view/hfsc.js && \
+uclient-fetch -O /www/luci-static/resources/view/qosmate/cake.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/htdocs/luci-static/resources/view/cake.js && \
+uclient-fetch -O /www/luci-static/resources/view/qosmate/advanced.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/htdocs/luci-static/resources/view/advanced.js && \
+uclient-fetch -O /www/luci-static/resources/view/qosmate/rules.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/htdocs/luci-static/resources/view/rules.js && \
+uclient-fetch -O /www/luci-static/resources/view/qosmate/connections.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/htdocs/luci-static/resources/view/connections.js && \
+uclient-fetch -O /www/luci-static/resources/view/qosmate/custom_rules.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/htdocs/luci-static/resources/view/custom_rules.js && \
+uclient-fetch -O /www/luci-static/resources/view/qosmate/ipsets.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/htdocs/luci-static/resources/view/ipsets.js && \
+uclient-fetch -O /www/luci-static/resources/view/qosmate/statistics.js https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/htdocs/luci-static/resources/view/statistics.js && \
+uclient-fetch -O /usr/share/luci/menu.d/luci-app-qosmate.json https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/root/usr/share/luci/menu.d/luci-app-qosmate.json && \
+uclient-fetch -O /usr/share/rpcd/acl.d/luci-app-qosmate.json https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/root/usr/share/rpcd/acl.d/luci-app-qosmate.json && \
+uclient-fetch -O /usr/libexec/rpcd/luci.qosmate https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/root/usr/libexec/rpcd/luci.qosmate && \
+uclient-fetch -O /usr/libexec/rpcd/luci.qosmate_stats https://raw.githubusercontent.com/hudra0/luci-app-qosmate/$LATEST_TAG/root/usr/libexec/rpcd/luci.qosmate_stats && \
 chmod +x /usr/libexec/rpcd/luci.qosmate && \
 chmod +x /usr/libexec/rpcd/luci.qosmate_stats && \
 /etc/init.d/rpcd restart && \
@@ -638,9 +640,84 @@ Available commands:
         auto_setup_noninteractive   Automatically configure qosmate with no interaction
 ```
 ### Update QoSmate
-```
+QoSmate includes a flexible update system to keep your installation current with the latest features and improvements.
+
+#### Basic Update
+
+To update QoSmate to the latest release version:
+
+```bash
 /etc/init.d/qosmate update
 ```
+
+This command will:
+- Check for updates to both backend and frontend components
+- Download and install the latest release versions if available
+- Restart the service automatically if required
+
+QoSmate will preserve your existing configuration settings during updates.
+
+#### Advanced Update Options
+
+For more control over the update process, QoSmate supports several command-line options:
+
+```bash
+/etc/init.d/qosmate update [options]
+```
+
+| Option | Description | Example |
+| ------ | ----------- | ------- |
+| `-c COMPONENT` | Update only a specific component (BACKEND or FRONTEND) | `-c BACKEND` |
+| `-v VERSION_OR_CHANNEL` | Specify version or channel in various formats: <br>- Version number: `-v 1.2.0` <br>- Channel selection: `-v release`, `-v snapshot` <br>- Branch selection: `-v branch=dev` <br>- Commit hash: `-v commit=a1b2c3d4` | `-v 1.2.0` |
+| `-f` | Force update even if no newer version is available | `-f` |
+| `-i` | Ignore cache results | `-i` |
+| `-U CHANNEL` | Override update channel (takes precedence over -v) | `-U snapshot` |
+
+#### Update Channels
+
+- `release`: Stable versions (recommended for most users)
+- `snapshot`: Latest code from the main branch
+- `branch=NAME`: Code from a specific branch
+- `commit=HASH`: Specific commit version
+
+#### Usage Examples
+
+Check for available updates without installing them:
+```bash
+/etc/init.d/qosmate check_version
+```
+
+Update only the backend component:
+```bash
+/etc/init.d/qosmate update -c BACKEND
+```
+
+Update to a specific version:
+```bash
+/etc/init.d/qosmate update -v 1.2.0
+```
+
+Update to the latest release version:
+```bash
+/etc/init.d/qosmate update -v release
+```
+
+Update to the latest snapshot (development) version:
+```bash
+/etc/init.d/qosmate update -v snapshot
+```
+
+Update to a specific branch:
+```bash
+/etc/init.d/qosmate update -v branch=dev
+```
+
+Update to a specific commit hash:
+```bash
+/etc/init.d/qosmate update -v commit=a1b2c3d4e5f6...
+```
+
+> **Note**: The default update approach (using the release channel) is recommended for most users. Other update channels and options are primarily intended for testing and development purposes.
 
 ## Troubleshooting
 If you encounter issues with the script or want to verify that it's working correctly, follow these steps:

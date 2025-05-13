@@ -34,14 +34,50 @@ document.head.append(E('style', {'type': 'text/css'},
 .temp-status-crit td {
 	color: var(--app-temp-status-font-color) !important;
 }
+.temp-status-unhide-all {
+	display: inline-block;
+	cursor: pointer;
+	margin: 2px !important;
+	padding: 2px 4px;
+	border: 1px dotted;
+	-webkit-border-radius: 4px;
+	-moz-border-radius: 4px;
+	border-radius: 4px;
+	opacity: 0.7;
+}
+.temp-status-unhide-all:hover {
+	opacity: 0.9;
+}
+.temp-status-hide-item {
+	display: inline-block;
+	cursor: pointer;
+	margin: 0 0.5em 0 0 !important;
+	padding: 0 4px;
+	border: 1px dotted;
+	-webkit-border-radius: 4px;
+	-moz-border-radius: 4px;
+	border-radius: 4px;
+	opacity: 0.7;
+}
+.temp-status-hide-item:hover {
+	opacity: 1.0;
+}
 `));
 
 return baseclass.extend({
-	title       : _('Temperature'),
+	title         : _('Temperature'),
 
-	tempHot     : 95,
+	viewName      : 'temp_status',
 
-	tempCritical: 105,
+	tempHot       : 95,
+
+	tempCritical  : 105,
+
+	tempData      : {},
+
+	hiddenItems   : new Set(),
+
+	tempTable     : E('table', { 'class': 'table' }),
 
 	callTempStatus: rpc.declare({
 		object: 'luci.temp-status',
@@ -50,30 +86,36 @@ return baseclass.extend({
 	}),
 
 	formatTemp(mc) {
-		return Number((mc / 1e3).toFixed(1));
+		return Number((mc / 1000).toFixed(1));
 	},
 
 	sortFunc(a, b) {
 		return (a.number > b.number) ? 1 : (a.number < b.number) ? -1 : 0;
 	},
 
-	load() {
-		return L.resolveDefault(this.callTempStatus(), null);
+	restoreSettingsFromLocalStorage() {
+		let hiddenItems = localStorage.getItem(`luci-app-${this.viewName}-hiddenItems`);
+		if(hiddenItems) {
+			this.hiddenItems = new Set(hiddenItems.split(','));
+		};
 	},
 
-	render(tempData) {
-		if(!tempData) {
-			return;
-		};
+	saveSettingsToLocalStorage() {
+		localStorage.setItem(
+			`luci-app-${this.viewName}-hiddenItems`, Array.from(this.hiddenItems).join(','));
+	},
 
-		let tempTable = E('table', { 'class': 'table' },
+	makeTempTableContent() {
+		this.tempTable.innerHTML = '';
+		this.tempTable.append(
 			E('tr', { 'class': 'tr table-titles' }, [
 				E('th', { 'class': 'th left', 'width': '33%' }, _('Sensor')),
 				E('th', { 'class': 'th left' }, _('Temperature')),
+				E('th', { 'class': 'th right', 'width': '1%' }, ' '),
 			])
 		);
 
-		for(let [k, v] of Object.entries(tempData)) {
+		for(let [k, v] of Object.entries(this.tempData)) {
 			v.sort(this.sortFunc);
 
 			for(let i of Object.values(v)) {
@@ -86,6 +128,10 @@ return baseclass.extend({
 				i.sources.sort(this.sortFunc);
 
 				for(let j of i.sources) {
+					if(this.hiddenItems.has(j.path)) {
+						continue;
+					};
+
 					let temp = j.temp;
 					let name = (j.label !== undefined) ? sensor + " / " + j.label :
 						(j.item !== undefined) ? sensor + " / " + j.item.replace(/_input$/, "") : sensor
@@ -104,10 +150,10 @@ return baseclass.extend({
 							let t = this.formatTemp(i.temp);
 							tpointsString += `&#10;${i.type}: ${t} °C`;
 
-							if(i.type === 'critical' || i.type === 'emergency') {
+							if(i.type == 'critical' || i.type == 'emergency') {
 								tempCritical = t;
 							}
-							else if(i.type === 'hot' || i.type === 'max') {
+							else if(i.type == 'hot' || i.type == 'max') {
 								tempHot = t;
 							};
 						};
@@ -116,8 +162,11 @@ return baseclass.extend({
 					let rowStyle = (temp >= tempCritical) ? ' temp-status-crit':
 						(temp >= tempHot) ? ' temp-status-hot' : '';
 
-					tempTable.append(
-						E('tr', { 'class': 'tr' + rowStyle }, [
+					this.tempTable.append(
+						E('tr', {
+							'class'    : 'tr' + rowStyle,
+							'data-path': j.path ,
+						}, [
 							E('td', {
 									'class'     : 'td left',
 									'data-title': _('Sensor')
@@ -130,15 +179,27 @@ return baseclass.extend({
 									'class'     : 'td left',
 									'data-title': _('Temperature')
 								},
-								(temp === undefined) ? '-' : temp + ' °C'),
+								(temp === undefined) ? '-' : temp + ' °C'
+							),
+							E('td', {
+									'class'     : 'td right',
+									'data-title': _('Hide'),
+									'title'     : _('Hide'),
+								},
+								E('span', {
+									'class': 'temp-status-hide-item',
+									'title': _('Hide'),
+									'click': () => this.hideItem(j.path),
+								}, '&#935;'),
+							),
 						])
 					);
 				};
 			};
 		};
 
-		if(tempTable.childNodes.length === 1) {
-			tempTable.append(
+		if(this.tempTable.childNodes.length === 1) {
+			this.tempTable.append(
 				E('tr', { 'class': 'tr placeholder' },
 					E('td', { 'class': 'td' },
 						E('em', {}, _('No temperature sensors available'))
@@ -146,6 +207,50 @@ return baseclass.extend({
 				)
 			);
 		};
-		return tempTable;
+	},
+
+	hideItem(path) {
+		this.hiddenItems.add(path);
+		this.saveSettingsToLocalStorage();
+		this.makeTempTableContent();
+		document.getElementById('temp-status-hnum').textContent = this.hiddenItems.size;
+	},
+
+	unhideAllItems() {
+		this.hiddenItems.clear();
+		this.saveSettingsToLocalStorage();
+		this.makeTempTableContent();
+		document.getElementById('temp-status-hnum').textContent = this.hiddenItems.size;
+	},
+
+	load() {
+		this.restoreSettingsFromLocalStorage();
+		return L.resolveDefault(this.callTempStatus(), null);
+	},
+
+	render(tempData) {
+		if(!tempData) {
+			return;
+		};
+
+		this.tempData = tempData;
+		this.makeTempTableContent();
+
+		return E('div', { 'class': 'cbi-section' }, [
+			E('div',
+				{ 'style': 'margin-bottom:1em; padding:0 4px;' },
+				E('span', {
+					'class': 'temp-status-unhide-all',
+					'href' : 'javascript:void(0)',
+					'click': () => this.unhideAllItems(),
+				}, [
+					_('Show hidden sensors'),
+					' (',
+					E('span', { 'id': 'temp-status-hnum' }, this.hiddenItems.size),
+					')',
+				])
+			),
+			this.tempTable,
+		]);
 	},
 });

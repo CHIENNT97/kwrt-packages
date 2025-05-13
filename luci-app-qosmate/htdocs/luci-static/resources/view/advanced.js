@@ -86,9 +86,17 @@ return view.extend({
         o.rmempty = false;
         o.default = '1';
 
+        o = s.option(form.Flag, 'TCP_DOWNPRIO_INITIAL_ENABLED', _('Enable Initial TCP Down-Prioritization'), _('Downgrades the first ~500ms of TCP traffic (except CS1) to CS0 to prevent initial bursts'));
+        o.rmempty = false;
+        o.default = '1';
+
+        o = s.option(form.Flag, 'TCP_DOWNPRIO_SUSTAINED_ENABLED', _('Enable Sustained TCP Down-Prioritization'), _('Downgrades TCP flows exceeding ~10 seconds worth of data transfer to CS1 (Bulk). Helps prevent large downloads from starving other traffic.'));
+        o.rmempty = false;
+        o.default = '1';
+
         createOption('UDPBULKPORT', _('UDP Bulk Ports'), _('Specify UDP ports for bulk traffic'), _('Default: none'));
         createOption('TCPBULKPORT', _('TCP Bulk Ports'), _('Specify TCP ports for bulk traffic'), _('Default: none'));
-
+        
         o = s.option(form.Value, 'MSS', _('TCP MSS'), _('Maximum Segment Size for TCP connections. This setting is only active when the upload or download bandwidth is less than 3000 kbit/s. Leave empty to use the default value. Valid range: 536-1500'), _('Default: 536'), 'uinteger');
         o.placeholder = 'Default: 536';
         o.validate = function(section_id, value) {
@@ -112,6 +120,139 @@ return view.extend({
         o.rmempty = false;
 
         createOption('NFT_PRIORITY', _('Nftables Priority'), _('Set the priority for the nftables chain. Lower values are processed earlier. Default is 0 | mangle is -150.'), _('0'), 'integer');
+
+        // Update settings
+        s = m.section(form.NamedSection, 'global', 'global', _('Update Settings'));
+        s.anonymous = true;
+
+        // Display current update channels
+        o = s.option(form.DummyValue, '_update_channels', _('Current Update Channels'));
+        o.rawhtml = true;
+        o.cfgvalue = function(section_id) {
+            return null;
+        };
+        o.write = function() {};
+        o.remove = function() {};
+        o.renderWidget = function() {
+            return Promise.all([
+                fs.exec_direct('/etc/init.d/qosmate', ['check_version'])
+            ]).then(function(res) {
+                var output = res[0];
+                
+                const backendChannelMatch = output.match(/Backend versions:[\s\S]*?Update channel: (.+)/);
+                const frontendChannelMatch = output.match(/Frontend versions:[\s\S]*?Update channel: (.+)/);
+                
+                var backendChannel = backendChannelMatch ? backendChannelMatch[1].trim() : 'Unknown';
+                var frontendChannel = frontendChannelMatch ? frontendChannelMatch[1].trim() : 'Unknown';
+                
+                var tableContainer = E('div', { 'class': 'stats-table-container' });
+                var table = E('table', { 'class': 'table cbi-section-table' });
+                
+                var headerRow = E('tr', { 'class': 'tr table-titles' });
+                headerRow.appendChild(E('th', { 'class': 'th' }, _('Component')));
+                headerRow.appendChild(E('th', { 'class': 'th' }, _('Channel')));
+                table.appendChild(headerRow);
+                
+                var backendRow = E('tr', { 'class': 'tr' });
+                backendRow.appendChild(E('td', { 'class': 'td' }, _('Backend')));
+                backendRow.appendChild(E('td', { 'class': 'td' }, backendChannel));
+                table.appendChild(backendRow);
+                
+                var frontendRow = E('tr', { 'class': 'tr' });
+                frontendRow.appendChild(E('td', { 'class': 'td' }, _('Frontend')));
+                frontendRow.appendChild(E('td', { 'class': 'td' }, frontendChannel));
+                table.appendChild(frontendRow);
+                
+                tableContainer.appendChild(table);
+                
+                return E('div', {}, [
+                    tableContainer,
+                    E('div', { 'style': 'margin-top: 10px' }, [
+                        E('button', {
+                            'class': 'cbi-button cbi-button-neutral',
+                            'click': ui.createHandlerFn(this, function() {
+                                ui.showModal(_('Change Update Channel'), [
+                                    E('p', {}, _('Select the update channel for QoSmate:')),
+                                    E('div', { 'class': 'cbi-value' }, [
+                                        E('div', { 'class': 'cbi-value-title' }, _('Channel')),
+                                        E('div', { 'class': 'cbi-value-field' }, [
+                                            E('select', { 'id': 'change_channel', 'class': 'cbi-input-select' }, [
+                                                E('option', { 
+                                                    'value': 'release', 
+                                                    'selected': backendChannel === 'release' && frontendChannel === 'release'
+                                                }, _('Release (stable)')),
+                                                E('option', { 
+                                                    'value': 'snapshot',
+                                                    'selected': backendChannel === 'snapshot' && frontendChannel === 'snapshot'
+                                                }, _('Snapshot (latest from main)'))
+                                            ])
+                                        ])
+                                    ]),
+                                    E('div', { 'class': 'right' }, [
+                                        E('button', {
+                                            'class': 'btn',
+                                            'click': ui.hideModal
+                                        }, _('Cancel')),
+                                        ' ',
+                                        E('button', {
+                                            'class': 'cbi-button cbi-button-positive',
+                                            'click': ui.createHandlerFn(this, function() {
+                                                var channelSelect = document.querySelector('.modal [id="change_channel"]');
+                                                var selectedChannel = channelSelect ? channelSelect.value : 'release';
+                                                
+                                                ui.showModal(_('Changing Update Channel'), [
+                                                    E('p', { 'class': 'spinning' }, _('Please wait while the update channel is being changed...'))
+                                                ]);
+                                                
+                                                // Need to update both components to change channel
+                                                var updateArgs = ['update', '-f', '-v', selectedChannel];
+                                                
+                                                console.log('Executing channel change:', '/etc/init.d/qosmate', updateArgs);
+                                                
+                                                return fs.exec_direct('/etc/init.d/qosmate', updateArgs)
+                                                    .then(function(result) {
+                                                        console.log('Channel change result:', result);
+                                                        
+                                                        if (result && (result.includes('error') || result.includes('Error') || result.includes('failed'))) {
+                                                            ui.hideModal();
+                                                            ui.addNotification(null, E('p', _('Update channel change encountered issues: %s').format(result)), 'warning');
+                                                            return;
+                                                        }
+                                                        
+                                                        ui.hideModal();
+                                                        ui.addNotification(null, E('p', _('Update channel changed to %s. Reloading page...').format(selectedChannel)), 'success');
+                                                        
+                                                        window.setTimeout(function() { 
+                                                            location.reload(); 
+                                                        }, 2000);
+                                                    })
+                                                    .catch(function(err) {
+                                                        console.error('Channel change error:', err);
+                                                        ui.hideModal();
+                                                        
+                                                        var errorMessage = _('Failed to change update channel');
+                                                        if (err) {
+                                                            if (typeof err === 'string') {
+                                                                errorMessage += ': ' + err;
+                                                            } else if (err.message) {
+                                                                errorMessage += ': ' + err.message;
+                                                            } else {
+                                                                errorMessage += ': ' + JSON.stringify(err);
+                                                            }
+                                                        }
+                                                        
+                                                        ui.addNotification(null, E('p', errorMessage), 'error');
+                                                    });
+                                            })
+                                        }, _('Change Channel'))
+                                    ])
+                                ]);
+                            })
+                        }, _('Change Update Channel'))
+                    ])
+                ]);
+            });
+        };
 
         return m.render();
     }
